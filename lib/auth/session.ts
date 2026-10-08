@@ -1,11 +1,10 @@
 import { cookies } from 'next/headers';
 import { db } from '@/lib/db';
+import { requireSecret } from '@/lib/config';
 
 const SESSION_COOKIE_NAME = 'dorfduesen_session';
-const DEFAULT_SECRET = 'dorfduesen-super-secret-strava-auth-fallback-key-2026';
-
 function getSecretKey(): string {
-  return process.env.SESSION_SECRET || DEFAULT_SECRET;
+  return requireSecret('SESSION_SECRET');
 }
 
 // Simple base64url encode/decode

@@ -1,20 +1,17 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { syncUserActivities } from '@/lib/strava/sync';
+import { requireSecret } from '@/lib/config';
 
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const authHeader = request.headers.get('authorization');
-  const cronSecret = process.env.CRON_SECRET;
-
-  // Wenn CRON_SECRET gesetzt ist, validiere den Zugriff
-  if (cronSecret && cronSecret !== 'change-this-for-cron-sync-security') {
-    const bearerToken = authHeader?.replace('Bearer ', '');
-    const querySecret = searchParams.get('secret');
-
-    if (bearerToken !== cronSecret && querySecret !== cronSecret) {
-      return NextResponse.json({ error: 'Nicht autorisiert' }, { status: 401 });
-    }
+  let cronSecret: string;
+  try {
+    cronSecret = requireSecret('CRON_SECRET');
+  } catch {
+    return NextResponse.json({ error: 'Cron-Sync ist nicht konfiguriert' }, { status: 503 });
+  }
+  if (request.headers.get('authorization') !== `Bearer ${cronSecret}`) {
+    return NextResponse.json({ error: 'Nicht autorisiert' }, { status: 401 });
   }
 
   try {
