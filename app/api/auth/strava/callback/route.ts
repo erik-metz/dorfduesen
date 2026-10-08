@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { db } from '@/lib/db';
 import { createSessionToken, setSessionCookie } from '@/lib/auth/session';
-import { syncUserActivities } from '@/lib/strava/sync';
+import { inngest } from '@/lib/inngest/client';
 import { sanitizeAvatarUrl } from '@/lib/utils/avatar';
 
 export async function GET(request: Request) {
@@ -124,9 +124,11 @@ export async function GET(request: Request) {
     }
 
     // Starte Erst-Synchronisation der Aktivitäten im Hintergrund
-    syncUserActivities(user.id).catch((syncErr) => {
-      console.error('Initial background sync error:', syncErr);
-    });
+    try {
+      await inngest.send({ name: 'strava/sync.requested', data: { userId: user.id, historical: true } });
+    } catch (syncErr) {
+      console.error('Initial sync could not be queued:', syncErr);
+    }
 
     return NextResponse.redirect(`${appUrl}/dashboard?login=success`);
   } catch (err) {

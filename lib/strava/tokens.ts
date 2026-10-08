@@ -9,7 +9,9 @@ interface StravaTokenRefreshResponse {
 }
 
 export async function getValidStravaToken(userId: string): Promise<string> {
-  const account = await db.account.findUnique({
+  return db.$transaction(async (tx) => {
+  await tx.$queryRaw`SELECT id FROM "Account" WHERE "userId" = ${userId} FOR UPDATE`;
+  const account = await tx.account.findUnique({
     where: { userId },
   });
 
@@ -33,6 +35,7 @@ export async function getValidStravaToken(userId: string): Promise<string> {
 
   const response = await fetch('https://www.strava.com/oauth/token', {
     method: 'POST',
+    signal: AbortSignal.timeout(15000),
     headers: {
       'Content-Type': 'application/json',
     },
@@ -52,7 +55,7 @@ export async function getValidStravaToken(userId: string): Promise<string> {
   const refreshedData: StravaTokenRefreshResponse = await response.json();
 
   // Aktualisiere Tokens in der Datenbank
-  await db.account.update({
+  await tx.account.update({
     where: { userId },
     data: {
       accessToken: refreshedData.access_token,
@@ -62,4 +65,5 @@ export async function getValidStravaToken(userId: string): Promise<string> {
   });
 
   return refreshedData.access_token;
+  }, { timeout: 20000, maxWait: 20000 });
 }

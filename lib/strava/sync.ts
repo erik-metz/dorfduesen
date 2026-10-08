@@ -45,6 +45,9 @@ export async function syncUserActivities(userId: string, perPage = 30): Promise<
 
     const activities: StravaRawActivity[] = await response.json();
 
+    const activePlan = await db.trainingPlan.findFirst({
+      where: { userId, status: 'ACTIVE' }, select: { id: true },
+    });
     let syncedCount = 0;
 
     for (const act of activities) {
@@ -100,14 +103,16 @@ export async function syncUserActivities(userId: string, perPage = 30): Promise<
       try {
         const { inngest } = await import('@/lib/inngest/client');
         await inngest.send({
+          id: `activity:${record.id}:plan:${activePlan?.id || 'none'}`,
           name: 'strava/activity.synced',
           data: {
             activityId: record.id,
             userId,
           },
         });
-      } catch {
-        // Continue silently if Inngest is offline or during local development
+      } catch (error) {
+        console.error('Activity analysis could not be queued:', error);
+        throw error;
       }
 
       syncedCount++;

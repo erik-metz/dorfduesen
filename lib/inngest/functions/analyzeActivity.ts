@@ -1,12 +1,14 @@
 import { inngest } from "../client";
 import { db } from "@/lib/db";
 import { xai, XAI_DEFAULT_MODEL } from "../../ai/xai";
+import { completeWorkoutOnce } from '@/lib/training/match';
 
 export const analyzeActivityFunction = inngest.createFunction(
   {
     id: "analyze-activity-compliance",
     name: "Analyze Activity & Match Training Plan",
     triggers: [{ event: "strava/activity.synced" }],
+    concurrency: { limit: 1, key: 'event.data.userId' },
   },
   async ({ event, step }) => {
     const { activityId, userId } = event.data;
@@ -17,8 +19,12 @@ export const analyzeActivityFunction = inngest.createFunction(
         where: { id: activityId },
       });
 
-      if (!activity || !activity.sportType.toLowerCase().includes("run")) {
+      if (!activity || activity.userId !== userId || !activity.sportType.toLowerCase().includes("run")) {
         return { matched: false, reason: "Not a run or not found" };
+      }
+
+      if (await db.planWorkout.findFirst({ where: { matchedActivityId: activityId } })) {
+        return { matched: false, reason: 'Activity already matched' };
       }
 
       // Check active plan
@@ -30,7 +36,7 @@ export const analyzeActivityFunction = inngest.createFunction(
         include: {
           weeks: {
             include: {
-              workouts: true,
+              workouts: { orderBy: { scheduledDate: 'asc' } },
             },
           },
         },
@@ -72,7 +78,7 @@ export const analyzeActivityFunction = inngest.createFunction(
         return { matched: false, reason: "Activity date does not match any scheduled week of the training plan" };
       }
 
-      const pendingWorkouts = (activeWeek.workouts || []).filter((wo) => wo.status === "PENDING");
+      const pendingWorkouts = (activeWeek.workouts || []).filter((wo) => wo.status === "PENDING" && wo.workoutType !== 'REST' && wo.sportType === 'Run');
       if (pendingWorkouts.length === 0) {
         return { matched: false, reason: "No pending workouts in this week" };
       }
@@ -183,16 +189,9 @@ Tatsächlich gelaufen: ${matchData.activityDistanceKm} km, Ø Puls: ${matchData.
     });
 
     // STEP 3: Update workout record
-    await step.run("update-workout-status", async () => {
-      await db.planWorkout.update({
-        where: { id: matchData.workoutId },
-        data: {
-          status: "COMPLETED",
-          matchedActivityId: activityId,
-          aiFeedback: feedback,
-        },
-      });
-    });
+    const completed = await step.run("update-workout-status", () =>
+      completeWorkoutOnce(userId, activityId, matchData.workoutId!, feedback));
+    if (!completed) return { status: 'SKIPPED', reason: 'Match already completed or plan inactive' };
 
     return { status: "COMPLETED", workoutId: matchData.workoutId, feedback };
   }
