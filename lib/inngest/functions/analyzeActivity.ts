@@ -1,3 +1,4 @@
+import { weekRange, dayKey, berlinMidnight, shiftDay } from '@/lib/time';
 import { inngest } from "../client";
 import { db } from "@/lib/db";
 import { xai, XAI_DEFAULT_MODEL } from "../../ai/xai";
@@ -11,7 +12,7 @@ export const analyzeActivityFunction = inngest.createFunction(
     concurrency: { limit: 1, key: 'event.data.userId' },
   },
   async ({ event, step }) => {
-    const { activityId, userId } = event.data;
+    const { activityId, userId, planId } = event.data;
 
     // STEP 1: Find activity and check if user has active plan
     const match = await step.run("find-matching-workout", async () => {
@@ -31,6 +32,7 @@ export const analyzeActivityFunction = inngest.createFunction(
       const activePlan = await db.trainingPlan.findFirst({
         where: {
           userId,
+          ...(planId ? { id: planId } : {}),
           status: "ACTIVE",
         },
         include: {
@@ -57,21 +59,9 @@ export const analyzeActivityFunction = inngest.createFunction(
         return { matched: false, reason: "Activity is older than the active training plan start date" };
       }
 
-      // Find the corresponding plan week (within +/- 1 day buffer around scheduled dates)
-      let activeWeek = null;
-      for (const week of activePlan.weeks) {
-        if (week.workouts.length > 0) {
-          const firstWo = new Date(week.workouts[0].scheduledDate);
-          const lastWo = new Date(week.workouts[week.workouts.length - 1].scheduledDate);
-          // 1 day buffer around week start/end
-          const weekStart = new Date(firstWo.getTime() - 24 * 3600 * 1000);
-          const weekEnd = new Date(lastWo.getTime() + 24 * 3600 * 1000);
-          if (activityDate >= weekStart && activityDate <= weekEnd) {
-            activeWeek = week;
-            break;
-          }
-        }
-      }
+      const activityWeekKey = weekRange(activityDate).key;
+      const activeWeek = activePlan.weeks.find(week => week.workouts.some(workout =>
+        weekRange(new Date(workout.scheduledDate)).key === activityWeekKey));
 
       // If week not found within date window, do NOT fall back to arbitrary future weeks!
       if (!activeWeek) {
@@ -93,14 +83,13 @@ export const analyzeActivityFunction = inngest.createFunction(
 
       // 2. Exact same day matching
       if (!matchedWorkout) {
-        const startOfDay = new Date(activityDate);
-        startOfDay.setHours(0, 0, 0, 0);
-        const endOfDay = new Date(activityDate);
-        endOfDay.setHours(23, 59, 59, 999);
+        const key = dayKey(activityDate);
+        const startOfDay = berlinMidnight(key);
+        const endOfDay = berlinMidnight(shiftDay(key, 1));
 
         matchedWorkout = pendingWorkouts.find((wo) => {
           const woDate = new Date(wo.scheduledDate);
-          return woDate >= startOfDay && woDate <= endOfDay;
+          return woDate >= startOfDay && woDate < endOfDay;
         });
       }
 

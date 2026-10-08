@@ -18,9 +18,9 @@ function calculateMaxConsecutiveDays(dates: Date[]): number {
   // Sort distinct day strings (YYYY-MM-DD)
   const daySet = new Set(
     dates.map((d) => {
-      const year = d.getFullYear();
-      const month = String(d.getMonth() + 1).padStart(2, '0');
-      const day = String(d.getDate()).padStart(2, '0');
+      const year = d.getUTCFullYear();
+      const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(d.getUTCDate()).padStart(2, '0');
       return `${year}-${month}-${day}`;
     })
   );
@@ -117,7 +117,7 @@ export async function evaluateUserBadges(userId: string): Promise<UnlockedBadgeR
     }
 
     // Sunday check
-    if (localDate.getDay() === 0) {
+    if (localDate.getUTCDay() === 0) {
       const dayKey = `${localDate.getFullYear()}-${localDate.getMonth() + 1}-${localDate.getDate()}`;
       sundayDates.add(dayKey);
     }
