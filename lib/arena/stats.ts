@@ -1,5 +1,6 @@
 import { db } from '@/lib/db';
 import { BADGE_DEFINITIONS, ensureBadgesSeeded } from './badge-definitions';
+import { cacheLife, cacheTag } from 'next/cache';
 
 export interface ChampionTitle {
   id: string;
@@ -272,6 +273,14 @@ export async function getArenaData(
   period: 'week' | 'month' | 'all' = 'week',
   sport: 'all' | 'run' | 'ride' = 'all'
 ): Promise<ArenaOverview> {
+  'use cache';
+  cacheLife({
+    stale: 30,
+    revalidate: 15,
+    expire: 300,
+  });
+  cacheTag('arena');
+
   const now = new Date();
   const startOfWeek = getStartOfWeek();
   const startOfMonth = getStartOfMonth();
@@ -350,6 +359,14 @@ export async function getArenaLeaderboard(
   period: 'week' | 'month' | 'all' = 'week',
   sport: 'all' | 'run' | 'ride' = 'all'
 ): Promise<LeaderboardEntry[]> {
+  'use cache';
+  cacheLife({
+    stale: 30,
+    revalidate: 15,
+    expire: 300,
+  });
+  cacheTag('arena');
+
   const startOfWeek = getStartOfWeek();
   const startOfMonth = getStartOfMonth();
 
