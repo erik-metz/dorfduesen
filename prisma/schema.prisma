@@ -1,0 +1,78 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String     @id @default(cuid())
+  stravaAthleteId String     @unique
+  firstname       String?
+  lastname        String?
+  username        String?
+  profile         String?
+  city            String?
+  country         String?
+  sex             String?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  account         Account?
+  activities      Activity[]
+  syncLogs        SyncLog[]
+}
+
+model Account {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken  String
+  refreshToken String
+  expiresAt    Int
+  scope        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Activity {
+  id                 String   @id @default(cuid())
+  userId             String
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stravaId           String   @unique
+  name               String
+  distance           Float    // Distance in meters
+  movingTime         Int      // Moving time in seconds
+  elapsedTime        Int      // Elapsed time in seconds
+  totalElevationGain Float    // Meters
+  sportType          String   // e.g. Run, Ride, TrailRun, Walk
+  startDate          DateTime
+  startDateLocal     DateTime
+  timezone           String?
+  averageSpeed       Float?   // m/s
+  maxSpeed           Float?   // m/s
+  averageHeartrate   Float?
+  maxHeartrate       Float?
+  kudosCount         Int      @default(0)
+  commentCount       Int      @default(0)
+  achievementCount   Int      @default(0)
+  summaryPolyline    String?
+  syncedAt           DateTime @default(now())
+
+  @@index([userId])
+  @@index([startDate])
+}
+
+model SyncLog {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status       String   // SUCCESS | ERROR
+  itemsSynced  Int      @default(0)
+  errorMessage String?
+  createdAt    DateTime @default(now())
+
+  @@index([userId])
+}

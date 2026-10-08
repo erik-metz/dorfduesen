@@ -3,15 +3,38 @@
 import React, { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Menu, X, Flame } from 'lucide-react';
+import { Menu, X, Flame, User as UserIcon } from 'lucide-react';
 import { ClubData } from '@/types/club';
 
 interface NavbarProps {
   club: ClubData;
+  currentUser?: {
+    id: string;
+    firstname: string | null;
+    lastname: string | null;
+    username: string | null;
+    profile: string | null;
+  } | null;
 }
 
-export function Navbar({ club }: NavbarProps) {
+export function Navbar({ club, currentUser }: NavbarProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [fetchedUser, setFetchedUser] = useState<typeof currentUser | null>(null);
+
+  React.useEffect(() => {
+    if (currentUser === undefined) {
+      fetch('/api/auth/me')
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (data?.authenticated && data?.user) {
+            setFetchedUser(data.user);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [currentUser]);
+
+  const user = currentUser !== undefined ? currentUser : fetchedUser;
 
   const navLinks = [
     { label: 'Über uns', href: '#ueber-uns' },
@@ -20,6 +43,10 @@ export function Navbar({ club }: NavbarProps) {
     { label: 'Strava Club', href: '#strava' },
     { label: 'FAQ', href: '#faq' },
   ];
+
+  const displayName = user
+    ? [user.firstname, user.lastname].filter(Boolean).join(' ') || user.username || 'Athlet'
+    : null;
 
   return (
     <header className="sticky top-0 z-50 backdrop-blur-md bg-zinc-950/80 border-b border-zinc-800/80">
@@ -48,7 +75,7 @@ export function Navbar({ club }: NavbarProps) {
           </Link>
 
           {/* Desktop Navigation Links */}
-          <nav className="hidden md:flex items-center gap-8">
+          <nav className="hidden md:flex items-center gap-7">
             {navLinks.map((link) => (
               <a
                 key={link.href}
@@ -58,23 +85,44 @@ export function Navbar({ club }: NavbarProps) {
                 {link.label}
               </a>
             ))}
+            <Link
+              href="/dashboard"
+              className="text-sm font-semibold text-orange-400 hover:text-orange-300 transition-colors"
+            >
+              Dashboard
+            </Link>
           </nav>
 
           {/* Action Buttons */}
           <div className="hidden md:flex items-center gap-3">
-            <a
-              href={club.instagramUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider bg-zinc-800 hover:bg-zinc-700 text-zinc-100 transition-all border border-zinc-700"
-            >
-              Instagram
-            </a>
+            {user ? (
+              <Link
+                href="/dashboard"
+                className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full text-xs font-bold bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-white transition-all shadow-md"
+              >
+                {user.profile ? (
+                  <div className="relative w-5 h-5 rounded-full overflow-hidden">
+                    <Image src={user.profile} alt={displayName || ''} fill className="object-cover" />
+                  </div>
+                ) : (
+                  <UserIcon className="w-4 h-4 text-orange-500" />
+                )}
+                <span>{displayName}</span>
+              </Link>
+            ) : (
+              <Link
+                href="/dashboard"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider bg-orange-600 hover:bg-orange-500 text-white shadow-lg shadow-orange-600/30 transition-all"
+              >
+                Mit Strava einloggen
+              </Link>
+            )}
+
             <a
               href={club.stravaUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider bg-orange-600 hover:bg-orange-500 text-white shadow-lg shadow-orange-600/30 transition-all"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider bg-zinc-800 hover:bg-zinc-700 text-zinc-100 transition-all border border-zinc-700"
             >
               Strava Club
             </a>
@@ -106,20 +154,36 @@ export function Navbar({ club }: NavbarProps) {
               {link.label}
             </a>
           ))}
+          <Link
+            href="/dashboard"
+            onClick={() => setMobileMenuOpen(false)}
+            className="block px-3 py-2 rounded-md text-base font-medium text-orange-400 hover:bg-zinc-800 hover:text-orange-300"
+          >
+            Dashboard
+          </Link>
           <div className="pt-4 border-t border-zinc-800 flex flex-col gap-2">
-            <a
-              href={club.instagramUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full text-center py-2.5 rounded-lg text-sm font-bold bg-zinc-800 text-zinc-100"
-            >
-              Instagram (@dorfduesen)
-            </a>
+            {user ? (
+              <Link
+                href="/dashboard"
+                onClick={() => setMobileMenuOpen(false)}
+                className="w-full text-center py-2.5 rounded-lg text-sm font-bold bg-zinc-900 border border-zinc-700 text-white"
+              >
+                Mein Profil ({displayName})
+              </Link>
+            ) : (
+              <Link
+                href="/dashboard"
+                onClick={() => setMobileMenuOpen(false)}
+                className="w-full text-center py-2.5 rounded-lg text-sm font-bold bg-orange-600 text-white"
+              >
+                Mit Strava einloggen
+              </Link>
+            )}
             <a
               href={club.stravaUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="w-full text-center py-2.5 rounded-lg text-sm font-bold bg-orange-600 text-white"
+              className="w-full text-center py-2.5 rounded-lg text-sm font-bold bg-zinc-800 text-zinc-100"
             >
               Strava Club beitreten
             </a>
