@@ -25,6 +25,12 @@ function DashboardSkeleton() {
   );
 }
 
+function isSyncCooldownExpired(lastSyncDate: Date | null | undefined): boolean {
+  if (!lastSyncDate) return true;
+  const AUTO_SYNC_COOLDOWN_MS = 60 * 1000;
+  return Date.now() - lastSyncDate.getTime() > AUTO_SYNC_COOLDOWN_MS;
+}
+
 export default function DashboardPage() {
   return (
     <Suspense fallback={<DashboardSkeleton />}>
@@ -102,8 +108,7 @@ async function DashboardContent() {
     orderBy: { createdAt: 'desc' },
   });
 
-  const AUTO_SYNC_COOLDOWN_MS = 60 * 1000;
-  const shouldAutoSync = !lastSyncLog || (Date.now() - lastSyncLog.createdAt.getTime() > AUTO_SYNC_COOLDOWN_MS);
+  const shouldAutoSync = isSyncCooldownExpired(lastSyncLog?.createdAt);
 
   if (shouldAutoSync) {
     try {

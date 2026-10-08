@@ -2,7 +2,7 @@ import { inngest } from "../client";
 import { db } from "@/lib/db";
 import { Prisma } from "@prisma/client";
 import { calculateAthleteBaseline } from "../../training/baseline";
-import { buildPeriodizationSkeleton } from "../../training/periodization";
+import { buildPeriodizationSkeleton, PeriodizationPlanSkeleton } from "../../training/periodization";
 import { getTrainingPaces } from "../../training/vdot";
 import { calculateHeartRateZones } from "../../training/zones";
 import { generatePlanWithGrok, GeneratedWeek } from "../../ai/generator";
@@ -85,7 +85,7 @@ export const generatePlanFunction = inngest.createFunction(
         athleteBaseline: baseline.stats,
         paces,
         zones,
-        skeleton: skeleton as any,
+        skeleton: skeleton as PeriodizationPlanSkeleton,
       });
     });
 
