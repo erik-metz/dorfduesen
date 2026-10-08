@@ -152,9 +152,11 @@ export async function CommunityFeed() {
 
                 <div className="space-y-3">
                   {topAthletes.map((ath, idx) => (
-                    <div
+                    <Link
                       key={ath.userId}
-                      className="flex items-center justify-between p-3.5 rounded-2xl bg-zinc-950/60 border border-zinc-800/80"
+                      href={`/dashboard?userId=${ath.userId}`}
+                      className="flex items-center justify-between p-3.5 rounded-2xl bg-zinc-950/60 border border-zinc-800/80 hover:border-orange-500/40 hover:bg-zinc-900/60 transition-all group"
+                      title={`${ath.name} im Dashboard ansehen`}
                     >
                       <div className="flex items-center gap-3">
                         <span
@@ -178,7 +180,9 @@ export async function CommunityFeed() {
                           )}
                         </div>
                         <div>
-                          <div className="text-sm font-bold text-white leading-tight">{ath.name}</div>
+                          <div className="text-sm font-bold text-white group-hover:text-orange-400 transition-colors leading-tight">
+                            {ath.name}
+                          </div>
                           <div className="text-[11px] text-zinc-500">{ath.activityCount} Aktivitäten</div>
                         </div>
                       </div>
@@ -186,7 +190,7 @@ export async function CommunityFeed() {
                       <div className="text-right">
                         <div className="text-sm font-black text-white">{ath.totalKm.toFixed(1)} km</div>
                       </div>
-                    </div>
+                    </Link>
                   ))}
                 </div>
               </div>
@@ -204,7 +208,11 @@ export async function CommunityFeed() {
                     key={act.id}
                     className="p-4 rounded-2xl bg-zinc-900/60 border border-zinc-800 hover:border-zinc-700 transition-colors flex items-center justify-between gap-4"
                   >
-                    <div className="flex items-center gap-3">
+                    <Link
+                      href={`/dashboard?userId=${act.userId}`}
+                      className="flex items-center gap-3 group/ath hover:opacity-90 transition-opacity"
+                      title={`${act.userName} im Dashboard ansehen`}
+                    >
                       <div className="relative w-8 h-8 rounded-full overflow-hidden bg-zinc-800 shrink-0">
                         {isValidAvatarUrl(act.userProfile) ? (
                           <Image src={act.userProfile!} alt={act.userName} fill unoptimized className="object-cover" />
@@ -215,10 +223,10 @@ export async function CommunityFeed() {
                         )}
                       </div>
                       <div>
-                        <div className="text-xs font-bold text-orange-400">{act.userName}</div>
+                        <div className="text-xs font-bold text-orange-400 group-hover/ath:underline">{act.userName}</div>
                         <div className="text-sm font-bold text-white line-clamp-1">{act.name}</div>
                       </div>
-                    </div>
+                    </Link>
 
                     <div className="flex items-center gap-4 shrink-0">
                       <div className="text-right">
