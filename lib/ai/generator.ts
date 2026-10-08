@@ -70,7 +70,7 @@ export async function generatePlanWithGrok(
 Deine Aufgabe ist es, für die bereitgestellten Rahmendaten der Wochen detaillierte, präzise und motivierende Laufeinheiten zu erstellen.
 Wichtige Regeln:
 1. 80/20 Prinzip (Polarisiertes Training): 80% des Volumens MUSS in Zone 2 (Grundlagenausdauer / Easy) stattfinden.
-2. Der Sonntag ist immer der beliebte DorfDüsen-Vereinslauf (Long Run oder Gemeinschaftsrunde).
+2. Der sonntägliche DorfDüsen-Vereinslauf (Sunday Run) ist IMMER standardmäßig mindestens 5.0 km (Gemeinschaftsrunde in Nordheim, offizieller Strava-Club-Termin). Er darf niemals unter 5.0 km liegen.
 3. Passe Einheiten und Tonalität exakt an das Ziel an (z. B. Kondition/Durchhalten, Schwellentempo/1-Min schneller, Fettverbrennung/Gewicht, Gewohnheit/Routine).
 4. Halte dich exakt an die vorgegebenen Wochenkilometer und Pace-Zonen.
 5. Gib IMMER valides JSON zurück, das dem gewünschten Schema entspricht. Keine Erklärungen außerhalb von JSON.`,
@@ -221,7 +221,13 @@ export function generateAlgorithmicPlan(ctx: PlanGenerationContext): GeneratedWe
       let hrZone = 2;
       const duration = Math.round(d.approximateKm * 6); // ~6 min/km avg
 
-      if (d.workoutType === "LONGRUN") {
+      if (d.dayOfWeek === 0) {
+        title = "DorfDüsen Sunday Run (5 km) – Strava Club-Termin";
+        desc = "Offizieller Vereinstermin in Nordheim (Gemeinde Biblis). Treffpunkt jeden Sonntag 10:00 Uhr. Lockere 5-km-Gemeinschaftsrunde im Wohlfühltempo (Zone 2) – niemand läuft alleine!";
+        paceMin = paces.easyMin;
+        paceMax = paces.easyMax;
+        hrZone = 2;
+      } else if (d.workoutType === "LONGRUN") {
         if (ctx.goalType === "WEIGHT_LOSS") {
           title = "Fettstoffwechsel-Ausdauerlauf (Zone 2)";
           desc = "Langer, gleichmäßiger Dauerlauf im optimalen Fettverbrennungsbereich (Zone 2). Ausreichend trinken!";
@@ -232,8 +238,8 @@ export function generateAlgorithmicPlan(ctx: PlanGenerationContext): GeneratedWe
           title = "Wochenend-Genusslauf";
           desc = "Schöne Laufrunde in der Natur ohne Zeitdruck zur Pflege deiner wöchentlichen Laufgewohnheit.";
         } else {
-          title = "DorfDüsen Sunday Long Run";
-          desc = "Langer, ruhiger Ausdauerlauf in Zone 2. Fokus auf Fettstoffwechsel und aerobe Grundlagenausdauer.";
+          title = "Langer Ausdauerlauf (Long Run)";
+          desc = "Ruhiger, langer Grundlagenlauf in Zone 2. Fokus auf Fettstoffwechsel und aerobe Kapazität.";
         }
         paceMin = paces.easyMin;
         paceMax = paces.easyMax;

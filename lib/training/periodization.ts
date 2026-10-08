@@ -205,10 +205,6 @@ function distributeDays(
   includeSundayRun: boolean,
   goalType?: string
 ): PeriodizationWorkoutSkeleton[] {
-  // Long run takes ~30-35% of weekly mileage
-  const longRunKm = Math.round(weeklyKm * 0.33 * 10) / 10;
-  const remainingKm = Math.max(weeklyKm - longRunKm, 4);
-
   // Available days selection
   const defaultDaySchedules: Record<number, number[]> = {
     2: [2, 0],              // Di, So
@@ -218,28 +214,61 @@ function distributeDays(
     6: [1, 2, 3, 5, 6, 0],  // 6 Tage
   };
 
-  const selectedDays = defaultDaySchedules[daysCount] || defaultDaySchedules[3];
+  const selectedDays = [...(defaultDaySchedules[daysCount] || defaultDaySchedules[3])];
   
   // Ensure chosen longRunDay is included
   if (!selectedDays.includes(longRunDay)) {
     selectedDays[selectedDays.length - 1] = longRunDay;
   }
+  // Ensure Sunday (0) is included if includeSundayRun is true
+  if (includeSundayRun && !selectedDays.includes(0)) {
+    selectedDays[0] = 0;
+  }
 
-  const otherDays = selectedDays.filter((d) => d !== longRunDay);
-  const kmPerOtherDay = Math.round((remainingKm / Math.max(otherDays.length, 1)) * 10) / 10;
+  // Sunday run is always standardmäßig 5.0 km (or longer for Marathon/HM)
+  let sundayKm = 5.0;
+  if ((goalType === "MARATHON" || goalType === "HALF_MARATHON") && phase !== "BASE") {
+    sundayKm = Math.max(Math.round(weeklyKm * 0.35 * 10) / 10, 5.0);
+  }
+
+  const isSundayLongRun = longRunDay === 0 || isFlexibleLongRun;
+  const otherDays = selectedDays.filter((d) => d !== (isSundayLongRun ? 0 : longRunDay));
+  
+  const remainingKm = Math.max(weeklyKm - (isSundayLongRun ? sundayKm : 5.0), otherDays.length * 3.5);
+  const kmPerOtherDay = Math.max(Math.round((remainingKm / Math.max(otherDays.length, 1)) * 10) / 10, 3.5);
 
   const result: PeriodizationWorkoutSkeleton[] = [];
 
   for (let d = 0; d < 7; d++) {
-    if (d === longRunDay) {
+    if (!selectedDays.includes(d)) {
+      result.push({
+        dayOfWeek: d,
+        workoutType: "REST",
+        approximateKm: 0,
+        isFlexible: true,
+        recommendedTiming: "Ruhetag",
+      });
+      continue;
+    }
+
+    if (d === 0 && includeSundayRun) {
+      // Official DorfDüsen Sunday Run: Always standardmäßig 5 km!
+      result.push({
+        dayOfWeek: 0,
+        workoutType: isSundayLongRun && (goalType === "MARATHON" || goalType === "HALF_MARATHON") ? "LONGRUN" : "EASY",
+        approximateKm: sundayKm,
+        isFlexible: false,
+        recommendedTiming: "Sonntag 10:00 Uhr (DorfDüsen Sunday Run)",
+      });
+    } else if (d === longRunDay && !isSundayLongRun) {
       result.push({
         dayOfWeek: d,
         workoutType: "LONGRUN",
-        approximateKm: longRunKm,
+        approximateKm: Math.max(Math.round(weeklyKm * 0.33 * 10) / 10, 5.0),
         isFlexible: isFlexibleLongRun,
         recommendedTiming: isFlexibleLongRun ? "Wochenende / Nach Tagesform & Wetter" : `${DAY_NAMES[d]} (Fester Tag)`,
       });
-    } else if (otherDays.includes(d)) {
+    } else {
       let qualityType: "EASY" | "TEMPO" | "INTERVAL" = "EASY";
       const isQualityDay = d === otherDays[0] && (phase === "BUILD" || phase === "PEAK");
 
@@ -255,22 +284,12 @@ function distributeDays(
         }
       }
 
-      const isSundayClubRun = d === 0 && includeSundayRun;
-
       result.push({
         dayOfWeek: d,
         workoutType: qualityType,
-        approximateKm: isSundayClubRun ? Math.max(kmPerOtherDay, 5.0) : kmPerOtherDay,
+        approximateKm: kmPerOtherDay,
         isFlexible: true,
-        recommendedTiming: isSundayClubRun ? "Sonntag (DorfDüsen Sunday Run)" : "Unter der Woche",
-      });
-    } else {
-      result.push({
-        dayOfWeek: d,
-        workoutType: "REST",
-        approximateKm: 0,
-        isFlexible: true,
-        recommendedTiming: "Ruhetag",
+        recommendedTiming: "Unter der Woche",
       });
     }
   }

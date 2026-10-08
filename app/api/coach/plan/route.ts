@@ -99,13 +99,11 @@ export async function POST(req: Request) {
       ? new Date(targetDate)
       : new Date(startDate.getTime() + 10 * 7 * 24 * 60 * 60 * 1000);
 
-    // Archive or complete existing active plans
-    await db.trainingPlan.updateMany({
+    // Delete existing plans of user to keep database and state clean
+    await db.trainingPlan.deleteMany({
       where: {
         userId: user.id,
-        status: { in: ["ACTIVE", "PROCESSING", "QUEUED"] },
       },
-      data: { status: "ARCHIVED" },
     });
 
     // Create new plan record in QUEUED state
@@ -161,3 +159,27 @@ export async function POST(req: Request) {
     );
   }
 }
+
+export async function DELETE() {
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  try {
+    await db.trainingPlan.deleteMany({
+      where: {
+        userId: user.id,
+      },
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Error deleting training plan:", error);
+    return NextResponse.json(
+      { error: "Fehler beim Löschen des Trainingsplans" },
+      { status: 500 }
+    );
+  }
+}
+

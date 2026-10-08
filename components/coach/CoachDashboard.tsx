@@ -26,6 +26,7 @@ import {
   Users,
   Trophy,
   Target,
+  ExternalLink,
 } from 'lucide-react';
 
 export const GOAL_CATEGORIES = [
@@ -698,33 +699,56 @@ export function CoachDashboard() {
                       {week.workouts.map((w) => {
                         const date = new Date(w.scheduledDate);
                         const isSunday = date.getDay() === 0;
+                        const isClubRun =
+                          isSunday ||
+                          w.title.toLowerCase().includes('dorfdüsen') ||
+                          w.title.toLowerCase().includes('vereinslauf') ||
+                          (Boolean(w.recommendedTiming) && w.recommendedTiming!.toLowerCase().includes('sunday run'));
+
+                        const displayDistance = isClubRun
+                          ? `${Math.max(w.targetDistance || 0, 5.0)} km`
+                          : (w.targetDistance ? `${w.targetDistance} km` : '-');
 
                         return (
                           <div
                             key={w.id}
-                            className={`p-4 rounded-xl border text-xs space-y-2 transition-all ${
+                            className={`p-4 rounded-xl border text-xs space-y-3 transition-all ${
                               w.status === 'COMPLETED'
                                 ? 'bg-emerald-950/20 border-emerald-500/30'
+                                : isClubRun
+                                ? 'bg-gradient-to-br from-orange-950/30 via-zinc-950/90 to-zinc-950 border-orange-500/40 shadow-sm shadow-orange-500/5'
                                 : w.workoutType === 'LONGRUN'
-                                ? 'bg-orange-950/20 border-orange-500/40 shadow-sm shadow-orange-500/5'
-                                : isSunday
-                                ? 'bg-orange-950/10 border-orange-500/20'
+                                ? 'bg-orange-950/20 border-orange-500/30'
                                 : 'bg-zinc-950/60 border-zinc-800/80'
                             }`}
                           >
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="font-bold text-zinc-300 truncate">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <span className="font-bold text-zinc-300">
                                 {w.recommendedTiming || date.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' })}
                               </span>
                               <div className="flex items-center gap-1.5 shrink-0">
-                                {w.isFlexible && (
+                                {isClubRun && (
+                                  <a
+                                    href="https://www.strava.com/clubs/1670142/group_events"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-orange-500/20 text-orange-400 hover:bg-orange-500/30 border border-orange-500/30 transition-colors"
+                                    title="Offizieller Termin im Strava Club (Dorfdüsen)"
+                                  >
+                                    <span>Strava Termin</span>
+                                    <ExternalLink className="w-2.5 h-2.5" />
+                                  </a>
+                                )}
+                                {w.isFlexible && !isClubRun && (
                                   <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-zinc-800 text-zinc-400">
                                     Flexibel
                                   </span>
                                 )}
                                 <span
                                   className={`px-2 py-0.5 rounded font-black text-[10px] uppercase ${
-                                    w.workoutType === 'LONGRUN'
+                                    isClubRun
+                                      ? 'bg-orange-500/20 text-orange-400'
+                                      : w.workoutType === 'LONGRUN'
                                       ? 'bg-orange-500/20 text-orange-400'
                                       : w.workoutType === 'TEMPO'
                                       ? 'bg-amber-500/20 text-amber-400'
@@ -733,16 +757,35 @@ export function CoachDashboard() {
                                       : 'bg-zinc-800 text-zinc-300'
                                   }`}
                                 >
-                                  {w.workoutType}
+                                  {isClubRun ? 'Vereinslauf' : w.workoutType}
                                 </span>
                               </div>
                             </div>
 
-                            <h5 className="font-bold text-white text-sm line-clamp-1">{w.title}</h5>
-                            <p className="text-zinc-400 line-clamp-2">{w.description}</p>
+                            <div className="space-y-1">
+                              <h5 className="font-bold text-white text-sm leading-snug">{w.title}</h5>
+                              <p className="text-zinc-300 text-xs leading-relaxed whitespace-pre-line">{w.description}</p>
+                            </div>
+
+                            {isClubRun && (
+                              <div className="flex items-center justify-between text-[10px] bg-orange-500/10 border border-orange-500/20 px-2.5 py-1.5 rounded-lg text-orange-300">
+                                <span className="flex items-center gap-1 font-semibold">
+                                  📍 Nordheim (Biblis) • 10:00 Uhr
+                                </span>
+                                <a
+                                  href="https://www.strava.com/clubs/1670142/group_events"
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="font-bold text-orange-400 hover:text-white underline underline-offset-2 flex items-center gap-0.5"
+                                >
+                                  <span>Club-Termin auf Strava</span>
+                                  <ExternalLink className="w-2.5 h-2.5" />
+                                </a>
+                              </div>
+                            )}
 
                             <div className="pt-2 border-t border-zinc-800/60 flex items-center justify-between text-[11px] font-semibold">
-                              <span className="text-white font-bold">{w.targetDistance ? `${w.targetDistance} km` : '-'}</span>
+                              <span className="text-white font-bold">{displayDistance}</span>
                               <span className="text-orange-400">{w.targetPaceMin ? `${w.targetPaceMin} - ${w.targetPaceMax}` : 'Easy'}</span>
                               <span className="text-emerald-400">Z{w.targetHrZone || 2}</span>
                               <span className="text-zinc-400">
