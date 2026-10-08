@@ -20,6 +20,8 @@ model User {
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
 
+  generationAttempts PlanGenerationAttempt[]
+  syncState SyncState?
   account         Account?
   activities      Activity[]
   syncLogs        SyncLog[]
@@ -71,6 +73,7 @@ model Activity {
   matchedWorkouts    PlanWorkout[]
 
   @@index([userId])
+  @@index([userId, startDate])
   @@index([startDate])
 }
 
@@ -205,6 +208,7 @@ model PlanWorkout {
   aiFeedback            String?
 
   @@index([weekId])
+  @@index([matchedActivityId])
   @@index([scheduledDate])
 }
 
@@ -267,4 +271,26 @@ model MonthlyTitleHolder {
   @@unique([monthKey, titleId])
   @@index([monthKey])
   @@index([userId])
+}
+
+
+model PlanGenerationAttempt {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planId    String?
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model SyncState {
+  userId              String    @id
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  historicalPage      Int       @default(1)
+  historicalBefore    Int?
+  historyCompletedAt  DateTime?
+  lastSyncedAt        DateTime?
+  lockOwner           String?
+  lockedUntil         DateTime?
 }

@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
 import {
   Sparkles,
   Flame,
@@ -318,10 +317,11 @@ export function CoachDashboard() {
         if (typeof pData.dailyLimit === 'number') {
           setDailyLimit(pData.dailyLimit);
         }
-        if (pData.plan?.status === 'QUEUED' || pData.plan?.status === 'PROCESSING') {
+        if (pData.generation?.status === 'QUEUED' || pData.generation?.status === 'PROCESSING') {
           setGenerating(true);
         } else {
           setGenerating(false);
+          if (pData.generation?.status === 'FAILED') setGenerationError('Der neue Plan konnte nicht erstellt werden. Dein bisheriger Plan bleibt erhalten. Bitte erneut versuchen.');
         }
       }
 
@@ -347,27 +347,46 @@ export function CoachDashboard() {
 
   // Fetch plan & profile
   useEffect(() => {
-    void loadData();
+    const initialFetch = setTimeout(() => { void loadData(); }, 0);
+    return () => clearTimeout(initialFetch);
   }, [loadData]);
 
   // Poll while generating
   useEffect(() => {
     if (!generating) return;
-    const interval = setInterval(async () => {
-      const res = await fetch('/api/coach/plan');
-      if (res.ok) {
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout>;
+    let failures = 0;
+    const poll = async () => {
+      try {
+        const res = await fetch('/api/coach/plan');
+        if (!res.ok) throw new Error('Plan konnte nicht geladen werden.');
         const data = await res.json();
-        if (typeof data.generationsToday === 'number') {
-          setGenerationsToday(data.generationsToday);
-        }
-        if (data.plan?.status === 'ACTIVE') {
-          setPlan(data.plan);
+        if (cancelled) return;
+        failures = 0;
+        if (typeof data.generationsToday === 'number') setGenerationsToday(data.generationsToday);
+        const status = data.generation?.status;
+        if (status === 'FAILED' || (!status && !data.plan)) {
           setGenerating(false);
-          setActiveTab('plan');
+          setPlan(data.plan);
+          setGenerationError('Die Erstellung ist fehlgeschlagen oder wurde abgebrochen. Bitte erneut versuchen.');
+          return;
+        }
+        if (!status && data.plan?.status === 'ACTIVE') {
+          setPlan(data.plan); setGenerating(false); setActiveTab('plan'); return;
+        }
+      } catch {
+        if (cancelled) return;
+        if (++failures >= 3) {
+          setGenerating(false);
+          setGenerationError('Status konnte nicht geladen werden. Bitte die Seite neu laden; die Erstellung kann im Hintergrund weiterlaufen.');
+          return;
         }
       }
-    }, 3000);
-    return () => clearInterval(interval);
+      if (!cancelled) timer = setTimeout(poll, 3000);
+    };
+    timer = setTimeout(poll, 3000);
+    return () => { cancelled = true; clearTimeout(timer); };
   }, [generating]);
 
   const handleDeletePlan = async () => {
@@ -640,6 +659,13 @@ export function CoachDashboard() {
           </button>
         </div>
       </div>
+
+      {generationError && (
+        <div role="alert" className="p-4 rounded-2xl bg-rose-950/40 border border-rose-500/30 text-rose-300 text-sm">
+          <p>{generationError}</p>
+          <button type="button" onClick={() => setActiveTab('new-plan')} className="mt-2 font-bold underline cursor-pointer">Neuen Versuch starten</button>
+        </div>
+      )}
 
       {/* Generation in progress banner */}
       {generating && (
@@ -1719,23 +1745,13 @@ export function CoachDashboard() {
             </p>
           </div>
 
-          {generationError && (
-            <div className="p-4 rounded-2xl bg-rose-950/40 border border-rose-500/30 text-rose-300 text-xs flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
-              <div className="space-y-1">
-                <span className="font-bold text-rose-200 block text-sm">Hinweis zur Plangenerierung</span>
-                <p className="leading-relaxed">{generationError}</p>
-              </div>
-            </div>
-          )}
-
           {plan && (
             <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs flex items-start gap-3">
               <AlertCircle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
               <div className="space-y-1">
                 <span className="font-bold text-amber-300 block text-sm">Aktiver Trainingsplan vorhanden</span>
                 <p className="leading-relaxed text-amber-200/90">
-                  Du trainierst aktuell nach <strong>„{plan.title}“</strong>. Beim Erstellen eines neuen Trainingsplans wird dein bisheriger Plan gelöscht und durch den neuen ersetzt.
+                  Du trainierst aktuell nach <strong>„{plan.title}“</strong>. Dein bisheriger Plan bleibt aktiv, bis der neue vollständig erstellt wurde. Danach wird er pausiert.
                 </p>
               </div>
             </div>
@@ -2013,7 +2029,7 @@ export function CoachDashboard() {
                 Trainingsplan wirklich löschen?
               </h3>
               <p className="text-sm text-zinc-400 leading-relaxed">
-                Dein aktueller Plan <strong className="text-zinc-200">„{plan.title}“</strong> sowie alle bisher geplanten Einheiten und Fortschritte werden unwiderruflich gelöscht.
+                Dein aktueller Plan <strong className="text-zinc-200">„{plan.title}“</strong>, pausierte Pläne sowie alle zugehörigen Einheiten und Fortschritte werden unwiderruflich gelöscht.
               </p>
             </div>
             <div className="flex items-center justify-end gap-3 pt-2">
@@ -2060,7 +2076,7 @@ export function CoachDashboard() {
                 Bestehenden Plan ersetzen?
               </h3>
               <p className="text-sm text-zinc-400 leading-relaxed">
-                Du trainierst derzeit nach <strong className="text-zinc-200">„{plan.title}“</strong>. Wenn du fortfährst, wird dieser Plan komplett gelöscht und durch deinen neuen Plan ersetzt.
+                Du trainierst derzeit nach <strong className="text-zinc-200">„{plan.title}“</strong>. Wenn du fortfährst, bleibt dieser Plan während der Erstellung aktiv. Erst nach erfolgreicher Erstellung wird er pausiert und der neue Plan aktiviert.
               </p>
             </div>
             <div className="flex items-center justify-end gap-3 pt-2">
@@ -2077,7 +2093,7 @@ export function CoachDashboard() {
                 className="px-5 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold text-sm transition-all shadow-lg shadow-orange-500/20 flex items-center gap-2 cursor-pointer"
               >
                 <Sparkles className="w-4 h-4" />
-                <span>Alten Plan löschen & neuen erstellen</span>
+                <span>Neuen Plan erstellen</span>
               </button>
             </div>
           </div>

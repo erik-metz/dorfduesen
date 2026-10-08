@@ -1,3 +1,4 @@
+import { InputError, readCoachBody } from '@/lib/training/validation';
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { db } from "@/lib/db";
@@ -24,7 +25,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    const body = await req.json();
+    const body = await readCoachBody(req, 'metric');
     const { weightKg, restingHeartrate, notes, date } = body;
 
     const entryDate = date ? new Date(date) : new Date();
@@ -55,6 +56,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true, metric: createdMetric });
   } catch (error) {
+    if (error instanceof InputError) return NextResponse.json({ error: error.message }, { status: 400 });
     console.error("Error creating health metric:", error);
     return NextResponse.json(
       { error: "Fehler beim Speichern der Körperdaten" },

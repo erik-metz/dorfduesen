@@ -1,3 +1,4 @@
+import { weekRange, berlinMidnight, shiftDay } from '@/lib/time';
 import { AthleteBaseline } from "./baseline";
 
 export type TrainingPhase = "BASE" | "BUILD" | "PEAK" | "TAPER" | "RECOVERY";
@@ -46,12 +47,8 @@ export interface PeriodizationInput {
  * with safe mileage progression and deload weeks.
  */
 export function buildPeriodizationSkeleton(input: PeriodizationInput): PeriodizationPlanSkeleton {
-  const startDate = input.startDate ? new Date(input.startDate) : new Date();
-  // Ensure start date is beginning of week (Monday)
-  const day = startDate.getDay();
-  const diffToMonday = day === 0 ? -6 : 1 - day;
-  startDate.setDate(startDate.getDate() + diffToMonday);
-  startDate.setHours(0, 0, 0, 0);
+  const start = weekRange(input.startDate || new Date());
+  const startDate = start.start;
 
   let targetDate = input.targetDate ? new Date(input.targetDate) : undefined;
 
@@ -72,7 +69,7 @@ export function buildPeriodizationSkeleton(input: PeriodizationInput): Periodiza
     else if (input.goalType === "ROUTINE") totalWeeks = 6;
     else totalWeeks = 8;
 
-    targetDate = new Date(startDate.getTime() + totalWeeks * 7 * 24 * 60 * 60 * 1000);
+    targetDate = berlinMidnight(shiftDay(start.key, totalWeeks * 7));
   }
 
   const daysAvailable = Math.min(Math.max(input.weeklyAvailability || 3, 2), 6);
@@ -174,7 +171,7 @@ export function buildPeriodizationSkeleton(input: PeriodizationInput): Periodiza
     weeks.push({
       weekNumber: w,
       phase,
-      targetKm: weeklyKm,
+      targetKm: Math.round(daysDistribution.reduce((sum, day) => sum + day.approximateKm, 0) * 10) / 10,
       isDeloadWeek: isDeload,
       focusTitle,
       daysDistribution,

@@ -1,8 +1,10 @@
+import { dayKey, berlinMidnight, shiftDay } from '@/lib/time';
 import { xai, XAI_DEFAULT_MODEL } from "./xai";
 import { PeriodizationPlanSkeleton } from "../training/periodization";
 import { AthleteBaseline } from "../training/baseline";
 import { TrainingPaces, paceToSecondsPerKm } from "../training/vdot";
 import { HeartRateZone } from "../training/zones";
+import { validateGeneratedWeeks } from '../training/generated-plan-validation';
 
 export interface GeneratedWorkout {
   dayOfWeek: number;
@@ -91,6 +93,7 @@ Wichtige Regeln:
 
     const parsed = JSON.parse(content);
     if (parsed.weeks && Array.isArray(parsed.weeks)) {
+      validateGeneratedWeeks(parsed.weeks, context.skeleton, context.paces);
       return alignGeneratedPlanWithDates(parsed.weeks, context.skeleton);
     }
 
@@ -316,17 +319,17 @@ function alignGeneratedPlanWithDates(
   generatedWeeks: GeneratedWeek[],
   skeleton: PeriodizationPlanSkeleton
 ): GeneratedWeek[] {
-  const startDate = new Date(skeleton.startDate);
+  const startKey = dayKey(new Date(skeleton.startDate));
 
   return generatedWeeks.map((gw, wIndex) => {
-    const weekStart = new Date(startDate.getTime() + wIndex * 7 * 24 * 60 * 60 * 1000);
+    const weekKey = shiftDay(startKey, wIndex * 7);
     const skeletonWeek = skeleton.weeks[wIndex] || skeleton.weeks[0];
 
     const workouts: GeneratedWorkout[] = (gw.workouts || []).map((wo: GeneratedWorkout) => {
       // Calculate workout date based on dayOfWeek (0 = Sunday, 1 = Monday, etc.)
-      const workoutDate = new Date(weekStart);
+
       const dayOffset = wo.dayOfWeek === 0 ? 6 : wo.dayOfWeek - 1; // Start of week is Monday
-      workoutDate.setDate(weekStart.getDate() + dayOffset);
+      const workoutDate = berlinMidnight(shiftDay(weekKey, dayOffset));
 
       const matchingSkeletonDay = skeletonWeek.daysDistribution.find((d) => d.dayOfWeek === wo.dayOfWeek);
 
