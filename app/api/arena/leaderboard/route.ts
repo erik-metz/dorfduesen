@@ -1,8 +1,7 @@
-import { NextRequest, NextResponse, connection } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getArenaLeaderboard } from '@/lib/arena/stats';
 
 export async function GET(request: NextRequest) {
-  await connection();
   try {
     const { searchParams } = new URL(request.url);
     const rawPeriod = searchParams.get('period');
@@ -16,12 +15,19 @@ export async function GET(request: NextRequest) {
 
     const leaderboard = await getArenaLeaderboard(period, sport);
 
-    return NextResponse.json({
-      success: true,
-      period,
-      sport,
-      leaderboard,
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        period,
+        sport,
+        leaderboard,
+      },
+      {
+        headers: {
+          'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
+        },
+      }
+    );
   } catch (error) {
     console.error('Fehler beim Abrufen des Arena-Leaderboards:', error);
     return NextResponse.json(
