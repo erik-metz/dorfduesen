@@ -258,7 +258,7 @@ function distributeDays(
         workoutType: isSundayLongRun && (goalType === "MARATHON" || goalType === "HALF_MARATHON") ? "LONGRUN" : "EASY",
         approximateKm: sundayKm,
         isFlexible: false,
-        recommendedTiming: "Sonntag 10:00 Uhr (DorfDüsen Sunday Run)",
+        recommendedTiming: "Sonntag 09:00 Uhr (DorfDüsen Sunday Run)",
       });
     } else if (d === longRunDay && !isSundayLongRun) {
       result.push({

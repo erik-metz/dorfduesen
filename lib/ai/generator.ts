@@ -223,7 +223,7 @@ export function generateAlgorithmicPlan(ctx: PlanGenerationContext): GeneratedWe
 
       if (d.dayOfWeek === 0) {
         title = "DorfDüsen Sunday Run (5 km) – Strava Club-Termin";
-        desc = "Offizieller Vereinstermin in Nordheim (Gemeinde Biblis). Treffpunkt jeden Sonntag 10:00 Uhr. Lockere 5-km-Gemeinschaftsrunde im Wohlfühltempo (Zone 2) – niemand läuft alleine!";
+        desc = "Offizieller Vereinstermin in Nordheim (Gemeinde Biblis). Treffpunkt jeden Sonntag 09:00 Uhr. Lockere 5-km-Gemeinschaftsrunde im Wohlfühltempo (Zone 2) – niemand läuft alleine!";
         paceMin = paces.easyMin;
         paceMax = paces.easyMax;
         hrZone = 2;

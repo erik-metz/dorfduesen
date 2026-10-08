@@ -73,7 +73,7 @@ export function Navbar({ club, currentUser }: NavbarProps) {
       href: '/#sonntagsrunde',
       badge: '5 km',
       icon: Calendar,
-      description: 'Jeden Sonntag 10:00 Uhr',
+      description: 'Jeden Sonntag 09:00 Uhr',
     },
     {
       label: 'Düsen-Arena',

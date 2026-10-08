@@ -838,7 +838,7 @@ export function CoachDashboard() {
                                 <div className="flex items-center gap-1.5 shrink-0">
                                   {isClubRun && (
                                     <a
-                                      href="https://www.strava.com/clubs/1670142/group_events"
+                                      href="https://www.strava.com/clubs/1670142"
                                       target="_blank"
                                       rel="noopener noreferrer"
                                       className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-orange-500/20 text-orange-400 hover:bg-orange-500/30 border border-orange-500/30 transition-colors"
@@ -880,10 +880,10 @@ export function CoachDashboard() {
                               {isClubRun && (
                                 <div className="flex items-center justify-between text-[10px] bg-orange-500/10 border border-orange-500/20 px-2.5 py-1.5 rounded-lg text-orange-300">
                                   <span className="flex items-center gap-1 font-semibold">
-                                    📍 Nordheim (Biblis) • 10:00 Uhr
+                                    📍 Nordheim (Biblis) • 09:00 Uhr
                                   </span>
                                   <a
-                                    href="https://www.strava.com/clubs/1670142/group_events"
+                                    href="https://www.strava.com/clubs/1670142"
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="font-bold text-orange-400 hover:text-white underline underline-offset-2 flex items-center gap-0.5"
@@ -1546,7 +1546,7 @@ export function CoachDashboard() {
                 Der Sonntagslauf als Long-Run-Anker
               </h3>
               <p className="text-xs sm:text-sm text-zinc-300 leading-relaxed">
-                Der sonntägliche Vereinstreff in Nordheim (10:00 Uhr) ist das soziale Herzstück der DorfDüsen und fest im Trainingsplan verankert.
+                Der sonntägliche Vereinstreff in Nordheim (09:00 Uhr) ist das soziale Herzstück der DorfDüsen und fest im Trainingsplan verankert.
               </p>
               <ul className="space-y-2 text-xs text-zinc-400">
                 <li className="flex items-start gap-2">
