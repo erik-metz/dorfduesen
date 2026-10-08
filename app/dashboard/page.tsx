@@ -6,6 +6,7 @@ import { getCurrentUser } from '@/lib/auth/session';
 import { db } from '@/lib/db';
 import { DashboardView } from '@/components/DashboardView';
 import { StravaIcon } from '@/components/icons/BrandIcons';
+import { NotificationToast } from '@/components/NotificationToast';
 
 export const metadata = {
   title: 'Athleten Dashboard | Dorfdüsen Nordheim',
@@ -110,6 +111,9 @@ async function DashboardContent() {
     startDate: act.startDate.toISOString(),
     averageSpeed: act.averageSpeed,
     kudosCount: act.kudosCount,
+    summaryPolyline: act.summaryPolyline,
+    averageHeartrate: act.averageHeartrate,
+    maxSpeed: act.maxSpeed,
   }));
 
   // Aggregierte Statistiken
@@ -143,6 +147,7 @@ async function DashboardContent() {
         stats={stats}
         lastSync={lastSync}
       />
+      <NotificationToast />
     </div>
   );
 }

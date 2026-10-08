@@ -3,8 +3,9 @@
 import React, { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { RefreshCw, ArrowLeft, ExternalLink, Calendar, MapPin, Footprints, Bike, Flame, Award } from 'lucide-react';
+import { RefreshCw, ArrowLeft, ExternalLink, Calendar, MapPin, Footprints, Bike, Flame, Award, Heart } from 'lucide-react';
 import { StravaIcon } from '@/components/icons/BrandIcons';
+import { polylineToSvgPath } from '@/lib/strava/polyline';
 
 interface ActivityItem {
   id: string;
@@ -17,6 +18,9 @@ interface ActivityItem {
   startDate: string;
   averageSpeed: number | null;
   kudosCount: number;
+  summaryPolyline?: string | null;
+  averageHeartrate?: number | null;
+  maxSpeed?: number | null;
 }
 
 interface DashboardViewProps {
@@ -334,8 +338,34 @@ export function DashboardView({ user, activities, stats, lastSync }: DashboardVi
                       <h3 className="text-base font-bold text-white group-hover:text-orange-400 transition-colors">
                         {act.name}
                       </h3>
+                      {act.averageHeartrate && (
+                        <div className="flex items-center gap-1 text-[11px] text-rose-400 font-semibold">
+                          <Heart className="w-3 h-3 fill-rose-500/30 text-rose-400" />
+                          <span>Ø {Math.round(act.averageHeartrate)} bpm</span>
+                        </div>
+                      )}
                     </div>
                   </div>
+
+                  {/* Optional Mini GPS Route Preview */}
+                  {act.summaryPolyline && (() => {
+                    const svgPath = polylineToSvgPath(act.summaryPolyline, 100, 50, 6);
+                    if (!svgPath) return null;
+                    return (
+                      <div className="hidden lg:flex items-center justify-center w-24 h-12 bg-zinc-950/80 rounded-xl border border-zinc-800 px-2 py-1 shrink-0" title="GPS-Track">
+                        <svg viewBox="0 0 100 50" className="w-full h-full">
+                          <path
+                            d={svgPath}
+                            fill="none"
+                            stroke="#fc5200"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      </div>
+                    );
+                  })()}
 
                   <div className="flex items-center justify-between sm:justify-end gap-6 border-t sm:border-t-0 border-zinc-800/80 pt-3 sm:pt-0">
                     <div className="text-left sm:text-right">
