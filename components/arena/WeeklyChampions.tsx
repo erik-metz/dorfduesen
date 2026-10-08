@@ -30,7 +30,7 @@ export function WeeklyChampions({ champions }: WeeklyChampionsProps) {
           className="text-xs font-bold text-orange-400 hover:text-orange-300 flex items-center gap-1.5 self-start sm:self-auto"
         >
           <Sparkles className="w-3.5 h-3.5" />
-          <span>Aktivitäten synchronisieren & mitmischen →</span>
+          <span>Aktivitäten ansehen & mitmischen →</span>
         </Link>
       </div>
 
