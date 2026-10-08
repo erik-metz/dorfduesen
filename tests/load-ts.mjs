@@ -20,6 +20,6 @@ export function loadTs(path, mocks = {}) {
   };
   runInNewContext(source, { module: loadedModule, exports: loadedModule.exports, require, process, Buffer,
     crypto: globalThis.crypto, TextEncoder, console, fetch: mocks.fetch ?? globalThis.fetch,
-    URL, Request, Response, setTimeout, clearTimeout }, { filename });
+    URL, Request, Response, AbortSignal, setTimeout, clearTimeout }, { filename });
   return loadedModule.exports;
 }

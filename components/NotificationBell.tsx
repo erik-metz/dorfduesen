@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { Bell, CheckCheck, ExternalLink, Trophy, X, ChevronRight, LayoutDashboard } from 'lucide-react';
+import { Bell, CheckCheck, Trophy, ChevronRight, LayoutDashboard } from 'lucide-react';
 import type { NotificationItem } from '@/types/notification';
 export type { NotificationItem };
 
@@ -46,7 +46,7 @@ export function NotificationBell() {
   };
 
   useEffect(() => {
-    fetchNotifications();
+    const initialFetch = setTimeout(fetchNotifications, 0);
 
     // Poll every 30s
     const interval = setInterval(fetchNotifications, 30000);
@@ -56,6 +56,7 @@ export function NotificationBell() {
     window.addEventListener('dorfdusen-refresh-notifications', handleRefresh);
 
     return () => {
+      clearTimeout(initialFetch);
       clearInterval(interval);
       window.removeEventListener('dorfdusen-refresh-notifications', handleRefresh);
     };

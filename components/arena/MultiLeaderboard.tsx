@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Trophy, Footprints, Bike, Flame, ArrowUpDown, Loader2 } from 'lucide-react';
@@ -15,48 +15,26 @@ export function MultiLeaderboard({ initialEntries }: MultiLeaderboardProps) {
   const [period, setPeriod] = useState<'week' | 'month' | 'all'>('week');
   const [sport, setSport] = useState<'all' | 'run' | 'ride'>('all');
   const [sortBy, setSortBy] = useState<'distance' | 'time' | 'elevation' | 'activities'>('distance');
-  const [entries, setEntries] = useState<LeaderboardEntry[]>(initialEntries);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-
-  // Sync initialEntries when props update
-  useEffect(() => {
-    setEntries(initialEntries);
-  }, [initialEntries]);
-
-  const isFirstMount = useRef(true);
+  const queryKey = `${period}:${sport}`;
+  const [result, setResult] = useState<{ key: string; entries: LeaderboardEntry[]; error?: string } | null>(null);
+  const isDefault = period === 'week' && sport === 'all';
+  const entries = isDefault ? initialEntries : result?.key === queryKey ? result.entries : [];
+  const isLoading = !isDefault && result?.key !== queryKey;
 
   useEffect(() => {
-    if (isFirstMount.current) {
-      isFirstMount.current = false;
-      return;
-    }
-
-    let isCancelled = false;
-    setIsLoading(true);
-
-    fetch(`/api/arena/leaderboard?period=${period}&sport=${sport}`)
-      .then((res) => {
-        if (!res.ok) throw new Error('Netzwerkfehler beim Laden des Leaderboards');
-        return res.json();
+    if (period === 'week' && sport === 'all') return;
+    const controller = new AbortController();
+    fetch(`/api/arena/leaderboard?period=${period}&sport=${sport}`, { signal: controller.signal })
+      .then(res => { if (!res.ok) throw new Error('Leaderboard konnte nicht geladen werden.'); return res.json(); })
+      .then(data => {
+        if (!data.success || !Array.isArray(data.leaderboard)) throw new Error('Ungültige Antwort.');
+        if (!controller.signal.aborted) setResult({ key: queryKey, entries: data.leaderboard });
       })
-      .then((data) => {
-        if (!isCancelled && data.success && Array.isArray(data.leaderboard)) {
-          setEntries(data.leaderboard);
-        }
-      })
-      .catch((err) => {
-        console.error('Fehler beim Laden des Leaderboards:', err);
-      })
-      .finally(() => {
-        if (!isCancelled) {
-          setIsLoading(false);
-        }
+      .catch(() => {
+        if (!controller.signal.aborted) setResult({ key: queryKey, entries: [], error: 'Leaderboard konnte nicht geladen werden. Bitte einen anderen Filter wählen oder erneut laden.' });
       });
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [period, sport]);
+    return () => controller.abort();
+  }, [period, sport, queryKey]);
 
   // Client-side sort
   const sortedEntries = [...entries].sort((a, b) => {
@@ -69,6 +47,7 @@ export function MultiLeaderboard({ initialEntries }: MultiLeaderboardProps) {
 
   return (
     <div className="space-y-6">
+      {!isDefault && result?.key === queryKey && result.error && <p role="alert" className="text-rose-400">{result.error}</p>}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-600/10 border border-orange-500/20 text-orange-400 text-xs font-bold uppercase tracking-wider mb-2">

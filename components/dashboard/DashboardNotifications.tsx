@@ -7,15 +7,10 @@ import {
   CheckCheck,
   Check,
   ChevronRight,
-  Flame,
   Trophy,
   Award,
-  Sparkles,
-  ExternalLink,
   RefreshCw,
   Clock,
-  Filter,
-  ShieldAlert,
 } from 'lucide-react';
 import { NotificationItem, NotificationMetadata } from '@/types/notification';
 
@@ -153,9 +148,7 @@ export function DashboardNotifications({
 
   useEffect(() => {
     // If we had no initial notifications, load on mount
-    if (initialNotifications.length === 0) {
-      fetchLatest();
-    }
+    const initialFetch = initialNotifications.length === 0 ? setTimeout(fetchLatest, 0) : undefined;
 
     // Auto-poll every 30 seconds
     const interval = setInterval(fetchLatest, 30000);
@@ -165,6 +158,7 @@ export function DashboardNotifications({
     window.addEventListener('dorfdusen-refresh-notifications', handleRefresh);
 
     return () => {
+      clearTimeout(initialFetch);
       clearInterval(interval);
       window.removeEventListener('dorfdusen-refresh-notifications', handleRefresh);
     };

@@ -23,7 +23,6 @@ import {
   RefreshCw,
   Sparkles,
   Trophy,
-  Crown,
   Bell,
   ChevronRight,
   Eye,
