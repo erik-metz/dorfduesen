@@ -4,6 +4,7 @@ import { connection } from 'next/server';
 import { ArrowLeft, Flame, ShieldCheck, Zap } from 'lucide-react';
 import { getCurrentUser } from '@/lib/auth/session';
 import { db } from '@/lib/db';
+import { syncUserActivities } from '@/lib/strava/sync';
 import { DashboardView } from '@/components/DashboardView';
 import { StravaIcon } from '@/components/icons/BrandIcons';
 import { NotificationToast } from '@/components/NotificationToast';
@@ -93,6 +94,33 @@ async function DashboardContent() {
     );
   }
 
+  // Automatischer Sync beim Aufruf des Strava-Dashboards:
+  // Wenn der letzte erfolgreiche Sync älter als 60 Sekunden ist oder noch keiner stattfand,
+  // synchronisieren wir Aktivitäten automatisch direkt von Strava.
+  const lastSyncLog = await db.syncLog.findFirst({
+    where: { userId: user.id, status: 'SUCCESS' },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  const AUTO_SYNC_COOLDOWN_MS = 60 * 1000;
+  const shouldAutoSync = !lastSyncLog || (Date.now() - lastSyncLog.createdAt.getTime() > AUTO_SYNC_COOLDOWN_MS);
+
+  if (shouldAutoSync) {
+    try {
+      await syncUserActivities(user.id, 30);
+    } catch (syncErr) {
+      console.error('Automatischer Strava-Sync fehlgeschlagen:', syncErr);
+    }
+  }
+
+  // Neuesten Sync-Zeitpunkt ermitteln
+  const currentSyncLog = shouldAutoSync
+    ? await db.syncLog.findFirst({
+        where: { userId: user.id, status: 'SUCCESS' },
+        orderBy: { createdAt: 'desc' },
+      })
+    : lastSyncLog;
+
   // User ist angemeldet -> Hole Aktivitäten aus der DB
   const rawActivities = await db.activity.findMany({
     where: { userId: user.id },
@@ -114,6 +142,7 @@ async function DashboardContent() {
     summaryPolyline: act.summaryPolyline,
     averageHeartrate: act.averageHeartrate,
     maxSpeed: act.maxSpeed,
+    detailData: act.detailJson ? (act.detailJson as unknown as import('@/lib/strava/activity-detail').ActivityDetailData) : null,
   }));
 
   // Aggregierte Statistiken
@@ -128,7 +157,11 @@ async function DashboardContent() {
     activityCount: activities.length,
   };
 
-  const lastSync = user.account?.updatedAt ? user.account.updatedAt.toISOString() : null;
+  const lastSync = currentSyncLog?.createdAt
+    ? currentSyncLog.createdAt.toISOString()
+    : user.account?.updatedAt
+    ? user.account.updatedAt.toISOString()
+    : null;
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">

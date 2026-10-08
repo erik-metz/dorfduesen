@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { Trophy, Footprints, Flame, ExternalLink, Users } from 'lucide-react';
 import { db } from '@/lib/db';
 import { StravaIcon } from '@/components/icons/BrandIcons';
+import { isValidAvatarUrl } from '@/lib/utils/avatar';
 
 export async function CommunityFeed() {
   // Fetch top runners and recent activities from database
@@ -166,8 +167,8 @@ export async function CommunityFeed() {
                           #{idx + 1}
                         </span>
                         <div className="relative w-9 h-9 rounded-full overflow-hidden bg-zinc-800 shrink-0">
-                          {ath.profile ? (
-                            <Image src={ath.profile} alt={ath.name} fill className="object-cover" />
+                          {isValidAvatarUrl(ath.profile) ? (
+                            <Image src={ath.profile!} alt={ath.name} fill unoptimized className="object-cover" />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center text-zinc-400 text-xs font-bold">
                               {ath.name.charAt(0)}
@@ -203,8 +204,8 @@ export async function CommunityFeed() {
                   >
                     <div className="flex items-center gap-3">
                       <div className="relative w-8 h-8 rounded-full overflow-hidden bg-zinc-800 shrink-0">
-                        {act.userProfile ? (
-                          <Image src={act.userProfile} alt={act.userName} fill className="object-cover" />
+                        {isValidAvatarUrl(act.userProfile) ? (
+                          <Image src={act.userProfile!} alt={act.userName} fill unoptimized className="object-cover" />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-xs font-bold text-zinc-400">
                             {act.userName.charAt(0)}

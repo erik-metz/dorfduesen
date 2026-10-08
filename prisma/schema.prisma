@@ -24,6 +24,8 @@ model User {
   activities      Activity[]
   syncLogs        SyncLog[]
   userBadges      UserBadge[]
+  profileData     UserProfile?
+  trainingPlans   TrainingPlan[]
 }
 
 model Account {
@@ -60,7 +62,9 @@ model Activity {
   commentCount       Int      @default(0)
   achievementCount   Int      @default(0)
   summaryPolyline    String?
+  detailJson         Json?
   syncedAt           DateTime @default(now())
+  matchedWorkouts    PlanWorkout[]
 
   @@index([userId])
   @@index([startDate])
@@ -108,4 +112,86 @@ model Challenge {
   startDate   DateTime
   endDate     DateTime
   isActive    Boolean  @default(true)
+}
+
+model UserProfile {
+  id                  String    @id @default(cuid())
+  userId              String    @unique
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  birthDate           DateTime?
+  heightCm            Float?
+  weightKg            Float?
+  restingHeartrate    Int?
+  maxHeartrate        Int?
+  estimatedVo2max     Float?
+  vdotScore           Float?
+  weeklyAvailability  Int       @default(3) // 2 to 6 days
+  preferredLongRunDay Int       @default(0) // 0 = Sunday (DorfDüsen Sunday Run)
+  preferredTerrain    String?   @default("ROAD") // ROAD | TRAIL | MIXED
+  notes               String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+}
+
+model TrainingPlan {
+  id                 String       @id @default(cuid())
+  userId             String
+  user               User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title              String       // e.g. "Halbmarathon Sub 1:45"
+  goalType           String       // 5K | 10K | HALF_MARATHON | MARATHON | GENERAL_FITNESS | BASE_BUILD
+  targetDistance     Float?       // in km (e.g. 21.1)
+  targetTimeSeconds  Int?         // in seconds (e.g. 6300)
+  targetDate         DateTime?
+  startDate          DateTime
+  endDate            DateTime
+  status             String       @default("QUEUED") // QUEUED | PROCESSING | ACTIVE | PAUSED | COMPLETED | FAILED
+  currentWeek        Int          @default(1)
+  totalWeeks         Int
+  inngestEventId     String?
+  generationPrompt   String?
+  coachingPhilosophy String?
+  weeks              PlanWeek[]
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  @@index([userId])
+}
+
+model PlanWeek {
+  id             String        @id @default(cuid())
+  planId         String
+  plan           TrainingPlan  @relation(fields: [planId], references: [id], onDelete: Cascade)
+  weekNumber     Int
+  phase          String        // BASE | BUILD | PEAK | TAPER | RECOVERY
+  targetDistance Float         // in km
+  actualDistance Float         @default(0)
+  isDeloadWeek   Boolean       @default(false)
+  focusTitle     String?
+  workouts       PlanWorkout[]
+
+  @@index([planId])
+}
+
+model PlanWorkout {
+  id                    String       @id @default(cuid())
+  weekId                String
+  week                  PlanWeek     @relation(fields: [weekId], references: [id], onDelete: Cascade)
+  scheduledDate         DateTime
+  sportType             String       @default("Run") // Run | Ride | Rest | Strength
+  workoutType           String       // EASY | TEMPO | INTERVAL | LONGRUN | RECOVERY | REST
+  title                 String
+  description           String
+  targetDistance        Float?       // in km
+  targetDurationMinutes Int?
+  targetPaceMin         String?      // "5:30"
+  targetPaceMax         String?      // "5:45"
+  targetHrZone          Int?         // 1, 2, 3, 4, 5
+  structuredSteps       Json?        // Interval sequence
+  status                String       @default("PENDING") // PENDING | COMPLETED | SKIPPED | ADAPTED
+  matchedActivityId     String?
+  matchedActivity       Activity?    @relation(fields: [matchedActivityId], references: [id], onDelete: SetNull)
+  aiFeedback            String?
+
+  @@index([weekId])
+  @@index([scheduledDate])
 }

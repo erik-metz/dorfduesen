@@ -1,5 +1,6 @@
 import { NextResponse, connection } from 'next/server';
 import { getCurrentUser } from '@/lib/auth/session';
+import { sanitizeAvatarUrl } from '@/lib/utils/avatar';
 
 export async function GET() {
   await connection();
@@ -17,7 +18,7 @@ export async function GET() {
       firstname: user.firstname,
       lastname: user.lastname,
       username: user.username,
-      profile: user.profile,
+      profile: sanitizeAvatarUrl(user.profile),
       city: user.city,
       country: user.country,
       activityCount: user._count.activities,

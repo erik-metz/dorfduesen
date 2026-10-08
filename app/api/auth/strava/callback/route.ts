@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import { db } from '@/lib/db';
 import { createSessionToken, setSessionCookie } from '@/lib/auth/session';
 import { syncUserActivities } from '@/lib/strava/sync';
+import { sanitizeAvatarUrl } from '@/lib/utils/avatar';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -61,6 +62,8 @@ export async function GET(request: Request) {
     const athlete = data.athlete;
     const stravaAthleteId = String(athlete.id);
 
+    const sanitizedProfile = sanitizeAvatarUrl(athlete.profile || athlete.profile_medium);
+
     // Upsert User
     const user = await db.user.upsert({
       where: { stravaAthleteId },
@@ -68,7 +71,7 @@ export async function GET(request: Request) {
         firstname: athlete.firstname || null,
         lastname: athlete.lastname || null,
         username: athlete.username || null,
-        profile: athlete.profile || athlete.profile_medium || null,
+        profile: sanitizedProfile,
         city: athlete.city || null,
         country: athlete.country || null,
         sex: athlete.sex || null,
@@ -78,7 +81,7 @@ export async function GET(request: Request) {
         firstname: athlete.firstname || null,
         lastname: athlete.lastname || null,
         username: athlete.username || null,
-        profile: athlete.profile || athlete.profile_medium || null,
+        profile: sanitizedProfile,
         city: athlete.city || null,
         country: athlete.country || null,
         sex: athlete.sex || null,

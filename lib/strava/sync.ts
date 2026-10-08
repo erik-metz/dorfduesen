@@ -51,7 +51,7 @@ export async function syncUserActivities(userId: string, perPage = 30): Promise<
       const stravaId = String(act.id);
       const sportType = act.sport_type || act.type || 'Workout';
 
-      await db.activity.upsert({
+      const record = await db.activity.upsert({
         where: { stravaId },
         update: {
           name: act.name,
@@ -95,6 +95,20 @@ export async function syncUserActivities(userId: string, perPage = 30): Promise<
           summaryPolyline: act.map?.summary_polyline ?? null,
         },
       });
+
+      // Dispatch event to Inngest for background coach evaluation
+      try {
+        const { inngest } = await import('@/lib/inngest/client');
+        await inngest.send({
+          name: 'strava/activity.synced',
+          data: {
+            activityId: record.id,
+            userId,
+          },
+        });
+      } catch {
+        // Continue silently if Inngest is offline or during local development
+      }
 
       syncedCount++;
     }

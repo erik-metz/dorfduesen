@@ -1,0 +1,151 @@
+import { inngest } from "../client";
+import { db } from "@/lib/db";
+import { xai, XAI_DEFAULT_MODEL } from "../../ai/xai";
+
+export const analyzeActivityFunction = inngest.createFunction(
+  {
+    id: "analyze-activity-compliance",
+    name: "Analyze Activity & Match Training Plan",
+    triggers: [{ event: "strava/activity.synced" }],
+  },
+  async ({ event, step }) => {
+    const { activityId, userId } = event.data;
+
+    // STEP 1: Find activity and check if user has active plan
+    const match = await step.run("find-matching-workout", async () => {
+      const activity = await db.activity.findUnique({
+        where: { id: activityId },
+      });
+
+      if (!activity || !activity.sportType.toLowerCase().includes("run")) {
+        return { matched: false, reason: "Not a run or not found" };
+      }
+
+      // Check active plan
+      const activePlan = await db.trainingPlan.findFirst({
+        where: {
+          userId,
+          status: "ACTIVE",
+        },
+        include: {
+          weeks: {
+            include: {
+              workouts: true,
+            },
+          },
+        },
+      });
+
+      if (!activePlan) {
+        return { matched: false, reason: "No active plan found" };
+      }
+
+      // Find workout on the same calendar day
+      const activityDate = new Date(activity.startDate);
+      const startOfDay = new Date(activityDate);
+      startOfDay.setHours(0, 0, 0, 0);
+      const endOfDay = new Date(activityDate);
+      endOfDay.setHours(23, 59, 59, 999);
+
+      let matchedWorkout = null;
+      for (const week of activePlan.weeks) {
+        for (const wo of week.workouts) {
+          const woDate = new Date(wo.scheduledDate);
+          if (woDate >= startOfDay && woDate <= endOfDay && wo.status === "PENDING") {
+            matchedWorkout = wo;
+            break;
+          }
+        }
+        if (matchedWorkout) break;
+      }
+
+      if (!matchedWorkout) {
+        return { matched: false, reason: "No pending workout for this day" };
+      }
+
+      return {
+        matched: true,
+        workoutId: matchedWorkout.id,
+        workoutTitle: matchedWorkout.title,
+        targetDistance: matchedWorkout.targetDistance,
+        targetPaceMin: matchedWorkout.targetPaceMin,
+        targetHrZone: matchedWorkout.targetHrZone,
+        activityDistanceKm: Math.round((activity.distance / 1000) * 10) / 10,
+        activityAvgHr: activity.averageHeartrate,
+        activityPaceMinPerKm: activity.averageSpeed ? Math.round((1000 / activity.averageSpeed) / 60 * 10) / 10 : null,
+      };
+    });
+
+interface WorkoutMatchResult {
+  matched: boolean;
+  reason?: string;
+  workoutId?: string;
+  workoutTitle?: string;
+  targetDistance?: number | null;
+  targetPaceMin?: string | null;
+  targetHrZone?: number | null;
+  activityDistanceKm?: number;
+  activityAvgHr?: number | null;
+  activityPaceMinPerKm?: number | null;
+}
+
+    const matchData = match as unknown as WorkoutMatchResult;
+    if (!matchData.matched || !matchData.workoutId) {
+      return { status: "SKIPPED", reason: matchData.reason || "No match" };
+    }
+
+    // STEP 2: Generate Coach Micro-Feedback (xAI or Rule-based)
+    const feedback = await step.run("generate-coach-feedback", async () => {
+      const hasValidApiKey =
+        process.env.XAI_API_KEY &&
+        process.env.XAI_API_KEY.length > 5 &&
+        !process.env.XAI_API_KEY.includes("your-xai-api-key");
+
+      if (hasValidApiKey) {
+        try {
+          const res = await xai.chat.completions.create({
+            model: process.env.XAI_MODEL || XAI_DEFAULT_MODEL,
+            messages: [
+              {
+                role: "system",
+                content: "Du bist der DorfDüsen Laufcoach. Gib dem Läufer ein kurzes, prägnantes 2-Satz Feedback zum absolvierten Lauf im Vergleich zum Trainingsplan (Lob oder sanfter Hinweis bzgl. Pace/Puls). Antworte auf Deutsch.",
+              },
+              {
+                role: "user",
+                content: `Geplant: ${matchData.workoutTitle}, Soll-Distanz: ${matchData.targetDistance} km, Ziel-Pulszone: Zone ${matchData.targetHrZone}.
+Tatsächlich gelaufen: ${matchData.activityDistanceKm} km, Ø Puls: ${matchData.activityAvgHr || "unbekannt"} bpm.`,
+              },
+            ],
+            max_tokens: 120,
+            temperature: 0.5,
+          });
+
+          return res.choices[0]?.message?.content || "Starke Einheit! Weiter so.";
+        } catch {
+          // Fallback below
+        }
+      }
+
+      // Rule-based fallback feedback
+      const actualKm = matchData.activityDistanceKm ?? 0;
+      if (matchData.targetDistance && actualKm >= matchData.targetDistance * 0.9) {
+        return `Klasse Leistung! Du hast das geplante Soll von ${matchData.targetDistance} km mit ${actualKm} km souverän absolviert.`;
+      }
+      return `Einheit erfasst (${actualKm} km). Gönn dir jetzt ausreichend Regeneration vor dem nächsten Lauf!`;
+    });
+
+    // STEP 3: Update workout record
+    await step.run("update-workout-status", async () => {
+      await db.planWorkout.update({
+        where: { id: matchData.workoutId },
+        data: {
+          status: "COMPLETED",
+          matchedActivityId: activityId,
+          aiFeedback: feedback,
+        },
+      });
+    });
+
+    return { status: "COMPLETED", workoutId: matchData.workoutId, feedback };
+  }
+);

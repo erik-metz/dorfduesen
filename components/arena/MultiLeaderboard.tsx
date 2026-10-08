@@ -5,6 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Trophy, Footprints, Bike, Flame, ArrowUpDown } from 'lucide-react';
 import { LeaderboardEntry } from '@/lib/arena/stats';
+import { isValidAvatarUrl } from '@/lib/utils/avatar';
 
 interface MultiLeaderboardProps {
   initialEntries: LeaderboardEntry[];
@@ -193,11 +194,12 @@ export function MultiLeaderboard({ initialEntries }: MultiLeaderboardProps) {
                       <td className="py-4 px-4">
                         <div className="flex items-center gap-3">
                           <div className="relative w-9 h-9 rounded-full overflow-hidden bg-zinc-800 shrink-0 border border-zinc-700">
-                            {row.profile ? (
+                            {isValidAvatarUrl(row.profile) ? (
                               <Image
-                                src={row.profile}
+                                src={row.profile!}
                                 alt={row.name}
                                 fill
+                                unoptimized
                                 className="object-cover"
                               />
                             ) : (

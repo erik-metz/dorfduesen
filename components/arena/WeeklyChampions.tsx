@@ -3,6 +3,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Crown, Sparkles } from 'lucide-react';
 import { ChampionTitle } from '@/lib/arena/stats';
+import { isValidAvatarUrl } from '@/lib/utils/avatar';
 
 interface WeeklyChampionsProps {
   champions: ChampionTitle[];
@@ -69,11 +70,12 @@ export function WeeklyChampions({ champions }: WeeklyChampionsProps) {
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="relative w-10 h-10 rounded-full overflow-hidden border-2 border-orange-500 shrink-0 bg-zinc-950">
-                        {champ.winner.profile ? (
+                        {isValidAvatarUrl(champ.winner.profile) ? (
                           <Image
-                            src={champ.winner.profile}
+                            src={champ.winner.profile!}
                             alt={champ.winner.name}
                             fill
+                            unoptimized
                             className="object-cover"
                           />
                         ) : (

@@ -15,9 +15,11 @@ import {
   ChevronRight,
   User as UserIcon,
   LayoutDashboard,
+  Sparkles,
 } from 'lucide-react';
 import { ClubData } from '@/types/club';
 import { StravaIcon, InstagramIcon } from '@/components/icons/BrandIcons';
+import { isValidAvatarUrl } from '@/lib/utils/avatar';
 
 interface NavbarProps {
   club: ClubData;
@@ -80,6 +82,14 @@ export function Navbar({ club, currentUser }: NavbarProps) {
       isSpecial: true,
       icon: Trophy,
       description: 'Leaderboard, Titel & Badges',
+    },
+    {
+      label: 'Smart Coach',
+      href: '/coach',
+      badge: 'KI',
+      isSpecial: true,
+      icon: Sparkles,
+      description: 'KI-Trainingsplan & VDOT-Zonen',
     },
     {
       label: 'Feed & Vibe',
@@ -162,9 +172,9 @@ export function Navbar({ club, currentUser }: NavbarProps) {
                 href="/dashboard"
                 className="inline-flex items-center gap-2.5 pl-2.5 pr-4 py-1.5 rounded-full text-xs font-bold bg-zinc-900 hover:bg-zinc-800 border border-zinc-700/80 text-white transition-all shadow-md group"
               >
-                {user.profile ? (
+                {isValidAvatarUrl(user.profile) ? (
                   <div className="relative w-6 h-6 rounded-full overflow-hidden ring-1 ring-orange-500">
-                    <Image src={user.profile} alt={displayName || ''} fill className="object-cover" />
+                    <Image src={user.profile!} alt={displayName || ''} fill unoptimized className="object-cover" />
                   </div>
                 ) : (
                   <div className="w-6 h-6 rounded-full bg-orange-600/20 text-orange-400 flex items-center justify-center">
@@ -194,9 +204,9 @@ export function Navbar({ club, currentUser }: NavbarProps) {
                 className="flex items-center gap-2 p-1.5 sm:px-3 sm:py-1.5 rounded-full bg-zinc-900 border border-zinc-800 text-xs font-bold text-white"
                 aria-label="Dashboard"
               >
-                {user.profile ? (
+                {isValidAvatarUrl(user.profile) ? (
                   <div className="relative w-7 h-7 rounded-full overflow-hidden ring-1 ring-orange-500">
-                    <Image src={user.profile} alt={displayName || ''} fill className="object-cover" />
+                    <Image src={user.profile!} alt={displayName || ''} fill unoptimized className="object-cover" />
                   </div>
                 ) : (
                   <UserIcon className="w-4 h-4 text-orange-400" />
@@ -238,9 +248,9 @@ export function Navbar({ club, currentUser }: NavbarProps) {
               {user ? (
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    {user.profile ? (
+                    {isValidAvatarUrl(user.profile) ? (
                       <div className="relative w-11 h-11 rounded-full overflow-hidden ring-2 ring-orange-500">
-                        <Image src={user.profile} alt={displayName || ''} fill className="object-cover" />
+                        <Image src={user.profile!} alt={displayName || ''} fill unoptimized className="object-cover" />
                       </div>
                     ) : (
                       <div className="w-11 h-11 rounded-full bg-orange-600/20 text-orange-400 flex items-center justify-center font-black">

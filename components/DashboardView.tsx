@@ -3,9 +3,10 @@
 import React, { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { RefreshCw, ArrowLeft, ExternalLink, Calendar, MapPin, Footprints, Bike, Flame, Award, Heart } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Calendar, MapPin, Footprints, Bike, Flame, Award, Heart } from 'lucide-react';
 import { StravaIcon } from '@/components/icons/BrandIcons';
 import { polylineToSvgPath } from '@/lib/strava/polyline';
+import { isValidAvatarUrl } from '@/lib/utils/avatar';
 
 interface ActivityItem {
   id: string;
@@ -68,31 +69,7 @@ function formatDuration(seconds: number): string {
 }
 
 export function DashboardView({ user, activities, stats, lastSync }: DashboardViewProps) {
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [syncMessage, setSyncMessage] = useState<string | null>(null);
   const [filterSport, setFilterSport] = useState<string>('all');
-
-  const handleSync = async () => {
-    try {
-      setIsSyncing(true);
-      setSyncMessage(null);
-      const res = await fetch('/api/strava/sync', { method: 'POST' });
-      const data = await res.json();
-      if (res.ok) {
-        setSyncMessage(data.message || 'Synchronisation erfolgreich abgeschlossen!');
-        // Seite nach 1 Sekunde neu laden um neue Aktivitäten anzuzeigen
-        setTimeout(() => {
-          window.location.reload();
-        }, 1200);
-      } else {
-        setSyncMessage(data.error || 'Fehler beim Synchronisieren');
-      }
-    } catch {
-      setSyncMessage('Netzwerkfehler beim Synchronisieren');
-    } finally {
-      setIsSyncing(false);
-    }
-  };
 
   const filteredActivities = activities.filter((act) => {
     if (filterSport === 'all') return true;
@@ -141,8 +118,8 @@ export function DashboardView({ user, activities, stats, lastSync }: DashboardVi
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative z-10">
           <div className="flex items-center gap-5">
             <div className="relative w-20 h-20 rounded-2xl overflow-hidden border-2 border-orange-500 shadow-xl shadow-orange-500/20 shrink-0 bg-zinc-950">
-              {user.profile ? (
-                <Image src={user.profile} alt={displayName} fill className="object-cover" />
+              {isValidAvatarUrl(user.profile) ? (
+                <Image src={user.profile!} alt={displayName} fill unoptimized className="object-cover" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-orange-400 font-bold text-2xl">
                   {displayName.charAt(0)}
@@ -169,24 +146,18 @@ export function DashboardView({ user, activities, stats, lastSync }: DashboardVi
             </div>
           </div>
 
-          {/* Sync Button */}
-          <div className="flex flex-col items-start md:items-end gap-2 w-full md:w-auto">
-            <button
-              onClick={handleSync}
-              disabled={isSyncing}
-              className="w-full md:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl font-bold bg-[#fc5200] hover:bg-[#e04800] disabled:bg-zinc-800 text-white shadow-xl shadow-[#fc5200]/25 transition-all text-sm cursor-pointer"
-            >
-              <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
-              <span>{isSyncing ? 'Synchronisiere Aktivitäten...' : 'Aktivitäten synchronisieren'}</span>
-            </button>
+          {/* Auto-Sync Status Indicator */}
+          <div className="flex flex-col items-start md:items-end gap-1.5 w-full md:w-auto">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-zinc-950/80 border border-zinc-800 text-xs font-medium text-zinc-300 shadow-inner">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              <span>Automatische Synchronisation aktiv</span>
+            </div>
             {lastSync && (
               <span className="text-[11px] text-zinc-500">
                 Zuletzt synchronisiert: {new Date(lastSync).toLocaleString('de-DE')}
-              </span>
-            )}
-            {syncMessage && (
-              <span className="text-xs font-semibold text-emerald-400 animate-fade-in">
-                {syncMessage}
               </span>
             )}
           </div>
