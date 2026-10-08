@@ -85,7 +85,7 @@ export const generatePlanFunction = inngest.createFunction(
         athleteBaseline: baseline.stats,
         paces,
         zones,
-        skeleton: skeleton as PeriodizationPlanSkeleton,
+        skeleton: skeleton as unknown as PeriodizationPlanSkeleton,
       });
     });
 
