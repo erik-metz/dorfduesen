@@ -139,6 +139,14 @@ export async function syncUserActivities(userId: string, perPage = 30): Promise<
       console.error('Fehler bei Wochentitel-Auswertung:', titleErr);
     }
 
+    // Evaluate and award unlocked milestone & community badges
+    try {
+      const { evaluateUserBadges } = await import('@/lib/arena/badge-engine');
+      await evaluateUserBadges(userId);
+    } catch (badgeErr) {
+      console.error('Fehler bei Badge-Auswertung:', badgeErr);
+    }
+
     return { success: true, count: syncedCount };
   } catch (error: unknown) {
     const errorMsg = error instanceof Error ? error.message : 'Unbekannter Synchronisationsfehler';

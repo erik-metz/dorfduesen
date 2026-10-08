@@ -126,6 +126,14 @@ async function DashboardContent() {
       })
     : lastSyncLog;
 
+  // Evaluate and award any earned milestone badges
+  try {
+    const { evaluateUserBadges } = await import('@/lib/arena/badge-engine');
+    await evaluateUserBadges(user.id);
+  } catch (badgeErr) {
+    console.error('Fehler bei automatischer Badge-Auswertung im Dashboard:', badgeErr);
+  }
+
   // User ist angemeldet -> Hole Aktivitäten aus der DB
   const rawActivities = await db.activity.findMany({
     where: { userId: user.id },

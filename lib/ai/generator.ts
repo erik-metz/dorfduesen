@@ -33,6 +33,8 @@ export interface GeneratedWeek {
 export interface PlanGenerationContext {
   planTitle: string;
   goalType: string;
+  goalSubtype?: string;
+  goalDescription?: string;
   athleteBaseline: AthleteBaseline;
   paces: TrainingPaces;
   zones: HeartRateZone[];
@@ -69,8 +71,9 @@ Deine Aufgabe ist es, für die bereitgestellten Rahmendaten der Wochen detaillie
 Wichtige Regeln:
 1. 80/20 Prinzip (Polarisiertes Training): 80% des Volumens MUSS in Zone 2 (Grundlagenausdauer / Easy) stattfinden.
 2. Der Sonntag ist immer der beliebte DorfDüsen-Vereinslauf (Long Run oder Gemeinschaftsrunde).
-3. Halte dich exakt an die vorgegebenen Wochenkilometer und Pace-Zonen.
-4. Gib IMMER valides JSON zurück, das dem gewünschten Schema entspricht. Keine Erklärungen außerhalb von JSON.`,
+3. Passe Einheiten und Tonalität exakt an das Ziel an (z. B. Kondition/Durchhalten, Schwellentempo/1-Min schneller, Fettverbrennung/Gewicht, Gewohnheit/Routine).
+4. Halte dich exakt an die vorgegebenen Wochenkilometer und Pace-Zonen.
+5. Gib IMMER valides JSON zurück, das dem gewünschten Schema entspricht. Keine Erklärungen außerhalb von JSON.`,
         },
         {
           role: "user",
@@ -99,22 +102,65 @@ Wichtige Regeln:
   }
 }
 
+function getGoalGuidance(goalType: string, goalDescription?: string): string {
+  switch (goalType) {
+    case "FITNESS_BUILD":
+      return `Sportwissenschaftlicher Schwerpunkt: ALLGEMEINE KONDITION & DURCHHALTEN.
+- Der Athlet will fitter werden und längere Strecken ohne Erschöpfung durchlaufen können.
+- 90% des Trainings im aeroben Wohlfühltempo (Zone 2). Keine harten anaeroben Reize!
+- Fokus auf zeitbasiertes Durchhalten (z. B. 30–60 Min am Stück) und Stärkung des Herz-Kreislauf-Systems.
+- Details/Wunsch: ${goalDescription || "Ausdauer schrittweise aufbauen"}`;
+
+    case "SPEED_IMPROVE":
+      return `Sportwissenschaftlicher Schwerpunkt: SCHNELLIGKEIT & PACE-OPTIMIERUNG (z.B. Bestzeit / 1 Min schneller).
+- Gezielte Schwellenläufe (Zone 4) an der individuellen Laktatschwelle zur Steigerung der Tempohärte.
+- Präzise VO2max-Intervalle (Zone 5) mit Erholungstrabpausen.
+- 80% polarisiertes Grundlagentraining in Zone 2, damit die Tempotage mit maximaler Qualität gelaufen werden.
+- Details/Wunsch: ${goalDescription || "Pace verbessern & Schwellenhärte trainieren"}`;
+
+    case "WEIGHT_LOSS":
+      return `Sportwissenschaftlicher Schwerpunkt: GEWICHTSMANAGEMENT & FETTSTOFFWECHSEL.
+- Maximale Fettoxidation: Langer, ruhiger Pulsbereich strikt in Zone 2.
+- Gelenkschonend: Defensiver Kraftaufbau, Überlastung und Sehnenreizungen unbedingt vermeiden.
+- Am Ende kurzer Läufe 3-4 lockere Steigerungen (Strides) für neuromuskulären Reiz und Nachbrenneffekt.
+- Motivierende Tipps zu Hydration und ausgewogener Regeneration.
+- Details/Wunsch: ${goalDescription || "Fettverbrennung und Wohlfühlgewicht"}`;
+
+    case "ROUTINE":
+      return `Sportwissenschaftlicher Schwerpunkt: LAUFROUTINE & WIEDEREINSTIEG.
+- Feste Gewohnheit aufbauen (z. B. 2-3 verlässliche Einheiten pro Woche) oder sanfter Neustart nach Pause.
+- Niederschwellig und genussvoll: Kein Leistungsdruck, kein Ausbrennen.
+- Freude an der Bewegung und mentale Erholung stehen im Mittelpunkt.
+- Details/Wunsch: ${goalDescription || "Feste Laufgewohnheit etablieren"}`;
+
+    default:
+      return `Sportwissenschaftlicher Schwerpunkt: WETTKAMPF- & DISTANZVORBEREITUNG (${goalType}).
+- Systematische Periodisierung mit schrittweiser Steigerung des langen Laufs und rennspezifischen Paces.
+- Details/Wunsch: ${goalDescription || `Erfolgreiches Finishen von ${goalType}`}`;
+  }
+}
+
 function buildGrokPrompt(ctx: PlanGenerationContext): string {
-  const { skeleton, athleteBaseline, paces, zones, goalType, planTitle } = ctx;
+  const { skeleton, athleteBaseline, paces, zones, goalType, planTitle, goalDescription } = ctx;
 
   const skeletonSummary = skeleton.weeks.map((w) => ({
     weekNumber: w.weekNumber,
     phase: w.phase,
     targetKm: w.targetKm,
     isDeload: w.isDeloadWeek,
+    focusTitle: w.focusTitle,
     days: w.daysDistribution.filter((d) => d.workoutType !== "REST"),
   }));
+
+  const goalGuidance = getGoalGuidance(goalType, goalDescription);
 
   return `
 Erstelle die detaillierten Trainingseinheiten für folgenden Plan:
 Titel: ${planTitle}
-Ziel: ${goalType}
+Ziel-Typ: ${goalType}
 Dauer: ${skeleton.totalWeeks} Wochen
+
+${goalGuidance}
 
 Athleten-Metriken:
 - VDOT: ${athleteBaseline.estimatedVdot}
@@ -176,14 +222,30 @@ export function generateAlgorithmicPlan(ctx: PlanGenerationContext): GeneratedWe
       const duration = Math.round(d.approximateKm * 6); // ~6 min/km avg
 
       if (d.workoutType === "LONGRUN") {
-        title = "DorfDüsen Sunday Long Run";
-        desc = `Langer, ruhiger Ausdauerlauf in Zone 2. Fokus auf Fettstoffwechsel und aerobe Grundlagenausdauer.`;
+        if (ctx.goalType === "WEIGHT_LOSS") {
+          title = "Fettstoffwechsel-Ausdauerlauf (Zone 2)";
+          desc = "Langer, gleichmäßiger Dauerlauf im optimalen Fettverbrennungsbereich (Zone 2). Ausreichend trinken!";
+        } else if (ctx.goalType === "FITNESS_BUILD") {
+          title = "Aerobe Ausdauer-Erweiterung";
+          desc = "Längerer Lauf im Wohlfühltempo zur Stärkung von Herz und Lunge. Fokus auf entspanntes Durchhalten.";
+        } else if (ctx.goalType === "ROUTINE") {
+          title = "Wochenend-Genusslauf";
+          desc = "Schöne Laufrunde in der Natur ohne Zeitdruck zur Pflege deiner wöchentlichen Laufgewohnheit.";
+        } else {
+          title = "DorfDüsen Sunday Long Run";
+          desc = "Langer, ruhiger Ausdauerlauf in Zone 2. Fokus auf Fettstoffwechsel und aerobe Grundlagenausdauer.";
+        }
         paceMin = paces.easyMin;
         paceMax = paces.easyMax;
         hrZone = 2;
       } else if (d.workoutType === "TEMPO") {
-        title = "Schwellenlauf / Threshold Tempo";
-        desc = `2 km Einlaufen, danach ${Math.max(d.approximateKm - 4, 2)} km im kontrollierten Schwellentempo, 2 km Auslaufen.`;
+        if (ctx.goalType === "SPEED_IMPROVE") {
+          title = "Schwellenlauf zur Pace-Verschiebung";
+          desc = `2 km Einlaufen, danach ${Math.max(d.approximateKm - 4, 2)} km kontrolliertes Schwellentempo (Zone 4), 2 km Auslaufen.`;
+        } else {
+          title = "Schwellenlauf / Threshold Tempo";
+          desc = `2 km Einlaufen, danach ${Math.max(d.approximateKm - 4, 2)} km im kontrollierten Schwellentempo, 2 km Auslaufen.`;
+        }
         paceMin = paces.thresholdMin;
         paceMax = paces.thresholdMax;
         hrZone = 4;
@@ -194,8 +256,19 @@ export function generateAlgorithmicPlan(ctx: PlanGenerationContext): GeneratedWe
         paceMax = paces.intervalMax;
         hrZone = 5;
       } else {
-        title = "Lockerer Grundlagenausdauerlauf (GA1)";
-        desc = `Entspannter Dauerlauf zur Stabilisierung der Grundlagenausdauer. Puls strikt in Zone 2 halten.`;
+        if (ctx.goalType === "WEIGHT_LOSS") {
+          title = "Aktiver Fettverbrennungs-Dauerlauf";
+          desc = "Lockerer Dauerlauf in Zone 2 mit 3 kurzen Steigerungen am Ende zur Aktivierung des Nachbrenneffekts.";
+        } else if (ctx.goalType === "FITNESS_BUILD") {
+          title = "Konditionsaufbau im Wohlfühltempo";
+          desc = "Gleichmäßiges Laufen in Zone 2. Sprechen muss jederzeit problemlos möglich sein.";
+        } else if (ctx.goalType === "ROUTINE") {
+          title = "Entspannte Gewohnheits-Runde";
+          desc = "Kurze, unkomplizierte Einheit. Einfach Laufschuhe schnüren und aktiv den Kopf freibekommen.";
+        } else {
+          title = "Lockerer Grundlagenausdauerlauf (GA1)";
+          desc = "Entspannter Dauerlauf zur Stabilisierung der Grundlagenausdauer. Puls strikt in Zone 2 halten.";
+        }
         paceMin = paces.easyMin;
         paceMax = paces.easyMax;
         hrZone = 2;

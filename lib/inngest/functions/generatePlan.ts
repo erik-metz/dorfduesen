@@ -15,7 +15,18 @@ export const generatePlanFunction = inngest.createFunction(
     retries: 2,
   },
   async ({ event, step }) => {
-    const { userId, planId, goalType, targetDistance, targetDate, weeklyAvailability, preferredLongRunDay, includeSundayRun } = event.data;
+    const {
+      userId,
+      planId,
+      goalType,
+      goalSubtype,
+      goalDescription,
+      targetDistance,
+      targetDate,
+      weeklyAvailability,
+      preferredLongRunDay,
+      includeSundayRun,
+    } = event.data;
 
     // STEP 1: Calculate historical Strava baseline (CPU)
     const baseline = await step.run("calculate-athlete-baseline", async () => {
@@ -64,6 +75,8 @@ export const generatePlanFunction = inngest.createFunction(
       return buildPeriodizationSkeleton({
         baseline: baseline.stats,
         goalType,
+        goalSubtype,
+        goalDescription,
         targetDistanceKm: targetDistance,
         targetDate: targetDate ? new Date(targetDate) : undefined,
         weeklyAvailability,
@@ -85,6 +98,8 @@ export const generatePlanFunction = inngest.createFunction(
       return await generatePlanWithGrok({
         planTitle: planRecord?.title || `${goalType} Trainingsplan`,
         goalType,
+        goalSubtype,
+        goalDescription,
         athleteBaseline: baseline.stats,
         paces,
         zones,

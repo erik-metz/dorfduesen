@@ -21,6 +21,8 @@ import {
   AlertCircle,
   RefreshCw,
   Sparkles,
+  Trophy,
+  Crown,
 } from 'lucide-react';
 import { StravaIcon } from '@/components/icons/BrandIcons';
 import { polylineToSvgPath } from '@/lib/strava/polyline';
@@ -28,6 +30,7 @@ import { isValidAvatarUrl } from '@/lib/utils/avatar';
 import { ActivityDetailData } from '@/lib/strava/activity-detail';
 import { ActivityDetailCard } from '@/components/strava/ActivityDetailCard';
 import { CoachDashboard } from '@/components/coach/CoachDashboard';
+import { TrophyCabinet } from '@/components/trophies/TrophyCabinet';
 
 export interface ActivityItem {
   id: string;
@@ -109,13 +112,15 @@ export function DashboardView({ user, activities, stats, lastSync }: DashboardVi
   const [errorIds, setErrorIds] = useState<Record<string, string>>({});
   const [modalDetail, setModalDetail] = useState<ActivityDetailData | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [mainTab, setMainTab] = useState<'activities' | 'coach'>('activities');
+  const [mainTab, setMainTab] = useState<'activities' | 'trophies' | 'coach'>('activities');
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       if (params.get('tab') === 'coach') {
         setMainTab('coach');
+      } else if (params.get('tab') === 'trophies') {
+        setMainTab('trophies');
       }
     }
   }, []);
@@ -298,6 +303,21 @@ export function DashboardView({ user, activities, stats, lastSync }: DashboardVi
         </button>
 
         <button
+          onClick={() => setMainTab('trophies')}
+          className={`px-5 py-3 rounded-2xl font-bold text-sm transition-all flex items-center gap-2.5 cursor-pointer ${
+            mainTab === 'trophies'
+              ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20'
+              : 'text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800'
+          }`}
+        >
+          <Trophy className="w-4 h-4 text-amber-300" />
+          <span>Trophäenschrank</span>
+          <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-600/30 text-amber-300 border border-amber-500/30">
+            Vitrine
+          </span>
+        </button>
+
+        <button
           onClick={() => setMainTab('coach')}
           className={`px-5 py-3 rounded-2xl font-bold text-sm transition-all flex items-center gap-2.5 cursor-pointer ${
             mainTab === 'coach'
@@ -315,6 +335,8 @@ export function DashboardView({ user, activities, stats, lastSync }: DashboardVi
 
       {mainTab === 'coach' ? (
         <CoachDashboard />
+      ) : mainTab === 'trophies' ? (
+        <TrophyCabinet />
       ) : (
         <>
           {/* Aggregate Stats Cards */}

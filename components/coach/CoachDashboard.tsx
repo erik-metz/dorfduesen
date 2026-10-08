@@ -24,7 +24,140 @@ import {
   BatteryCharging,
   ShieldCheck,
   Users,
+  Trophy,
+  Target,
 } from 'lucide-react';
+
+export const GOAL_CATEGORIES = [
+  {
+    id: 'FITNESS_BUILD' as const,
+    title: 'Kondition & Ausdauer',
+    subtitle: 'Länger durchhalten & aerobe Basis stärken',
+    icon: Heart,
+    color: 'border-rose-500/30 text-rose-400 bg-rose-500/10',
+    activeBg: 'bg-rose-500 text-white border-rose-400 shadow-rose-500/20',
+    presets: [
+      { id: 'RUN_30_MIN', label: '30 Min am Stück durchlaufen', desc: 'Ohne Gehpause, Einstieg in dauerhaftes Laufen' },
+      { id: 'RUN_45_MIN', label: '45 Min am Stück durchlaufen', desc: 'Mittlere kontinuierliche aerobe Ausdauer' },
+      { id: 'RUN_60_MIN', label: '60 Min am Stück durchlaufen', desc: 'Solide Ausdauerbasis für lange Genussläufe' },
+      { id: 'AEROBIC_BASE', label: 'Zone 2 Basis & Puls senken', desc: 'Puls bei Belastung stabil niedrig halten lernen' },
+    ],
+  },
+  {
+    id: 'SPEED_IMPROVE' as const,
+    title: 'Schneller werden',
+    subtitle: 'Pace verbessern & Bestzeit angreifen',
+    icon: Zap,
+    color: 'border-amber-500/30 text-amber-400 bg-amber-500/10',
+    activeBg: 'bg-amber-500 text-white border-amber-400 shadow-amber-500/20',
+    presets: [
+      { id: '5K_MINUS_1', label: '1 Minute schneller auf 5 km', desc: 'Spezifisches Tempo- & Schwellentraining' },
+      { id: '10K_MINUS_2', label: '2 Minuten schneller auf 10 km', desc: 'Tempohärte & Schwellen-Pace steigern' },
+      { id: '5K_SUB_25', label: '5 km Sub 25 Min (< 5:00 min/km)', desc: 'Die 5-Minuten-Pace-Grenze knacken' },
+      { id: '10K_SUB_50', label: '10 km Sub 50 Min (< 5:00 min/km)', desc: 'Die magische 50-Minuten-Marke erreichen' },
+      { id: 'CUSTOM_SPEED', label: 'Individuelles Zeitziel', desc: 'Eigene Zielzeit oder Pace festlegen' },
+    ],
+  },
+  {
+    id: 'WEIGHT_LOSS' as const,
+    title: 'Gewicht & Fettstoffwechsel',
+    subtitle: 'Fettverbrennung aktivieren & Kilos verlieren',
+    icon: Flame,
+    color: 'border-orange-500/30 text-orange-400 bg-orange-500/10',
+    activeBg: 'bg-orange-500 text-white border-orange-400 shadow-orange-500/20',
+    presets: [
+      { id: 'FAT_BURN_ZONE2', label: 'Optimale Fettverbrennung', desc: 'Fokus auf maximale Fettoxidation in Zone 2' },
+      { id: 'BODY_TONING', label: 'Stoffwechsel-Kick & Tonus', desc: 'Zone 2 + kurze Steigerungen für Nachbrenneffekt' },
+      { id: 'HEALTH_RESTART', label: 'Gesunder Gewichtsneustart', desc: 'Gelenkschonender Aufbau mit hoher Kontinuität' },
+    ],
+  },
+  {
+    id: 'ROUTINE' as const,
+    title: 'Routine & Wohlbefinden',
+    subtitle: 'Gewohnheit festigen & Stress abbauen',
+    icon: Sparkles,
+    color: 'border-emerald-500/30 text-emerald-400 bg-emerald-500/10',
+    activeBg: 'bg-emerald-500 text-white border-emerald-400 shadow-emerald-500/20',
+    presets: [
+      { id: 'HABIT_3X', label: 'Verlässliche Laufroutine', desc: '2–3 Einheiten pro Woche fest im Alltag verankern' },
+      { id: 'RETURN_RUN', label: 'Sanfter Wiedereinstieg', desc: 'Nach Pause oder Verletzung behutsam zurück' },
+      { id: 'STRESS_RELIEF', label: 'Stressabbau & Kopf frei', desc: 'Reines Wohlfühltempo ohne jeglichen Leistungsdruck' },
+    ],
+  },
+  {
+    id: 'DISTANCE' as const,
+    title: 'Wettkampf & Distanz',
+    subtitle: '5k, 10k, Halbmarathon oder Marathon',
+    icon: Trophy,
+    color: 'border-cyan-500/30 text-cyan-400 bg-cyan-500/10',
+    activeBg: 'bg-cyan-500 text-white border-cyan-400 shadow-cyan-500/20',
+    presets: [
+      { id: '5K', label: '5 km Meilenstein', desc: 'Vorbereitung auf 5 km Volkslauf oder Finishen' },
+      { id: '10K', label: '10 km Meilenstein', desc: 'Klassische 10-Kilometer-Vorbereitung' },
+      { id: 'HALF_MARATHON', label: 'Halbmarathon (21,1 km)', desc: 'Gezielte 12-Wochen-Vorbereitung auf den Halbmarathon' },
+      { id: 'MARATHON', label: 'Marathon (42,2 km)', desc: 'Umfangreiche 16-Wochen-Marathonvorbereitung' },
+    ],
+  },
+];
+
+export function getGoalBadgeInfo(goalType: string) {
+  switch (goalType) {
+    case 'FITNESS_BUILD':
+      return {
+        label: 'Kondition & Ausdauer',
+        icon: Heart,
+        color: 'text-rose-400 bg-rose-500/10 border-rose-500/30',
+      };
+    case 'SPEED_IMPROVE':
+      return {
+        label: 'Schnelligkeit & Pace',
+        icon: Zap,
+        color: 'text-amber-400 bg-amber-500/10 border-amber-500/30',
+      };
+    case 'WEIGHT_LOSS':
+      return {
+        label: 'Gewicht & Fettstoffwechsel',
+        icon: Flame,
+        color: 'text-orange-400 bg-orange-500/10 border-orange-500/30',
+      };
+    case 'ROUTINE':
+      return {
+        label: 'Laufroutine & Wohlbefinden',
+        icon: Sparkles,
+        color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30',
+      };
+    case '5K':
+      return {
+        label: '5 km Distanz',
+        icon: Target,
+        color: 'text-cyan-400 bg-cyan-500/10 border-cyan-500/30',
+      };
+    case '10K':
+      return {
+        label: '10 km Distanz',
+        icon: Target,
+        color: 'text-cyan-400 bg-cyan-500/10 border-cyan-500/30',
+      };
+    case 'HALF_MARATHON':
+      return {
+        label: 'Halbmarathon',
+        icon: Trophy,
+        color: 'text-orange-400 bg-orange-500/10 border-orange-500/30',
+      };
+    case 'MARATHON':
+      return {
+        label: 'Marathon',
+        icon: Trophy,
+        color: 'text-purple-400 bg-purple-500/10 border-purple-500/30',
+      };
+    default:
+      return {
+        label: goalType,
+        icon: Activity,
+        color: 'text-zinc-400 bg-zinc-800 border-zinc-700',
+      };
+  }
+}
 
 interface Workout {
   id: string;
@@ -64,6 +197,7 @@ interface Plan {
   endDate: string;
   status: string;
   totalWeeks: number;
+  generationPrompt?: string | null;
   weeks: Week[];
 }
 
@@ -120,7 +254,9 @@ export function CoachDashboard() {
   const [activeTab, setActiveTab] = useState<'plan' | 'metrics' | 'philosophy' | 'new-plan'>('plan');
 
   // Generator form state
-  const [goalType, setGoalType] = useState('HALF_MARATHON');
+  const [goalCategory, setGoalCategory] = useState<'FITNESS_BUILD' | 'SPEED_IMPROVE' | 'WEIGHT_LOSS' | 'ROUTINE' | 'DISTANCE'>('FITNESS_BUILD');
+  const [goalSubtype, setGoalSubtype] = useState('RUN_30_MIN');
+  const [customGoalNote, setCustomGoalNote] = useState('');
   const [targetDate, setTargetDate] = useState('');
   const [weeklyDays, setWeeklyDays] = useState(3);
   const [longRunDay, setLongRunDay] = useState<number>(-1); // -1 = Flexibel nach Wetter/Tagesform
@@ -213,12 +349,38 @@ export function CoachDashboard() {
         });
       }
 
+      const selectedCategory = GOAL_CATEGORIES.find((c) => c.id === goalCategory);
+      const selectedPreset = selectedCategory?.presets.find((p) => p.id === goalSubtype);
+
+      const finalGoalType = goalCategory === 'DISTANCE' ? goalSubtype : goalCategory;
+      const planTitle = customGoalNote.trim()
+        ? `${selectedCategory?.title}: ${customGoalNote.trim()}`
+        : `${selectedCategory?.title} (${selectedPreset?.label || ''})`;
+
+      const goalDescription = customGoalNote.trim() || selectedPreset?.label;
+
+      let targetDistance: number | undefined = undefined;
+      if (goalCategory === 'DISTANCE') {
+        if (goalSubtype === '5K') targetDistance = 5;
+        else if (goalSubtype === '10K') targetDistance = 10;
+        else if (goalSubtype === 'HALF_MARATHON') targetDistance = 21.1;
+        else if (goalSubtype === 'MARATHON') targetDistance = 42.195;
+      } else if (goalSubtype === '5K_MINUS_1' || goalSubtype === '5K_SUB_25') {
+        targetDistance = 5;
+      } else if (goalSubtype === '10K_MINUS_2' || goalSubtype === '10K_SUB_50') {
+        targetDistance = 10;
+      }
+
       // Trigger plan generation via Inngest & xAI
       const res = await fetch('/api/coach/plan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          goalType,
+          title: planTitle,
+          goalType: finalGoalType,
+          goalSubtype,
+          goalDescription,
+          targetDistance,
           targetDate: targetDate || undefined,
           weeklyAvailability: weeklyDays,
           preferredLongRunDay: longRunDay,
@@ -458,9 +620,26 @@ export function CoachDashboard() {
           {/* Plan overview & Weeks list */}
           {plan ? (
             <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-xl font-black text-white">{plan.title}</h2>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-zinc-900/60 p-5 rounded-2xl border border-zinc-800">
+                <div className="space-y-1">
+                  {(() => {
+                    const badge = getGoalBadgeInfo(plan.goalType);
+                    const Icon = badge.icon;
+                    return (
+                      <div className="flex flex-wrap items-center gap-2 mb-1">
+                        <span className={`inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-bold border ${badge.color}`}>
+                          <Icon className="w-3.5 h-3.5" />
+                          <span>{badge.label}</span>
+                        </span>
+                        {plan.generationPrompt && (
+                          <span className="text-xs text-zinc-300 bg-zinc-800/80 px-2.5 py-0.5 rounded-full border border-zinc-700/60 font-medium">
+                            {plan.generationPrompt}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })()}
+                  <h2 className="text-xl sm:text-2xl font-black text-white">{plan.title}</h2>
                   <p className="text-xs text-zinc-400">
                     {plan.totalWeeks} Wochen • Gestartet am{' '}
                     {new Date(plan.startDate).toLocaleDateString('de-DE')}
@@ -1155,30 +1334,122 @@ export function CoachDashboard() {
           </div>
 
           <form onSubmit={handleCreatePlan} className="space-y-6">
-            {/* Goal selection */}
-            <div className="space-y-2">
-              <label className="text-xs font-bold uppercase text-zinc-300 block">Trainingsziel</label>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                {[
-                  { id: '5K', label: '5 km' },
-                  { id: '10K', label: '10 km' },
-                  { id: 'HALF_MARATHON', label: 'Halbmarathon' },
-                  { id: 'MARATHON', label: 'Marathon' },
-                ].map((g) => (
-                  <button
-                    key={g.id}
-                    type="button"
-                    onClick={() => setGoalType(g.id)}
-                    className={`p-3 rounded-xl border text-xs font-bold transition-all text-center cursor-pointer ${
-                      goalType === g.id
-                        ? 'bg-orange-500 border-orange-400 text-white shadow-lg shadow-orange-500/20'
-                        : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:text-white'
-                    }`}
-                  >
-                    {g.label}
-                  </button>
-                ))}
+            {/* Goal selection: 2 Steps (Category -> Presets & Custom note) */}
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-bold uppercase text-zinc-300 block mb-1">
+                  1. Was ist dein Hauptfokus?
+                </label>
+                <p className="text-xs text-zinc-400">
+                  Wähle deinen Trainingsschwerpunkt. Der Coach stimmt Periodisierung und Einheiten darauf ab.
+                </p>
               </div>
+
+              {/* 5 Categories Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                {GOAL_CATEGORIES.map((cat) => {
+                  const Icon = cat.icon;
+                  const isSelected = goalCategory === cat.id;
+
+                  return (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => {
+                        setGoalCategory(cat.id);
+                        setGoalSubtype(cat.presets[0].id);
+                      }}
+                      className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-2 ${
+                        isSelected
+                          ? `${cat.activeBg} shadow-lg ring-1 ring-white/20`
+                          : 'bg-zinc-950/70 border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-700'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+                          isSelected ? 'bg-white/20 text-white' : `${cat.color}`
+                        }`}>
+                          <Icon className="w-4 h-4" />
+                        </span>
+                        <span className={`text-xs font-black ${isSelected ? 'text-white' : 'text-zinc-200'}`}>
+                          {cat.title}
+                        </span>
+                      </div>
+                      <p className={`text-[11px] leading-snug line-clamp-2 ${isSelected ? 'text-white/80' : 'text-zinc-500'}`}>
+                        {cat.subtitle}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Presets & Fine-tuning for the active category */}
+              {(() => {
+                const activeCat = GOAL_CATEGORIES.find((c) => c.id === goalCategory);
+                if (!activeCat) return null;
+
+                return (
+                  <div className="p-4 rounded-2xl bg-zinc-950/80 border border-zinc-800 space-y-3.5">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold uppercase text-zinc-300 block">
+                        2. Konkretes Ziel für „{activeCat.title}“
+                      </label>
+                      <span className="text-[11px] text-zinc-500 font-medium">Preset oder Feintuning</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {activeCat.presets.map((preset) => {
+                        const isPresetSelected = goalSubtype === preset.id;
+                        return (
+                          <button
+                            key={preset.id}
+                            type="button"
+                            onClick={() => setGoalSubtype(preset.id)}
+                            className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                              isPresetSelected
+                                ? 'bg-orange-500/15 border-orange-500 text-white shadow-sm'
+                                : 'bg-zinc-900/60 border-zinc-800/80 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <span className={`text-xs font-bold ${isPresetSelected ? 'text-orange-400' : 'text-zinc-200'}`}>
+                                {preset.label}
+                              </span>
+                              {isPresetSelected && (
+                                <CheckCircle2 className="w-3.5 h-3.5 text-orange-400 shrink-0" />
+                              )}
+                            </div>
+                            <p className="text-[10px] text-zinc-500 mt-0.5 line-clamp-1">{preset.desc}</p>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Optional custom note / exact target time */}
+                    <div className="pt-2 border-t border-zinc-800/60 space-y-1.5">
+                      <label className="text-[11px] font-semibold text-zinc-400 flex items-center justify-between">
+                        <span>Individuelles Detail / Wunsch (Optional)</span>
+                        <span className="text-[10px] text-zinc-500">z. B. „1 Min schneller“, „Puls unter 140“</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={customGoalNote}
+                        onChange={(e) => setCustomGoalNote(e.target.value)}
+                        placeholder={
+                          goalCategory === 'SPEED_IMPROVE'
+                            ? "z. B. 'Ziel: 5 km in 24:30 min (aktuell 25:40)'"
+                            : goalCategory === 'FITNESS_BUILD'
+                            ? "z. B. 'Schaffe 2 km, möchte 45 Min am Stück schaffen'"
+                            : goalCategory === 'WEIGHT_LOSS'
+                            ? "z. B. '3-4 kg abnehmen, maximal gelenkschonend'"
+                            : "z. B. 'Laufschuhe wieder regelmäßig 2-3x pro Woche schnüren'"
+                        }
+                        className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-orange-500 transition-colors"
+                      />
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Target Date */}

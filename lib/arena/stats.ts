@@ -1,4 +1,5 @@
 import { db } from '@/lib/db';
+import { BADGE_DEFINITIONS, ensureBadgesSeeded } from './badge-definitions';
 
 export interface ChampionTitle {
   id: string;
@@ -410,51 +411,13 @@ export async function getArenaData(
       };
     });
 
-  // 5. Available Badges definition
-  const availableBadges = [
-    {
-      code: 'FIRST_DUESTE',
-      name: 'Startschuss',
-      description: 'Erste Aktivität erfolgreich mit den Dorfdüsen synchronisiert.',
-      icon: '🚀',
-      category: 'SPECIAL',
-    },
-    {
-      code: 'SUNDAY_WARRIOR',
-      name: 'Sonntags-Treue',
-      description: 'An mindestens 3 Sonntagen aktiv bei der Sonntagsrunde mitgedüst.',
-      icon: '🔥',
-      category: 'STREAK',
-    },
-    {
-      code: 'CENTURY_CLUB',
-      name: 'Century Club',
-      description: 'Über 100 Kilometer in einem Kalendermonat gesammelt.',
-      icon: '💯',
-      category: 'DISTANCE',
-    },
-    {
-      code: 'HALF_MARATHON',
-      name: 'Eskalations-Modus',
-      description: 'Einen Einzellauf von mindestens 21,1 km (Halbmarathon) absolviert.',
-      icon: '⚡',
-      category: 'DISTANCE',
-    },
-    {
-      code: 'DAWN_PATROL',
-      name: 'Morgen-Patrouille',
-      description: 'Aktivität vor 07:00 Uhr morgens gestartet.',
-      icon: '🌅',
-      category: 'SPECIAL',
-    },
-    {
-      code: 'MOUNTAIN_GOAT',
-      name: 'Bergfex im Ried',
-      description: 'Über 300 Höhenmeter in einer einzigen Aktivität gemeistert.',
-      icon: '⛰️',
-      category: 'SPECIAL',
-    },
-  ];
+  // 5. Ensure and provide full available Badges definition
+  try {
+    await ensureBadgesSeeded(db);
+  } catch {
+    // Continue if DB is warming up
+  }
+  const availableBadges = BADGE_DEFINITIONS;
 
   return {
     weekKm,

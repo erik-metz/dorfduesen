@@ -30,8 +30,10 @@ export interface PeriodizationPlanSkeleton {
 
 export interface PeriodizationInput {
   baseline: AthleteBaseline;
-  goalType: string; // 5K | 10K | HALF_MARATHON | MARATHON | GENERAL_FITNESS | BASE_BUILD
+  goalType: string; // 5K | 10K | HALF_MARATHON | MARATHON | GENERAL_FITNESS | BASE_BUILD | FITNESS_BUILD | SPEED_IMPROVE | WEIGHT_LOSS | ROUTINE
   targetDistanceKm?: number;
+  goalSubtype?: string;
+  goalDescription?: string;
   targetDate?: Date;
   startDate?: Date;
   weeklyAvailability?: number; // 2 to 6 days
@@ -60,10 +62,14 @@ export function buildPeriodizationSkeleton(input: PeriodizationInput): Periodiza
     totalWeeks = Math.max(Math.min(calculatedWeeks, 24), 6);
   } else {
     // Default duration depending on goal
-    if (input.goalType === "5K") totalWeeks = 8;
-    else if (input.goalType === "10K") totalWeeks = 10;
+    if (input.goalType === "MARATHON") totalWeeks = 16;
     else if (input.goalType === "HALF_MARATHON") totalWeeks = 12;
-    else if (input.goalType === "MARATHON") totalWeeks = 16;
+    else if (input.goalType === "10K") totalWeeks = 10;
+    else if (input.goalType === "5K") totalWeeks = 8;
+    else if (input.goalType === "WEIGHT_LOSS") totalWeeks = 10;
+    else if (input.goalType === "FITNESS_BUILD") totalWeeks = 8;
+    else if (input.goalType === "SPEED_IMPROVE") totalWeeks = 8;
+    else if (input.goalType === "ROUTINE") totalWeeks = 6;
     else totalWeeks = 8;
 
     targetDate = new Date(startDate.getTime() + totalWeeks * 7 * 24 * 60 * 60 * 1000);
@@ -74,10 +80,10 @@ export function buildPeriodizationSkeleton(input: PeriodizationInput): Periodiza
   const longRunDay = (isFlexibleLongRun || input.preferredLongRunDay == null) ? 0 : input.preferredLongRunDay; // Default placeholder slot Sunday, but marked flexible
 
   // Starting volume based on user baseline
-  const startVolume = Math.max(input.baseline.averageWeeklyKm * 0.9, 12);
+  const startVolume = Math.max(input.baseline.averageWeeklyKm * 0.9, 10);
   
   // Peak volume estimated based on goal
-  let targetPeakVolume = startVolume * 1.4;
+  let targetPeakVolume = startVolume * 1.35;
   if (input.goalType === "HALF_MARATHON") {
     targetPeakVolume = Math.max(targetPeakVolume, 38);
   } else if (input.goalType === "MARATHON") {
@@ -86,9 +92,17 @@ export function buildPeriodizationSkeleton(input: PeriodizationInput): Periodiza
     targetPeakVolume = Math.max(targetPeakVolume, 28);
   } else if (input.goalType === "5K") {
     targetPeakVolume = Math.max(targetPeakVolume, 22);
+  } else if (input.goalType === "SPEED_IMPROVE") {
+    targetPeakVolume = Math.max(targetPeakVolume, 24);
+  } else if (input.goalType === "FITNESS_BUILD") {
+    targetPeakVolume = Math.max(targetPeakVolume, 18);
+  } else if (input.goalType === "WEIGHT_LOSS") {
+    targetPeakVolume = Math.max(targetPeakVolume, 22);
+  } else if (input.goalType === "ROUTINE") {
+    targetPeakVolume = Math.max(targetPeakVolume, 15);
   }
 
-  // Taper duration: 2 weeks for HM/Marathon, 1 week for 5k/10k
+  // Taper duration: 2 weeks for HM/Marathon, 1 week for other performance targets
   const taperWeeksCount = (input.goalType === "MARATHON" || input.goalType === "HALF_MARATHON") ? 2 : 1;
 
   const weeks: PeriodizationWeekSkeleton[] = [];
@@ -101,17 +115,33 @@ export function buildPeriodizationSkeleton(input: PeriodizationInput): Periodiza
 
     const progressRatio = w / totalWeeks;
 
-    if (w > totalWeeks - taperWeeksCount) {
+    if (w > totalWeeks - taperWeeksCount && (input.goalType === "MARATHON" || input.goalType === "HALF_MARATHON" || input.goalType === "10K" || input.goalType === "5K" || input.goalType === "SPEED_IMPROVE")) {
       phase = "TAPER";
       const taperStep = totalWeeks - w;
-      currentVolume = targetPeakVolume * (0.5 + taperStep * 0.2);
-      focusTitle = `Tapering Woche ${taperWeeksCount - taperStep}: Frische tanken & aktivieren`;
+      currentVolume = targetPeakVolume * (0.6 + taperStep * 0.2);
+      focusTitle = `Tapering: Frische tanken & aktivieren für dein Zieldatum`;
     } else if (progressRatio > 0.75) {
       phase = "PEAK";
-      focusTitle = `Peak-Phase: Höchste spezifische Belastung`;
+      if (input.goalType === "WEIGHT_LOSS") {
+        focusTitle = `Peak-Fettstoffwechsel: Kontinuität & hohe aerobe Effizienz`;
+      } else if (input.goalType === "FITNESS_BUILD") {
+        focusTitle = `Konditions-Höhepunkt: Maximale kontinuierliche Laufzeit`;
+      } else if (input.goalType === "ROUTINE") {
+        focusTitle = `Gefestigte Gewohnheit: Leichtigkeit im Laufalltag`;
+      } else {
+        focusTitle = `Peak-Phase: Höchste spezifische Belastung`;
+      }
     } else if (progressRatio > 0.40) {
       phase = "BUILD";
-      focusTitle = `Build-Phase: Schwellentraining & Tempohärte`;
+      if (input.goalType === "WEIGHT_LOSS") {
+        focusTitle = `Stoffwechsel-Aufbau: Längere aerobe Einheiten`;
+      } else if (input.goalType === "FITNESS_BUILD") {
+        focusTitle = `Ausdauer-Ausbau: Schrittweise Verlängerung der Laufdauer`;
+      } else if (input.goalType === "ROUTINE") {
+        focusTitle = `Rhythmus festigen: Konstante 2-3 Einheiten pro Woche`;
+      } else {
+        focusTitle = `Build-Phase: Schwellentraining & Tempohärte`;
+      }
     } else {
       phase = "BASE";
       focusTitle = `Base-Phase: Aerobes Fundament (Zone 2)`;
@@ -137,7 +167,8 @@ export function buildPeriodizationSkeleton(input: PeriodizationInput): Periodiza
       longRunDay,
       isFlexibleLongRun,
       phase,
-      input.includeSundayRun ?? true
+      input.includeSundayRun ?? true,
+      input.goalType
     );
 
     weeks.push({
@@ -171,7 +202,8 @@ function distributeDays(
   longRunDay: number,
   isFlexibleLongRun: boolean,
   phase: TrainingPhase,
-  includeSundayRun: boolean
+  includeSundayRun: boolean,
+  goalType?: string
 ): PeriodizationWorkoutSkeleton[] {
   // Long run takes ~30-35% of weekly mileage
   const longRunKm = Math.round(weeklyKm * 0.33 * 10) / 10;
@@ -208,12 +240,26 @@ function distributeDays(
         recommendedTiming: isFlexibleLongRun ? "Wochenende / Nach Tagesform & Wetter" : `${DAY_NAMES[d]} (Fester Tag)`,
       });
     } else if (otherDays.includes(d)) {
+      let qualityType: "EASY" | "TEMPO" | "INTERVAL" = "EASY";
       const isQualityDay = d === otherDays[0] && (phase === "BUILD" || phase === "PEAK");
+
+      if (isQualityDay) {
+        if (goalType === "SPEED_IMPROVE") {
+          qualityType = phase === "PEAK" ? "INTERVAL" : "TEMPO";
+        } else if (goalType === "ROUTINE" || goalType === "WEIGHT_LOSS") {
+          qualityType = "EASY";
+        } else if (goalType === "FITNESS_BUILD") {
+          qualityType = phase === "PEAK" ? "TEMPO" : "EASY";
+        } else {
+          qualityType = "TEMPO";
+        }
+      }
+
       const isSundayClubRun = d === 0 && includeSundayRun;
 
       result.push({
         dayOfWeek: d,
-        workoutType: isQualityDay ? "TEMPO" : "EASY",
+        workoutType: qualityType,
         approximateKm: isSundayClubRun ? Math.max(kmPerOtherDay, 5.0) : kmPerOtherDay,
         isFlexible: true,
         recommendedTiming: isSundayClubRun ? "Sonntag (DorfDüsen Sunday Run)" : "Unter der Woche",

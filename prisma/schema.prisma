@@ -28,7 +28,8 @@ model User {
   trainingPlans   TrainingPlan[]
   healthMetrics   HealthMetric[]
   notifications   Notification[]
-  weeklyTitleHolders WeeklyTitleHolder[]
+  weeklyTitleHolders  WeeklyTitleHolder[]
+  monthlyTitleHolders MonthlyTitleHolder[]
 }
 
 model Account {
@@ -91,7 +92,8 @@ model Badge {
   name        String
   description String
   icon        String      // Emoji or icon identifier
-  category    String      // DISTANCE | STREAK | SPECIAL | SPEED
+  category    String      // DISTANCE | STREAK | SPECIAL | SPEED | WEEKLY | MONTHLY | COMMUNITY
+  rarity      String?     @default("COMMON") // COMMON | RARE | EPIC | LEGENDARY
 
   userBadges  UserBadge[]
 }
@@ -102,9 +104,13 @@ model UserBadge {
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   badgeId    String
   badge      Badge    @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+  level      Int      @default(1)
+  metadata   Json?
   unlockedAt DateTime @default(now())
+  updatedAt  DateTime @default(now()) @updatedAt
 
   @@unique([userId, badgeId])
+  @@index([userId])
 }
 
 model Challenge {
@@ -234,15 +240,31 @@ model Notification {
 }
 
 model WeeklyTitleHolder {
-  id        String   @id @default(cuid())
-  weekKey   String   // Monday of the week YYYY-MM-DD
-  titleId   String   // elevation | distance | time | heartrate | early_bird | consistency
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  value     Float
-  updatedAt DateTime @updatedAt
+  id          String   @id @default(cuid())
+  weekKey     String   // Monday of the week YYYY-MM-DD
+  titleId     String   // elevation | distance | time | heartrate | early_bird | consistency
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  value       Float
+  isFinalized Boolean  @default(false)
+  updatedAt   DateTime @updatedAt
 
   @@unique([weekKey, titleId])
   @@index([weekKey])
+  @@index([userId])
+}
+
+model MonthlyTitleHolder {
+  id          String   @id @default(cuid())
+  monthKey    String   // Month key YYYY-MM
+  titleId     String   // month_king | century_club | double_century | month_streaker | bike_king
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  value       Float
+  isFinalized Boolean  @default(false)
+  updatedAt   DateTime @updatedAt
+
+  @@unique([monthKey, titleId])
+  @@index([monthKey])
   @@index([userId])
 }
