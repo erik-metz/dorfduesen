@@ -126,7 +126,8 @@ export async function syncUserActivities(userId: string, perPage = 30): Promise<
     try {
       const { revalidatePath, revalidateTag } = await import('next/cache');
       revalidatePath('/arena');
-      revalidateTag('arena', 'minutes');
+      revalidatePath('/');
+      revalidateTag('arena', { expire: 0 });
     } catch {
       // Ignored if called outside Next.js request context
     }

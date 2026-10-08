@@ -113,6 +113,16 @@ export async function GET(request: Request) {
     });
     await setSessionCookie(sessionToken);
 
+    // Revalidate public pages for the new member
+    try {
+      const { revalidatePath, revalidateTag } = await import('next/cache');
+      revalidatePath('/arena');
+      revalidatePath('/');
+      revalidateTag('arena', { expire: 0 });
+    } catch {
+      // Ignored if outside context
+    }
+
     // Starte Erst-Synchronisation der Aktivitäten im Hintergrund
     syncUserActivities(user.id).catch((syncErr) => {
       console.error('Initial background sync error:', syncErr);

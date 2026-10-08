@@ -18,15 +18,16 @@ export function MultiLeaderboard({ initialEntries }: MultiLeaderboardProps) {
   const [entries, setEntries] = useState<LeaderboardEntry[]>(initialEntries);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
-  // Client-side cache to avoid refetching previously visited filter combinations
-  const cacheRef = useRef<Record<string, LeaderboardEntry[]>>({
-    'week-all': initialEntries,
-  });
+  // Sync initialEntries when props update
+  useEffect(() => {
+    setEntries(initialEntries);
+  }, [initialEntries]);
+
+  const isFirstMount = useRef(true);
 
   useEffect(() => {
-    const key = `${period}-${sport}`;
-    if (cacheRef.current[key]) {
-      setEntries(cacheRef.current[key]);
+    if (isFirstMount.current) {
+      isFirstMount.current = false;
       return;
     }
 
@@ -40,7 +41,6 @@ export function MultiLeaderboard({ initialEntries }: MultiLeaderboardProps) {
       })
       .then((data) => {
         if (!isCancelled && data.success && Array.isArray(data.leaderboard)) {
-          cacheRef.current[key] = data.leaderboard;
           setEntries(data.leaderboard);
         }
       })
