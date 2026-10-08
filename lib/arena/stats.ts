@@ -1,3 +1,4 @@
+import { weekRange, monthRange, dayKey } from '@/lib/time';
 import { db } from '@/lib/db';
 import { BADGE_DEFINITIONS, ensureBadgesSeeded } from './badge-definitions';
 import { cacheLife, cacheTag } from 'next/cache';
@@ -55,24 +56,9 @@ export interface ArenaOverview {
   }[];
 }
 
-export function getStartOfWeek(date: Date = new Date()): Date {
-  const now = new Date(date);
-  const day = now.getDay();
-  // Monday is day 1, Sunday is day 0
-  const diff = now.getDate() - (day === 0 ? 6 : day - 1);
-  const start = new Date(now.setDate(diff));
-  start.setHours(0, 0, 0, 0);
-  return start;
-}
-
-export function getWeekKey(date: Date = new Date()): string {
-  return getStartOfWeek(date).toISOString().slice(0, 10);
-}
-
-export function getStartOfMonth(): Date {
-  const now = new Date();
-  return new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
-}
+export function getStartOfWeek(date: Date = new Date()): Date { return weekRange(date).start; }
+export function getWeekKey(date: Date = new Date()): string { return weekRange(date).key; }
+export function getStartOfMonth(): Date { return monthRange().start; }
 
 export function computeWeeklyChampions(
   weekActivities: Array<{
@@ -132,7 +118,7 @@ export function computeWeeklyChampions(
     }
 
     // Early bird: Start before 08:00 AM local time
-    const startHour = new Date(act.startDateLocal).getHours();
+    const startHour = new Date(act.startDateLocal).getUTCHours();
     if (startHour < 8) {
       m.earlyBirdKm += act.distance;
     }
@@ -229,9 +215,11 @@ export function computeWeeklyChampions(
 export async function getWeeklyChampions(startOfWeek = getStartOfWeek()): Promise<ChampionTitle[]> {
   const weekActivities = await db.activity.findMany({
     where: {
-      startDate: { gte: startOfWeek },
+      startDate: { gte: startOfWeek, lt: weekRange(startOfWeek).end },
     },
-    include: {
+    select: {
+      startDateLocal: true, distance: true, movingTime: true, totalElevationGain: true,
+      averageHeartrate: true, userId: true,
       user: {
         select: {
           id: true,
@@ -288,9 +276,11 @@ export async function getArenaData(
   // 1. Fetch current week's activities for Champions calculation & weekly KPI
   const weekActivities = await db.activity.findMany({
     where: {
-      startDate: { gte: startOfWeek },
+      startDate: { gte: startOfWeek, lt: weekRange(startOfWeek).end },
     },
-    include: {
+    select: {
+      startDateLocal: true, distance: true, movingTime: true, totalElevationGain: true,
+      averageHeartrate: true, userId: true,
       user: {
         select: {
           id: true,
@@ -313,18 +303,16 @@ export async function getArenaData(
   const champions = computeWeeklyChampions(weekActivities);
 
   // 3. Team-Challenge (Monthly 1,000 km mission)
-  const monthActivities = await db.activity.findMany({
-    where: { startDate: { gte: startOfMonth } },
-    select: { distance: true },
+  const monthTotals = await db.activity.aggregate({
+    where: { startDate: { gte: startOfMonth, lt: monthRange(startOfMonth).end } }, _sum: { distance: true },
   });
-
-  const monthCurrentKm = monthActivities.reduce((sum, a) => sum + a.distance, 0) / 1000;
+  const monthCurrentKm = (monthTotals._sum.distance || 0) / 1000;
   const targetKm = 1000;
-  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-  const daysRemaining = Math.max(0, daysInMonth - now.getDate());
+  const daysInMonth = new Date(monthRange(now).end.getTime() - 1).getUTCDate();
+  const daysRemaining = Math.max(0, daysInMonth - Number(dayKey(now).slice(-2)));
 
   const challenge: TeamChallenge = {
-    title: `Mission 1.000 km (${now.toLocaleString('de-DE', { month: 'long' })})`,
+    title: `Mission 1.000 km (${now.toLocaleString('de-DE', { month: 'long', timeZone: 'Europe/Berlin' })})`,
     description: 'Gemeinsames Club-Ziel: Zusammen schaffen wir 1.000 Kilometer durchs Ried!',
     targetKm,
     currentKm: monthCurrentKm,
@@ -373,9 +361,9 @@ export async function getArenaLeaderboard(
   // Leaderboard query for requested period & sport filter
   const dateFilter =
     period === 'week'
-      ? { gte: startOfWeek }
+      ? { gte: startOfWeek, lt: weekRange(startOfWeek).end }
       : period === 'month'
-      ? { gte: startOfMonth }
+      ? { gte: startOfMonth, lt: monthRange(startOfMonth).end }
       : undefined;
 
   const sportFilter =
@@ -385,25 +373,26 @@ export async function getArenaLeaderboard(
       ? { contains: 'ride', mode: 'insensitive' as const }
       : undefined;
 
-  const filteredActivities = await db.activity.findMany({
+  const groups = await db.activity.groupBy({
+    by: ['userId', 'sportType'],
     where: {
       ...(dateFilter ? { startDate: dateFilter } : {}),
       ...(sportFilter ? { sportType: sportFilter } : {}),
     },
-    include: {
-      user: {
-        select: {
-          id: true,
-          firstname: true,
-          lastname: true,
-          username: true,
-          profile: true,
-          _count: {
-            select: { userBadges: true },
-          },
-        },
-      },
-    },
+    _sum: { distance: true, movingTime: true, totalElevationGain: true },
+    _count: { _all: true },
+  });
+  const users = await db.user.findMany({
+    where: { id: { in: [...new Set(groups.map(g => g.userId))] } },
+    select: { id: true, firstname: true, lastname: true, username: true, profile: true,
+      _count: { select: { userBadges: true } } },
+  });
+  const userMap = new Map(users.map(u => [u.id, u]));
+  const filteredActivities = groups.flatMap(group => {
+    const user = userMap.get(group.userId);
+    return user ? [{ user, sportType: group.sportType, distance: group._sum.distance || 0,
+      movingTime: group._sum.movingTime || 0, totalElevationGain: group._sum.totalElevationGain || 0,
+      activityCount: group._count._all }] : [];
   });
 
   // Group by user
@@ -450,7 +439,7 @@ export async function getArenaLeaderboard(
     row.totalDistanceMeters += act.distance;
     row.totalSeconds += act.movingTime;
     row.totalElevation += act.totalElevationGain;
-    row.activityCount += 1;
+    row.activityCount += act.activityCount;
 
     const lowerSport = act.sportType?.toLowerCase() || '';
     if (lowerSport.includes('run')) {

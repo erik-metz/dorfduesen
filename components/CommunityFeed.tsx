@@ -32,7 +32,8 @@ export async function CommunityFeed() {
 
   try {
     const rawActivities = await db.activity.findMany({
-      include: {
+      select: {
+        id: true, stravaId: true, userId: true, name: true, distance: true, sportType: true, startDate: true,
         user: {
           select: {
             firstname: true,
@@ -58,40 +59,21 @@ export async function CommunityFeed() {
       userProfile: act.user.profile,
     }));
 
-    // Aggregate by user
-    const userMap: Record<string, { name: string; profile: string | null; totalKm: number; activityCount: number }> = {};
-    const allDbActivities = await db.activity.findMany({
-      include: {
-        user: {
-          select: {
-            firstname: true,
-            lastname: true,
-            username: true,
-            profile: true,
-          },
-        },
-      },
+    const [groups, totals] = await Promise.all([
+      db.activity.groupBy({ by: ['userId'], _sum: { distance: true }, _count: { _all: true },
+        orderBy: { _sum: { distance: 'desc' } }, take: 3 }),
+      db.activity.aggregate({ _sum: { distance: true } }),
+    ]);
+    const users = await db.user.findMany({ where: { id: { in: groups.map(g => g.userId) } },
+      select: { id: true, firstname: true, lastname: true, username: true, profile: true } });
+    const usersById = new Map(users.map(u => [u.id, u]));
+    totalCommunityDistanceKm = (totals._sum.distance || 0) / 1000;
+    topAthletes = groups.flatMap(group => {
+      const user = usersById.get(group.userId);
+      return user ? [{ userId: user.id,
+        name: [user.firstname, user.lastname].filter(Boolean).join(' ') || user.username || 'Dorfdüse',
+        profile: user.profile, totalKm: (group._sum.distance || 0) / 1000, activityCount: group._count._all }] : [];
     });
-
-    for (const a of allDbActivities) {
-      const uName = [a.user.firstname, a.user.lastname].filter(Boolean).join(' ') || a.user.username || 'Dorfdüse';
-      if (!userMap[a.userId]) {
-        userMap[a.userId] = {
-          name: uName,
-          profile: a.user.profile,
-          totalKm: 0,
-          activityCount: 0,
-        };
-      }
-      userMap[a.userId].totalKm += a.distance / 1000;
-      userMap[a.userId].activityCount += 1;
-      totalCommunityDistanceKm += a.distance / 1000;
-    }
-
-    topAthletes = Object.entries(userMap)
-      .map(([userId, data]) => ({ userId, ...data }))
-      .sort((a, b) => b.totalKm - a.totalKm)
-      .slice(0, 3);
   } catch (error) {
     console.error('Error loading community activities:', error);
   }

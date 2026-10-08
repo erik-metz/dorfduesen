@@ -4,7 +4,7 @@ import { after } from 'next/server';
 import { ArrowLeft, Flame, ShieldCheck, Zap } from 'lucide-react';
 import { getCurrentUser } from '@/lib/auth/session';
 import { db } from '@/lib/db';
-import { syncUserActivities } from '@/lib/strava/sync';
+import { queueDashboardSync } from '@/lib/strava/queue';
 import { DashboardView } from '@/components/DashboardView';
 import { StravaIcon } from '@/components/icons/BrandIcons';
 import { NotificationToast } from '@/components/NotificationToast';
@@ -197,9 +197,7 @@ async function DashboardContent({
     if (shouldAutoSync) {
       after(async () => {
         try {
-          await syncUserActivities(currentUser.id, 30);
-          const { evaluateUserBadges } = await import('@/lib/arena/badge-engine');
-          await evaluateUserBadges(currentUser.id);
+          await queueDashboardSync(currentUser.id);
         } catch (syncErr) {
           console.error('Automatischer Strava-Hintergrund-Sync fehlgeschlagen:', syncErr);
         }
@@ -221,6 +219,7 @@ async function DashboardContent({
     where: { userId: targetUser.id },
     orderBy: { startDate: 'desc' },
     take: 100,
+    omit: { detailJson: true },
   });
 
   const activities = rawActivities.map((act) => ({
@@ -237,7 +236,7 @@ async function DashboardContent({
     summaryPolyline: act.summaryPolyline,
     averageHeartrate: act.averageHeartrate,
     maxSpeed: act.maxSpeed,
-    detailData: act.detailJson ? (act.detailJson as unknown as import('@/lib/strava/activity-detail').ActivityDetailData) : null,
+    detailData: null,
   }));
 
   // Aggregierte Statistiken

@@ -20,11 +20,10 @@ test('secrets reject missing, short and example values', () => {
 
 test('cron denies unconfigured, query-only and incorrect credentials before accessing DB', async () => {
   const previous = process.env.CRON_SECRET;
-  let dbReads = 0;
+  let jobs = 0;
   const { GET } = loadTs('app/api/strava/cron/route.ts', {
     'next/server': { NextResponse: { json: (body, options) => Response.json(body, options) } },
-    '@/lib/db': { db: { account: { findMany: async () => { dbReads++; return []; } } } },
-    '@/lib/strava/sync': { syncUserActivities: async () => { throw new Error('Unexpected sync'); } },
+    '@/lib/inngest/client': { inngest: { send: async () => { jobs++; } } },
   });
   try {
     process.env.CRON_SECRET = '';
@@ -32,9 +31,9 @@ test('cron denies unconfigured, query-only and incorrect credentials before acce
     process.env.CRON_SECRET = 'b'.repeat(48);
     assert.equal((await GET(new Request(`https://example.com/api/strava/cron?secret=${process.env.CRON_SECRET}`))).status, 401);
     assert.equal((await GET(new Request('https://example.com/api/strava/cron', { headers: { authorization: 'Bearer wrong' } }))).status, 401);
-    assert.equal(dbReads, 0);
-    assert.equal((await GET(new Request('https://example.com/api/strava/cron', { headers: { authorization: `Bearer ${process.env.CRON_SECRET}` } }))).status, 200);
-    assert.equal(dbReads, 1);
+    assert.equal(jobs, 0);
+    assert.equal((await GET(new Request('https://example.com/api/strava/cron', { headers: { authorization: `Bearer ${process.env.CRON_SECRET}` } }))).status, 202);
+    assert.equal(jobs, 1);
   } finally {
     if (previous === undefined) delete process.env.CRON_SECRET;
     else process.env.CRON_SECRET = previous;

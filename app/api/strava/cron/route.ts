@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/db';
-import { syncUserActivities } from '@/lib/strava/sync';
+import { inngest } from '@/lib/inngest/client';
 import { requireSecret } from '@/lib/config';
 
 export async function GET(request: Request) {
@@ -15,23 +14,8 @@ export async function GET(request: Request) {
   }
 
   try {
-    // Finde alle Benutzer mit verknüpftem Strava-Account
-    const accounts = await db.account.findMany({
-      select: { userId: true },
-    });
-
-    const results = [];
-
-    for (const acc of accounts) {
-      const res = await syncUserActivities(acc.userId, 20);
-      results.push({ userId: acc.userId, ...res });
-    }
-
-    return NextResponse.json({
-      success: true,
-      usersProcessed: accounts.length,
-      results,
-    });
+    await inngest.send({ name: 'strava/sync.all', data: {} });
+    return NextResponse.json({ success: true, queued: true }, { status: 202 });
   } catch (error: unknown) {
     const errorMsg = error instanceof Error ? error.message : 'Fehler beim Cron-Sync';
     console.error('Fehler im Cron-Sync-Handler:', error);
