@@ -1,6 +1,6 @@
 import React, { Suspense } from 'react';
 import Link from 'next/link';
-import { connection } from 'next/server';
+import { after } from 'next/server';
 import { ArrowLeft, Flame, ShieldCheck, Zap } from 'lucide-react';
 import { getCurrentUser } from '@/lib/auth/session';
 import { db } from '@/lib/db';
@@ -40,7 +40,6 @@ export default function DashboardPage() {
 }
 
 async function DashboardContent() {
-  await connection();
   const user = await getCurrentUser();
 
   if (!user) {
@@ -101,8 +100,7 @@ async function DashboardContent() {
   }
 
   // Automatischer Sync beim Aufruf des Strava-Dashboards:
-  // Wenn der letzte erfolgreiche Sync älter als 60 Sekunden ist oder noch keiner stattfand,
-  // synchronisieren wir Aktivitäten automatisch direkt von Strava.
+  // Läuft dank next/server after() vollständig non-blocking im Hintergrund nach dem Page-Render!
   const lastSyncLog = await db.syncLog.findFirst({
     where: { userId: user.id, status: 'SUCCESS' },
     orderBy: { createdAt: 'desc' },
@@ -111,28 +109,28 @@ async function DashboardContent() {
   const shouldAutoSync = isSyncCooldownExpired(lastSyncLog?.createdAt);
 
   if (shouldAutoSync) {
-    try {
-      await syncUserActivities(user.id, 30);
-    } catch (syncErr) {
-      console.error('Automatischer Strava-Sync fehlgeschlagen:', syncErr);
-    }
+    after(async () => {
+      try {
+        await syncUserActivities(user.id, 30);
+        const { evaluateUserBadges } = await import('@/lib/arena/badge-engine');
+        await evaluateUserBadges(user.id);
+      } catch (syncErr) {
+        console.error('Automatischer Strava-Hintergrund-Sync fehlgeschlagen:', syncErr);
+      }
+    });
+  } else {
+    after(async () => {
+      try {
+        const { evaluateUserBadges } = await import('@/lib/arena/badge-engine');
+        await evaluateUserBadges(user.id);
+      } catch (badgeErr) {
+        console.error('Fehler bei automatischer Badge-Auswertung im Dashboard:', badgeErr);
+      }
+    });
   }
 
   // Neuesten Sync-Zeitpunkt ermitteln
-  const currentSyncLog = shouldAutoSync
-    ? await db.syncLog.findFirst({
-        where: { userId: user.id, status: 'SUCCESS' },
-        orderBy: { createdAt: 'desc' },
-      })
-    : lastSyncLog;
-
-  // Evaluate and award any earned milestone badges
-  try {
-    const { evaluateUserBadges } = await import('@/lib/arena/badge-engine');
-    await evaluateUserBadges(user.id);
-  } catch (badgeErr) {
-    console.error('Fehler bei automatischer Badge-Auswertung im Dashboard:', badgeErr);
-  }
+  const currentSyncLog = lastSyncLog;
 
   // User ist angemeldet -> Hole Aktivitäten aus der DB
   const rawActivities = await db.activity.findMany({

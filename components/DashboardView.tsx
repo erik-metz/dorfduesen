@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
   ExternalLink,
@@ -94,8 +95,32 @@ function formatDuration(seconds: number): string {
 }
 
 export function DashboardView({ user, activities, stats, lastSync }: DashboardViewProps) {
+  const router = useRouter();
   const [filterSport, setFilterSport] = useState<string>('all');
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [isManualSyncing, setIsManualSyncing] = useState(false);
+  const [syncFeedback, setSyncFeedback] = useState<string | null>(null);
+
+  const handleManualSync = async () => {
+    if (isManualSyncing) return;
+    setIsManualSyncing(true);
+    setSyncFeedback(null);
+    try {
+      const res = await fetch('/api/strava/sync', { method: 'POST' });
+      const data = await res.json();
+      if (res.ok) {
+        setSyncFeedback(data.message || 'Synchronisiert!');
+        router.refresh();
+      } else {
+        setSyncFeedback(data.error || 'Fehler beim Sync');
+      }
+    } catch {
+      setSyncFeedback('Verbindungsfehler');
+    } finally {
+      setIsManualSyncing(false);
+      setTimeout(() => setSyncFeedback(null), 3500);
+    }
+  };
 
   // Initialize cache with any pre-loaded detailData from DB
   const [detailsCache, setDetailsCache] = useState<Record<string, ActivityDetailData>>(() => {
@@ -267,14 +292,26 @@ export function DashboardView({ user, activities, stats, lastSync }: DashboardVi
             </div>
           </div>
 
-          {/* Auto-Sync Status Indicator */}
+          {/* Auto-Sync Status Indicator & Manual Sync Button */}
           <div className="flex flex-col items-start md:items-end gap-1.5 w-full md:w-auto">
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-zinc-950/80 border border-zinc-800 text-xs font-medium text-zinc-300 shadow-inner">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-              </span>
-              <span>Automatische Synchronisation aktiv</span>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-zinc-950/80 border border-zinc-800 text-xs font-medium text-zinc-300 shadow-inner">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+                <span>Auto-Sync aktiv</span>
+              </div>
+
+              <button
+                onClick={handleManualSync}
+                disabled={isManualSyncing}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold text-zinc-300 hover:text-white transition-all disabled:opacity-50 cursor-pointer shadow-sm active:scale-95"
+                title="Jetzt manuell von Strava synchronisieren"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isManualSyncing ? 'animate-spin text-orange-400' : 'text-zinc-400'}`} />
+                <span>{isManualSyncing ? 'Synchronisiere...' : syncFeedback || 'Jetzt Sync'}</span>
+              </button>
             </div>
             {lastSync && (
               <span className="text-[11px] text-zinc-500">

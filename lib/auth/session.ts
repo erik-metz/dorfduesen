@@ -93,11 +93,11 @@ export async function clearSessionCookie() {
 }
 
 export async function getCurrentUser() {
-  try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
-    if (!token) return null;
+  const cookieStore = await cookies();
+  const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
+  if (!token) return null;
 
+  try {
     const session = await verifySessionToken(token);
     if (!session) return null;
 
