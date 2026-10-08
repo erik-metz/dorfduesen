@@ -83,14 +83,18 @@ export function Navbar({ club, currentUser }: NavbarProps) {
       icon: Trophy,
       description: 'Leaderboard, Titel & Badges',
     },
-    {
-      label: 'Smart Coach',
-      href: '/coach',
-      badge: 'KI',
-      isSpecial: true,
-      icon: Sparkles,
-      description: 'KI-Trainingsplan & VDOT-Zonen',
-    },
+    ...(user
+      ? [
+          {
+            label: 'Smart Coach',
+            href: '/dashboard?tab=coach',
+            badge: 'KI',
+            isSpecial: true,
+            icon: Sparkles,
+            description: 'Dein KI-Trainingsplan & VDOT-Zonen',
+          },
+        ]
+      : []),
     {
       label: 'Feed & Vibe',
       href: '/#feed',

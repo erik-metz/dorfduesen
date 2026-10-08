@@ -20,12 +20,14 @@ import {
   X,
   AlertCircle,
   RefreshCw,
+  Sparkles,
 } from 'lucide-react';
 import { StravaIcon } from '@/components/icons/BrandIcons';
 import { polylineToSvgPath } from '@/lib/strava/polyline';
 import { isValidAvatarUrl } from '@/lib/utils/avatar';
 import { ActivityDetailData } from '@/lib/strava/activity-detail';
 import { ActivityDetailCard } from '@/components/strava/ActivityDetailCard';
+import { CoachDashboard } from '@/components/coach/CoachDashboard';
 
 export interface ActivityItem {
   id: string;
@@ -107,6 +109,16 @@ export function DashboardView({ user, activities, stats, lastSync }: DashboardVi
   const [errorIds, setErrorIds] = useState<Record<string, string>>({});
   const [modalDetail, setModalDetail] = useState<ActivityDetailData | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [mainTab, setMainTab] = useState<'activities' | 'coach'>('activities');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('tab') === 'coach') {
+        setMainTab('coach');
+      }
+    }
+  }, []);
 
   // Close modal on ESC key
   useEffect(() => {
@@ -268,12 +280,49 @@ export function DashboardView({ user, activities, stats, lastSync }: DashboardVi
         </div>
       </div>
 
-      {/* Aggregate Stats Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-        <div className="p-5 rounded-2xl bg-zinc-900/60 border border-zinc-800">
-          <div className="text-xs font-bold uppercase tracking-wider text-zinc-400 mb-1">
-            Gesamtdistanz
-          </div>
+      {/* Main Tabs (Aktivitäten vs. Smart Coach) */}
+      <div className="flex items-center gap-2 border-b border-zinc-800 pb-3">
+        <button
+          onClick={() => setMainTab('activities')}
+          className={`px-5 py-3 rounded-2xl font-bold text-sm transition-all flex items-center gap-2.5 cursor-pointer ${
+            mainTab === 'activities'
+              ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20'
+              : 'text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800'
+          }`}
+        >
+          <Footprints className="w-4 h-4" />
+          <span>Aktivitäten & Statistik</span>
+          <span className="text-xs px-2 py-0.5 rounded-full bg-black/20 text-zinc-300">
+            {activities.length}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setMainTab('coach')}
+          className={`px-5 py-3 rounded-2xl font-bold text-sm transition-all flex items-center gap-2.5 cursor-pointer ${
+            mainTab === 'coach'
+              ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20'
+              : 'text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800'
+          }`}
+        >
+          <Sparkles className="w-4 h-4 text-orange-400" />
+          <span>Smart Coach</span>
+          <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-orange-600 text-white">
+            KI
+          </span>
+        </button>
+      </div>
+
+      {mainTab === 'coach' ? (
+        <CoachDashboard />
+      ) : (
+        <>
+          {/* Aggregate Stats Cards */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+            <div className="p-5 rounded-2xl bg-zinc-900/60 border border-zinc-800">
+              <div className="text-xs font-bold uppercase tracking-wider text-zinc-400 mb-1">
+                Gesamtdistanz
+              </div>
           <div className="text-2xl sm:text-3xl font-black text-white">
             {stats.totalDistanceKm.toFixed(1)} <span className="text-sm text-orange-400 font-bold">km</span>
           </div>
@@ -559,6 +608,8 @@ export function DashboardView({ user, activities, stats, lastSync }: DashboardVi
           </div>
         )}
       </div>
+        </>
+      )}
 
       {/* Fullscreen Modal View */}
       {isModalOpen && (
