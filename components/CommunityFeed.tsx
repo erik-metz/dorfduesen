@@ -112,13 +112,22 @@ export async function CommunityFeed() {
             </p>
           </div>
 
-          <Link
-            href="/dashboard"
-            className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl font-bold bg-[#fc5200] hover:bg-[#e04800] text-white shadow-xl shadow-[#fc5200]/25 transition-all shrink-0 self-start md:self-auto text-sm"
-          >
-            <StravaIcon className="w-4 h-4" />
-            <span>Jetzt mitdüsen & synchronisieren</span>
-          </Link>
+          <div className="flex items-center gap-3 shrink-0 self-start md:self-auto">
+            <Link
+              href="/arena"
+              className="inline-flex items-center gap-1.5 px-5 py-3.5 rounded-xl font-bold bg-zinc-900 hover:bg-zinc-800 text-orange-400 border border-zinc-700/80 transition-all text-sm"
+            >
+              <span>Düsen-Arena</span>
+              <span>🏆</span>
+            </Link>
+            <Link
+              href="/dashboard"
+              className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl font-bold bg-[#fc5200] hover:bg-[#e04800] text-white shadow-xl shadow-[#fc5200]/25 transition-all text-sm"
+            >
+              <StravaIcon className="w-4 h-4" />
+              <span>Mitdüsen</span>
+            </Link>
+          </div>
         </div>
 
         {hasDbActivities ? (

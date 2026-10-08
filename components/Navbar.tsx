@@ -37,11 +37,11 @@ export function Navbar({ club, currentUser }: NavbarProps) {
   const user = currentUser !== undefined ? currentUser : fetchedUser;
 
   const navLinks = [
-    { label: 'Über uns', href: '#ueber-uns' },
-    { label: 'Sonntagsrunde', href: '#sonntagsrunde' },
-    { label: 'Feed & Galerie', href: '#feed' },
-    { label: 'Strava Club', href: '#strava' },
-    { label: 'FAQ', href: '#faq' },
+    { label: 'Über uns', href: '/#ueber-uns' },
+    { label: 'Sonntagsrunde', href: '/#sonntagsrunde' },
+    { label: 'Feed & Galerie', href: '/#feed' },
+    { label: 'Strava Club', href: '/#strava' },
+    { label: 'FAQ', href: '/#faq' },
   ];
 
   const displayName = user
@@ -86,8 +86,15 @@ export function Navbar({ club, currentUser }: NavbarProps) {
               </a>
             ))}
             <Link
+              href="/arena"
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-orange-600/20 text-orange-400 border border-orange-500/30 hover:bg-orange-600 hover:text-white transition-all shadow-sm"
+            >
+              <span>Arena</span>
+              <span>🏆</span>
+            </Link>
+            <Link
               href="/dashboard"
-              className="text-sm font-semibold text-orange-400 hover:text-orange-300 transition-colors"
+              className="text-sm font-semibold text-zinc-300 hover:text-white transition-colors"
             >
               Dashboard
             </Link>
@@ -155,9 +162,17 @@ export function Navbar({ club, currentUser }: NavbarProps) {
             </a>
           ))}
           <Link
+            href="/arena"
+            onClick={() => setMobileMenuOpen(false)}
+            className="flex items-center justify-between px-3 py-2 rounded-md text-base font-bold text-orange-400 hover:bg-zinc-800"
+          >
+            <span>Düsen-Arena</span>
+            <span>🏆</span>
+          </Link>
+          <Link
             href="/dashboard"
             onClick={() => setMobileMenuOpen(false)}
-            className="block px-3 py-2 rounded-md text-base font-medium text-orange-400 hover:bg-zinc-800 hover:text-orange-300"
+            className="block px-3 py-2 rounded-md text-base font-medium text-zinc-300 hover:bg-zinc-800 hover:text-white"
           >
             Dashboard
           </Link>

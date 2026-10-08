@@ -23,6 +23,7 @@ model User {
   account         Account?
   activities      Activity[]
   syncLogs        SyncLog[]
+  userBadges      UserBadge[]
 }
 
 model Account {
@@ -75,4 +76,36 @@ model SyncLog {
   createdAt    DateTime @default(now())
 
   @@index([userId])
+}
+
+model Badge {
+  id          String      @id @default(cuid())
+  code        String      @unique // e.g. CENTURY_CLUB, SUNDAY_WARRIOR, DAWN_PATROL
+  name        String
+  description String
+  icon        String      // Emoji or icon identifier
+  category    String      // DISTANCE | STREAK | SPECIAL | SPEED
+
+  userBadges  UserBadge[]
+}
+
+model UserBadge {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badgeId    String
+  badge      Badge    @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+  unlockedAt DateTime @default(now())
+
+  @@unique([userId, badgeId])
+}
+
+model Challenge {
+  id          String   @id @default(cuid())
+  title       String   // e.g. "1.000 km Ried-Challenge"
+  description String
+  targetKm    Float    // Target in kilometers
+  startDate   DateTime
+  endDate     DateTime
+  isActive    Boolean  @default(true)
 }

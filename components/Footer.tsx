@@ -1,4 +1,5 @@
 import React from 'react';
+import Link from 'next/link';
 import Image from 'next/image';
 import { Flame, Heart } from 'lucide-react';
 import { InstagramIcon } from '@/components/icons/BrandIcons';
@@ -47,29 +48,35 @@ export function Footer({ club }: FooterProps) {
             </h4>
             <ul className="space-y-2 text-sm">
               <li>
-                <a href="#ueber-uns" className="hover:text-white transition-colors">
+                <Link href="/#ueber-uns" className="hover:text-white transition-colors">
                   Über die Dorfdüsen
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="#sonntagsrunde" className="hover:text-white transition-colors">
+                <Link href="/#sonntagsrunde" className="hover:text-white transition-colors">
                   Die Sonntagsrunde (5km)
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="#feed" className="hover:text-white transition-colors">
+                <Link href="/arena" className="hover:text-orange-400 text-orange-400/90 font-bold transition-colors flex items-center gap-1">
+                  <span>Düsen-Arena</span>
+                  <span>🏆</span>
+                </Link>
+              </li>
+              <li>
+                <Link href="/#feed" className="hover:text-white transition-colors">
                   Feed & Galerie
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="#strava" className="hover:text-white transition-colors">
+                <Link href="/#strava" className="hover:text-white transition-colors">
                   Strava Club
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="#faq" className="hover:text-white transition-colors">
+                <Link href="/#faq" className="hover:text-white transition-colors">
                   Häufige Fragen
-                </a>
+                </Link>
               </li>
             </ul>
           </div>
