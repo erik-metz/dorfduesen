@@ -207,7 +207,9 @@ export function MultiLeaderboard({ initialEntries }: MultiLeaderboardProps) {
                       <ArrowUpDown className={`w-3 h-3 ${sortBy === 'elevation' ? 'text-orange-500' : 'text-zinc-600'}`} />
                     </div>
                   </th>
-                  <th className="py-4 px-4 hidden lg:table-cell">Ø Pace</th>
+                  <th className="py-4 px-4 hidden lg:table-cell">
+                    {sport === 'ride' ? 'Ø Tempo' : 'Ø Pace'}
+                  </th>
                   <th
                     className={`py-4 px-4 cursor-pointer transition-colors text-right pr-6 ${sortBy === 'activities' ? 'text-white' : 'hover:text-white'}`}
                     onClick={() => setSortBy('activities')}

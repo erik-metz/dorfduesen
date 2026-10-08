@@ -246,12 +246,26 @@ export async function getWeeklyChampions(startOfWeek = getStartOfWeek()): Promis
   return computeWeeklyChampions(weekActivities);
 }
 
-function formatPace(metersPerSec: number | null): string {
-  if (!metersPerSec || metersPerSec <= 0) return '-';
-  const paceSeconds = 1000 / metersPerSec;
-  const mins = Math.floor(paceSeconds / 60);
-  const secs = Math.floor(paceSeconds % 60);
+function formatRunPace(distanceMeters: number, movingSeconds: number): string {
+  if (distanceMeters <= 0 || movingSeconds <= 0) return '-';
+  const paceSeconds = movingSeconds / (distanceMeters / 1000);
+  if (!isFinite(paceSeconds) || paceSeconds <= 0 || paceSeconds > 3600) return '-';
+  let mins = Math.floor(paceSeconds / 60);
+  let secs = Math.round(paceSeconds % 60);
+  if (secs === 60) {
+    mins += 1;
+    secs = 0;
+  }
   return `${mins}:${secs.toString().padStart(2, '0')} /km`;
+}
+
+function formatRideSpeed(distanceMeters: number, movingSeconds: number): string {
+  if (distanceMeters <= 0 || movingSeconds <= 0) return '-';
+  const hours = movingSeconds / 3600;
+  const km = distanceMeters / 1000;
+  const kmh = km / hours;
+  if (!isFinite(kmh) || kmh <= 0) return '-';
+  return `${kmh.toFixed(1)} km/h`;
 }
 
 export async function getArenaData(
@@ -386,8 +400,10 @@ export async function getArenaLeaderboard(
       totalSeconds: number;
       totalElevation: number;
       activityCount: number;
-      totalSpeedSum: number;
-      speedCount: number;
+      runDistanceMeters: number;
+      runMovingSeconds: number;
+      rideDistanceMeters: number;
+      rideMovingSeconds: number;
       badgesCount: number;
     }
   > = {};
@@ -405,8 +421,10 @@ export async function getArenaLeaderboard(
         totalSeconds: 0,
         totalElevation: 0,
         activityCount: 0,
-        totalSpeedSum: 0,
-        speedCount: 0,
+        runDistanceMeters: 0,
+        runMovingSeconds: 0,
+        rideDistanceMeters: 0,
+        rideMovingSeconds: 0,
         badgesCount: u._count.userBadges,
       };
     }
@@ -417,16 +435,34 @@ export async function getArenaLeaderboard(
     row.totalElevation += act.totalElevationGain;
     row.activityCount += 1;
 
-    if (act.averageSpeed && act.averageSpeed > 0) {
-      row.totalSpeedSum += act.averageSpeed;
-      row.speedCount += 1;
+    const lowerSport = act.sportType?.toLowerCase() || '';
+    if (lowerSport.includes('run')) {
+      row.runDistanceMeters += act.distance;
+      row.runMovingSeconds += act.movingTime;
+    } else if (lowerSport.includes('ride')) {
+      row.rideDistanceMeters += act.distance;
+      row.rideMovingSeconds += act.movingTime;
     }
   }
 
   const leaderboard: LeaderboardEntry[] = Object.values(leaderboardMap)
     .sort((a, b) => b.totalDistanceMeters - a.totalDistanceMeters)
     .map((row, idx) => {
-      const avgSpeed = row.speedCount > 0 ? row.totalSpeedSum / row.speedCount : null;
+      let paceStr = '-';
+      if (sport === 'run') {
+        paceStr = formatRunPace(row.runDistanceMeters, row.runMovingSeconds);
+      } else if (sport === 'ride') {
+        paceStr = formatRideSpeed(row.rideDistanceMeters, row.rideMovingSeconds);
+      } else {
+        // sport === 'all': Never mix running and cycling!
+        // Show pure running pace if athlete runs; or cycling speed if athlete only rides
+        if (row.runDistanceMeters > 0) {
+          paceStr = formatRunPace(row.runDistanceMeters, row.runMovingSeconds);
+        } else if (row.rideDistanceMeters > 0) {
+          paceStr = formatRideSpeed(row.rideDistanceMeters, row.rideMovingSeconds);
+        }
+      }
+
       return {
         rank: idx + 1,
         userId: row.userId,
@@ -436,7 +472,7 @@ export async function getArenaLeaderboard(
         totalHours: row.totalSeconds / 3600,
         totalElevation: row.totalElevation,
         activityCount: row.activityCount,
-        averagePace: formatPace(avgSpeed),
+        averagePace: paceStr,
         badgesCount: row.badgesCount,
       };
     });
