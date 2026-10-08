@@ -174,6 +174,24 @@ async function DashboardContent() {
     ? user.account.updatedAt.toISOString()
     : null;
 
+  // User ist angemeldet -> Hole Benachrichtigungen aus der DB
+  const rawNotifications = await db.notification.findMany({
+    where: { userId: user.id },
+    orderBy: { createdAt: 'desc' },
+    take: 50,
+  });
+
+  const notifications = rawNotifications.map((n) => ({
+    id: n.id,
+    type: n.type,
+    title: n.title,
+    message: n.message,
+    link: n.link,
+    isRead: n.isRead,
+    metadata: n.metadata as import('@/types/notification').NotificationMetadata | null,
+    createdAt: n.createdAt.toISOString(),
+  }));
+
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
       <DashboardView
@@ -190,6 +208,7 @@ async function DashboardContent() {
         activities={activities}
         stats={stats}
         lastSync={lastSync}
+        initialNotifications={notifications}
       />
       <NotificationToast />
     </div>

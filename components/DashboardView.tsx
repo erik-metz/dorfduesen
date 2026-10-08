@@ -24,6 +24,8 @@ import {
   Sparkles,
   Trophy,
   Crown,
+  Bell,
+  ChevronRight,
 } from 'lucide-react';
 import { StravaIcon } from '@/components/icons/BrandIcons';
 import { polylineToSvgPath } from '@/lib/strava/polyline';
@@ -32,6 +34,8 @@ import { ActivityDetailData } from '@/lib/strava/activity-detail';
 import { ActivityDetailCard } from '@/components/strava/ActivityDetailCard';
 import { CoachDashboard } from '@/components/coach/CoachDashboard';
 import { TrophyCabinet } from '@/components/trophies/TrophyCabinet';
+import { DashboardNotifications } from '@/components/dashboard/DashboardNotifications';
+import { NotificationItem } from '@/types/notification';
 
 export interface ActivityItem {
   id: string;
@@ -69,6 +73,7 @@ interface DashboardViewProps {
     activityCount: number;
   };
   lastSync: string | null;
+  initialNotifications?: NotificationItem[];
 }
 
 function formatPace(metersPerSec: number | null, sportType: string): string {
@@ -94,12 +99,18 @@ function formatDuration(seconds: number): string {
   return `${m}:${s.toString().padStart(2, '0')}m`;
 }
 
-export function DashboardView({ user, activities, stats, lastSync }: DashboardViewProps) {
+export function DashboardView({
+  user,
+  activities,
+  stats,
+  lastSync,
+  initialNotifications = [],
+}: DashboardViewProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
 
-  type MainTab = 'activities' | 'trophies' | 'coach';
+  type MainTab = 'activities' | 'trophies' | 'coach' | 'notifications';
 
   const tabParam = searchParams.get('tab');
   const mainTab: MainTab =
@@ -107,6 +118,8 @@ export function DashboardView({ user, activities, stats, lastSync }: DashboardVi
       ? 'coach'
       : tabParam === 'trophies'
       ? 'trophies'
+      : tabParam === 'notifications'
+      ? 'notifications'
       : 'activities';
 
   const handleTabChange = (newTab: MainTab) => {
@@ -115,6 +128,26 @@ export function DashboardView({ user, activities, stats, lastSync }: DashboardVi
     params.set('tab', newTab);
     router.push(`${pathname}?${params.toString()}`, { scroll: false });
   };
+
+  const [notifications, setNotifications] = useState<NotificationItem[]>(initialNotifications);
+  const unreadCount = notifications.filter((n) => !n.isRead).length;
+
+  useEffect(() => {
+    const handleRefresh = async () => {
+      try {
+        const res = await fetch('/api/notifications');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.authenticated && Array.isArray(data.notifications)) {
+            setNotifications(data.notifications);
+          }
+        }
+      } catch {}
+    };
+
+    window.addEventListener('dorfdusen-refresh-notifications', handleRefresh);
+    return () => window.removeEventListener('dorfdusen-refresh-notifications', handleRefresh);
+  }, []);
 
   const [filterSport, setFilterSport] = useState<string>('all');
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -330,11 +363,11 @@ export function DashboardView({ user, activities, stats, lastSync }: DashboardVi
         </div>
       </div>
 
-      {/* Main Tabs (Aktivitäten vs. Trophäenschrank vs. Smart Coach) */}
-      <div className="flex items-center gap-2 border-b border-zinc-800 pb-3">
+      {/* Main Tabs (Aktivitäten vs. Trophäenschrank vs. Smart Coach vs. Benachrichtigungen) */}
+      <div className="flex items-center gap-2 border-b border-zinc-800 pb-3 overflow-x-auto scrollbar-none">
         <button
           onClick={() => handleTabChange('activities')}
-          className={`px-5 py-3 rounded-2xl font-bold text-sm transition-all flex items-center gap-2.5 cursor-pointer ${
+          className={`px-5 py-3 rounded-2xl font-bold text-sm transition-all flex items-center gap-2.5 cursor-pointer shrink-0 ${
             mainTab === 'activities'
               ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20'
               : 'text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800'
@@ -349,7 +382,7 @@ export function DashboardView({ user, activities, stats, lastSync }: DashboardVi
 
         <button
           onClick={() => handleTabChange('trophies')}
-          className={`px-5 py-3 rounded-2xl font-bold text-sm transition-all flex items-center gap-2.5 cursor-pointer ${
+          className={`px-5 py-3 rounded-2xl font-bold text-sm transition-all flex items-center gap-2.5 cursor-pointer shrink-0 ${
             mainTab === 'trophies'
               ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20'
               : 'text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800'
@@ -364,7 +397,7 @@ export function DashboardView({ user, activities, stats, lastSync }: DashboardVi
 
         <button
           onClick={() => handleTabChange('coach')}
-          className={`px-5 py-3 rounded-2xl font-bold text-sm transition-all flex items-center gap-2.5 cursor-pointer ${
+          className={`px-5 py-3 rounded-2xl font-bold text-sm transition-all flex items-center gap-2.5 cursor-pointer shrink-0 ${
             mainTab === 'coach'
               ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20'
               : 'text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800'
@@ -376,14 +409,72 @@ export function DashboardView({ user, activities, stats, lastSync }: DashboardVi
             KI
           </span>
         </button>
+
+        <button
+          onClick={() => handleTabChange('notifications')}
+          className={`px-5 py-3 rounded-2xl font-bold text-sm transition-all flex items-center gap-2.5 cursor-pointer shrink-0 ${
+            mainTab === 'notifications'
+              ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20'
+              : 'text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800'
+          }`}
+        >
+          <Bell className="w-4 h-4" />
+          <span>Benachrichtigungen</span>
+          {unreadCount > 0 ? (
+            <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-rose-600 text-white animate-pulse">
+              {unreadCount} neu
+            </span>
+          ) : (
+            <span className="text-xs px-2 py-0.5 rounded-full bg-black/20 text-zinc-300">
+              {notifications.length}
+            </span>
+          )}
+        </button>
       </div>
 
       {mainTab === 'coach' ? (
         <CoachDashboard />
       ) : mainTab === 'trophies' ? (
         <TrophyCabinet />
+      ) : mainTab === 'notifications' ? (
+        <DashboardNotifications
+          initialNotifications={notifications}
+          onTabChange={handleTabChange}
+        />
       ) : (
         <>
+          {/* Unread Notifications Alert Banner on Activities Tab */}
+          {unreadCount > 0 && (
+            <div className="rounded-2xl bg-gradient-to-r from-orange-950/40 via-zinc-900 to-zinc-900 border border-orange-500/30 p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-lg shadow-black/20">
+              <div className="flex items-center gap-3.5 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-orange-500/20 border border-orange-500/40 text-orange-400 flex items-center justify-center shrink-0">
+                  <Bell className="w-5 h-5" />
+                </div>
+                <div className="space-y-0.5 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-black uppercase tracking-wider text-orange-400">
+                      {unreadCount} {unreadCount === 1 ? 'neue Benachrichtigung' : 'neue Benachrichtigungen'}
+                    </span>
+                    <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
+                  </div>
+                  <p className="text-xs text-zinc-300 truncate max-w-xl">
+                    {notifications.find((n) => !n.isRead)?.title || 'Neue Updates in der Arena oder bei deinen Badges.'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                <button
+                  onClick={() => handleTabChange('notifications')}
+                  className="px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold transition-all shadow-md shadow-orange-500/20 flex items-center gap-1.5 cursor-pointer"
+                >
+                  <span>Anzeigen</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Aggregate Stats Cards */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
             <div className="p-5 rounded-2xl bg-zinc-900/60 border border-zinc-800">

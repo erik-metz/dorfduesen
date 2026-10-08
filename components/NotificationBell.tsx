@@ -2,27 +2,9 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { Bell, CheckCheck, ExternalLink, Trophy, X, ChevronRight } from 'lucide-react';
-
-export interface NotificationItem {
-  id: string;
-  type: string;
-  title: string;
-  message: string;
-  link: string | null;
-  isRead: boolean;
-  metadata?: {
-    titleId?: string;
-    championTitle?: string;
-    icon?: string;
-    previousValue?: number;
-    newValue?: number;
-    formattedValue?: string;
-    overtakenByUserId?: string;
-    overtakenByName?: string;
-  } | null;
-  createdAt: string;
-}
+import { Bell, CheckCheck, ExternalLink, Trophy, X, ChevronRight, LayoutDashboard } from 'lucide-react';
+import type { NotificationItem } from '@/types/notification';
+export type { NotificationItem };
 
 function formatRelativeTime(dateString: string): string {
   const date = new Date(dateString);
@@ -284,14 +266,23 @@ export function NotificationBell() {
           </div>
 
           {/* Footer CTA */}
-          <div className="p-3 bg-zinc-950/80 border-t border-zinc-800/80 text-center">
+          <div className="p-2.5 bg-zinc-950/80 border-t border-zinc-800/80 flex items-center justify-between text-xs font-bold px-3">
+            <Link
+              href="/dashboard?tab=notifications"
+              onClick={() => setIsOpen(false)}
+              className="text-zinc-400 hover:text-white flex items-center gap-1.5 transition-colors text-[11px]"
+            >
+              <LayoutDashboard className="w-3.5 h-3.5 text-orange-400" />
+              <span>Im Dashboard öffnen</span>
+            </Link>
+
             <Link
               href="/arena"
               onClick={() => setIsOpen(false)}
-              className="text-xs font-bold text-orange-400 hover:text-orange-300 flex items-center justify-center gap-1.5 transition-colors"
+              className="text-orange-400 hover:text-orange-300 flex items-center gap-1 transition-colors text-[11px]"
             >
               <Trophy className="w-3.5 h-3.5" />
-              <span>Alle Wochentitel & Leaderboard anzeigen</span>
+              <span>Zur Arena</span>
             </Link>
           </div>
         </div>
