@@ -26,6 +26,7 @@ model User {
   userBadges      UserBadge[]
   profileData     UserProfile?
   trainingPlans   TrainingPlan[]
+  healthMetrics   HealthMetric[]
 }
 
 model Account {
@@ -126,7 +127,8 @@ model UserProfile {
   estimatedVo2max     Float?
   vdotScore           Float?
   weeklyAvailability  Int       @default(3) // 2 to 6 days
-  preferredLongRunDay Int       @default(0) // 0 = Sunday (DorfDüsen Sunday Run)
+  preferredLongRunDay Int?                // null = Flexibel nach Wetter/Tagesform, 0 = Sonntag, 1 = Montag, etc.
+  includeSundayRun    Boolean   @default(true) // Ob der DorfDüsen Sunday Run (5k) eingeplant werden soll
   preferredTerrain    String?   @default("ROAD") // ROAD | TRAIL | MIXED
   notes               String?
   createdAt           DateTime  @default(now())
@@ -187,6 +189,8 @@ model PlanWorkout {
   targetPaceMax         String?      // "5:45"
   targetHrZone          Int?         // 1, 2, 3, 4, 5
   structuredSteps       Json?        // Interval sequence
+  isFlexible            Boolean      @default(true)
+  recommendedTiming     String?      // "Wochenende (nach Wetter)", "Dienstag", "Unter der Woche"
   status                String       @default("PENDING") // PENDING | COMPLETED | SKIPPED | ADAPTED
   matchedActivityId     String?
   matchedActivity       Activity?    @relation(fields: [matchedActivityId], references: [id], onDelete: SetNull)
@@ -194,4 +198,18 @@ model PlanWorkout {
 
   @@index([weekId])
   @@index([scheduledDate])
+}
+
+model HealthMetric {
+  id               String    @id @default(cuid())
+  userId           String
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date             DateTime  @default(now())
+  weightKg         Float?
+  restingHeartrate Int?
+  notes            String?
+  createdAt        DateTime  @default(now())
+
+  @@index([userId])
+  @@index([userId, date])
 }

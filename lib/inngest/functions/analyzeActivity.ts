@@ -40,27 +40,68 @@ export const analyzeActivityFunction = inngest.createFunction(
         return { matched: false, reason: "No active plan found" };
       }
 
-      // Find workout on the same calendar day
+      // Smart Flexible Matching within the activity's week
       const activityDate = new Date(activity.startDate);
-      const startOfDay = new Date(activityDate);
-      startOfDay.setHours(0, 0, 0, 0);
-      const endOfDay = new Date(activityDate);
-      endOfDay.setHours(23, 59, 59, 999);
+      const activityKm = activity.distance / 1000;
 
-      let matchedWorkout = null;
+      // Find the corresponding plan week (within +/- 3.5 days of workouts)
+      let activeWeek = null;
       for (const week of activePlan.weeks) {
-        for (const wo of week.workouts) {
-          const woDate = new Date(wo.scheduledDate);
-          if (woDate >= startOfDay && woDate <= endOfDay && wo.status === "PENDING") {
-            matchedWorkout = wo;
+        if (week.workouts.length > 0) {
+          const firstWo = new Date(week.workouts[0].scheduledDate);
+          const lastWo = new Date(week.workouts[week.workouts.length - 1].scheduledDate);
+          // 1 day buffer around week start/end
+          const weekStart = new Date(firstWo.getTime() - 24 * 3600 * 1000);
+          const weekEnd = new Date(lastWo.getTime() + 24 * 3600 * 1000);
+          if (activityDate >= weekStart && activityDate <= weekEnd) {
+            activeWeek = week;
             break;
           }
         }
-        if (matchedWorkout) break;
+      }
+
+      // If week not found by range, use first week with pending workouts
+      if (!activeWeek) {
+        activeWeek = activePlan.weeks.find((w) => w.workouts.some((wo) => wo.status === "PENDING")) || activePlan.weeks[0];
+      }
+
+      const pendingWorkouts = (activeWeek?.workouts || []).filter((wo) => wo.status === "PENDING");
+      if (pendingWorkouts.length === 0) {
+        return { matched: false, reason: "No pending workouts in this week" };
+      }
+
+      let matchedWorkout = null;
+
+      // 1. Long Run matching: If activity distance is >= 70% of planned Long Run
+      const pendingLongRun = pendingWorkouts.find((wo) => wo.workoutType === "LONGRUN");
+      if (pendingLongRun && pendingLongRun.targetDistance && activityKm >= pendingLongRun.targetDistance * 0.7) {
+        matchedWorkout = pendingLongRun;
+      }
+
+      // 2. Exact same day matching
+      if (!matchedWorkout) {
+        const startOfDay = new Date(activityDate);
+        startOfDay.setHours(0, 0, 0, 0);
+        const endOfDay = new Date(activityDate);
+        endOfDay.setHours(23, 59, 59, 999);
+
+        matchedWorkout = pendingWorkouts.find((wo) => {
+          const woDate = new Date(wo.scheduledDate);
+          return woDate >= startOfDay && woDate <= endOfDay;
+        });
+      }
+
+      // 3. Distance proximity matching
+      if (!matchedWorkout) {
+        matchedWorkout = [...pendingWorkouts].sort((a, b) => {
+          const diffA = Math.abs((a.targetDistance || 5) - activityKm);
+          const diffB = Math.abs((b.targetDistance || 5) - activityKm);
+          return diffA - diffB;
+        })[0];
       }
 
       if (!matchedWorkout) {
-        return { matched: false, reason: "No pending workout for this day" };
+        return { matched: false, reason: "Could not find a matching workout" };
       }
 
       return {

@@ -53,9 +53,17 @@ export async function POST(req: Request) {
       vdotScore,
       weeklyAvailability,
       preferredLongRunDay,
+      includeSundayRun,
       preferredTerrain,
       notes,
     } = body;
+
+    const parsedLongRunDay =
+      preferredLongRunDay === null || preferredLongRunDay === -1 || preferredLongRunDay === ""
+        ? null
+        : preferredLongRunDay !== undefined
+        ? Number(preferredLongRunDay)
+        : undefined;
 
     const updatedProfile = await db.userProfile.upsert({
       where: { userId: user.id },
@@ -68,7 +76,8 @@ export async function POST(req: Request) {
         maxHeartrate: maxHeartrate ? Number(maxHeartrate) : null,
         vdotScore: vdotScore ? Number(vdotScore) : null,
         weeklyAvailability: weeklyAvailability ? Number(weeklyAvailability) : 3,
-        preferredLongRunDay: preferredLongRunDay !== undefined ? Number(preferredLongRunDay) : 0,
+        preferredLongRunDay: parsedLongRunDay === undefined ? null : parsedLongRunDay,
+        includeSundayRun: includeSundayRun !== undefined ? Boolean(includeSundayRun) : true,
         preferredTerrain: preferredTerrain || "ROAD",
         notes: notes || null,
       },
@@ -80,7 +89,8 @@ export async function POST(req: Request) {
         maxHeartrate: maxHeartrate ? Number(maxHeartrate) : undefined,
         vdotScore: vdotScore ? Number(vdotScore) : undefined,
         weeklyAvailability: weeklyAvailability ? Number(weeklyAvailability) : undefined,
-        preferredLongRunDay: preferredLongRunDay !== undefined ? Number(preferredLongRunDay) : undefined,
+        preferredLongRunDay: parsedLongRunDay,
+        includeSundayRun: includeSundayRun !== undefined ? Boolean(includeSundayRun) : undefined,
         preferredTerrain: preferredTerrain || undefined,
         notes: notes !== undefined ? notes : undefined,
       },

@@ -15,7 +15,7 @@ export const generatePlanFunction = inngest.createFunction(
     retries: 2,
   },
   async ({ event, step }) => {
-    const { userId, planId, goalType, targetDistance, targetDate, weeklyAvailability, preferredLongRunDay } = event.data;
+    const { userId, planId, goalType, targetDistance, targetDate, weeklyAvailability, preferredLongRunDay, includeSundayRun } = event.data;
 
     // STEP 1: Calculate historical Strava baseline (CPU)
     const baseline = await step.run("calculate-athlete-baseline", async () => {
@@ -44,13 +44,15 @@ export const generatePlanFunction = inngest.createFunction(
           restingHeartrate: restingHr,
           vdotScore: vdot,
           weeklyAvailability: weeklyAvailability || 3,
-          preferredLongRunDay: preferredLongRunDay !== undefined ? preferredLongRunDay : 0,
+          preferredLongRunDay: preferredLongRunDay !== undefined ? preferredLongRunDay : null,
+          includeSundayRun: includeSundayRun !== undefined ? Boolean(includeSundayRun) : true,
         },
         update: {
           maxHeartrate: maxHr,
           vdotScore: vdot,
           weeklyAvailability: weeklyAvailability || 3,
-          preferredLongRunDay: preferredLongRunDay !== undefined ? preferredLongRunDay : 0,
+          preferredLongRunDay: preferredLongRunDay !== undefined ? preferredLongRunDay : null,
+          includeSundayRun: includeSundayRun !== undefined ? Boolean(includeSundayRun) : true,
         },
       });
 
@@ -66,6 +68,7 @@ export const generatePlanFunction = inngest.createFunction(
         targetDate: targetDate ? new Date(targetDate) : undefined,
         weeklyAvailability,
         preferredLongRunDay,
+        includeSundayRun: includeSundayRun !== undefined ? Boolean(includeSundayRun) : true,
       });
     });
 
@@ -127,6 +130,8 @@ export const generatePlanFunction = inngest.createFunction(
               targetPaceMax: wo.targetPaceMax,
               targetHrZone: wo.targetHrZone,
               structuredSteps: (wo.structuredSteps as unknown as Prisma.InputJsonValue) ?? undefined,
+              isFlexible: wo.isFlexible ?? true,
+              recommendedTiming: wo.recommendedTiming || null,
               status: "PENDING",
             },
           });

@@ -17,6 +17,8 @@ export interface GeneratedWorkout {
   targetPaceMax?: string;
   targetHrZone?: number;
   structuredSteps?: Record<string, unknown>;
+  isFlexible?: boolean;
+  recommendedTiming?: string;
 }
 
 export interface GeneratedWeek {
@@ -211,6 +213,8 @@ export function generateAlgorithmicPlan(ctx: PlanGenerationContext): GeneratedWe
         targetPaceMin: paceMin,
         targetPaceMax: paceMax,
         targetHrZone: hrZone,
+        isFlexible: d.isFlexible,
+        recommendedTiming: d.recommendedTiming,
       });
     }
 
@@ -241,6 +245,8 @@ function alignGeneratedPlanWithDates(
       const dayOffset = wo.dayOfWeek === 0 ? 6 : wo.dayOfWeek - 1; // Start of week is Monday
       workoutDate.setDate(weekStart.getDate() + dayOffset);
 
+      const matchingSkeletonDay = skeletonWeek.daysDistribution.find((d) => d.dayOfWeek === wo.dayOfWeek);
+
       return {
         dayOfWeek: wo.dayOfWeek,
         date: workoutDate.toISOString(),
@@ -254,6 +260,8 @@ function alignGeneratedPlanWithDates(
         targetPaceMax: wo.targetPaceMax || undefined,
         targetHrZone: wo.targetHrZone ? Number(wo.targetHrZone) : 2,
         structuredSteps: wo.structuredSteps || undefined,
+        isFlexible: wo.isFlexible ?? matchingSkeletonDay?.isFlexible ?? true,
+        recommendedTiming: wo.recommendedTiming || matchingSkeletonDay?.recommendedTiming || "Woche",
       };
     });
 

@@ -15,6 +15,10 @@ import {
   Gauge,
   ArrowRight,
   Loader2,
+  Scale,
+  Plus,
+  History,
+  Info,
 } from 'lucide-react';
 
 interface Workout {
@@ -28,6 +32,8 @@ interface Workout {
   targetPaceMin?: string | null;
   targetPaceMax?: string | null;
   targetHrZone?: number | null;
+  isFlexible?: boolean;
+  recommendedTiming?: string | null;
   status: string;
   aiFeedback?: string | null;
 }
@@ -56,9 +62,23 @@ interface Plan {
   weeks: Week[];
 }
 
+interface HealthMetricItem {
+  id: string;
+  date: string;
+  weightKg?: number | null;
+  restingHeartrate?: number | null;
+  notes?: string | null;
+}
+
 interface ProfileData {
   calculatedVdot: number;
   calculatedMaxHr: number;
+  profile?: {
+    weightKg?: number | null;
+    restingHeartrate?: number | null;
+    preferredLongRunDay?: number | null;
+    includeSundayRun?: boolean;
+  } | null;
   baseline: {
     averageWeeklyKm: number;
     peakWeeklyKm: number;
@@ -89,6 +109,7 @@ interface ProfileData {
 export function CoachDashboard() {
   const [plan, setPlan] = useState<Plan | null>(null);
   const [profileData, setProfileData] = useState<ProfileData | null>(null);
+  const [metricsHistory, setMetricsHistory] = useState<HealthMetricItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [activeTab, setActiveTab] = useState<'plan' | 'metrics' | 'new-plan'>('plan');
@@ -97,15 +118,24 @@ export function CoachDashboard() {
   const [goalType, setGoalType] = useState('HALF_MARATHON');
   const [targetDate, setTargetDate] = useState('');
   const [weeklyDays, setWeeklyDays] = useState(3);
-  const [longRunDay, setLongRunDay] = useState(0); // 0 = Sunday
+  const [longRunDay, setLongRunDay] = useState<number>(-1); // -1 = Flexibel nach Wetter/Tagesform
+  const [includeSundayRun, setIncludeSundayRun] = useState(true);
   const [weightKg, setWeightKg] = useState('');
   const [restingHr, setRestingHr] = useState('');
 
+  // Quick Health Log State
+  const [newWeight, setNewWeight] = useState('');
+  const [newRestingHr, setNewRestingHr] = useState('');
+  const [newMetricNotes, setNewMetricNotes] = useState('');
+  const [savingMetric, setSavingMetric] = useState(false);
+  const [metricSavedToast, setMetricSavedToast] = useState(false);
+
   const loadData = React.useCallback(async () => {
     try {
-      const [planRes, profileRes] = await Promise.all([
+      const [planRes, profileRes, metricsRes] = await Promise.all([
         fetch('/api/coach/plan'),
         fetch('/api/coach/profile'),
+        fetch('/api/coach/metrics'),
       ]);
 
       if (planRes.ok) {
@@ -117,9 +147,17 @@ export function CoachDashboard() {
           setGenerating(false);
         }
       }
+
       if (profileRes.ok) {
         const prData = await profileRes.json();
         setProfileData(prData);
+        if (prData.profile?.weightKg) setWeightKg(String(prData.profile.weightKg));
+        if (prData.profile?.restingHeartrate) setRestingHr(String(prData.profile.restingHeartrate));
+      }
+
+      if (metricsRes.ok) {
+        const mData = await metricsRes.json();
+        setMetricsHistory(mData.metrics || []);
       }
     } catch (e) {
       console.error(e);
@@ -130,7 +168,6 @@ export function CoachDashboard() {
 
   // Fetch plan & profile
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadData();
   }, [loadData]);
 
@@ -166,6 +203,7 @@ export function CoachDashboard() {
             restingHeartrate: restingHr ? Number(restingHr) : undefined,
             weeklyAvailability: weeklyDays,
             preferredLongRunDay: longRunDay,
+            includeSundayRun,
           }),
         });
       }
@@ -179,6 +217,7 @@ export function CoachDashboard() {
           targetDate: targetDate || undefined,
           weeklyAvailability: weeklyDays,
           preferredLongRunDay: longRunDay,
+          includeSundayRun,
         }),
       });
 
@@ -188,6 +227,37 @@ export function CoachDashboard() {
     } catch (err) {
       console.error(err);
       setGenerating(false);
+    }
+  };
+
+  const handleSaveHealthMetric = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newWeight && !newRestingHr) return;
+
+    setSavingMetric(true);
+    try {
+      const res = await fetch('/api/coach/metrics', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          weightKg: newWeight ? Number(newWeight) : undefined,
+          restingHeartrate: newRestingHr ? Number(newRestingHr) : undefined,
+          notes: newMetricNotes || undefined,
+        }),
+      });
+
+      if (res.ok) {
+        setNewWeight('');
+        setNewRestingHr('');
+        setNewMetricNotes('');
+        setMetricSavedToast(true);
+        setTimeout(() => setMetricSavedToast(false), 3000);
+        await loadData();
+      }
+    } catch (err) {
+      console.error('Error logging metric:', err);
+    } finally {
+      setSavingMetric(false);
     }
   };
 
@@ -224,13 +294,13 @@ export function CoachDashboard() {
         <div>
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-500/10 border border-orange-500/30 text-orange-400 text-xs font-bold uppercase tracking-wider mb-2">
             <Sparkles className="w-3.5 h-3.5" />
-            <span>KI & Sportwissenschaft (xAI Grok + Inngest)</span>
+            <span>KI & Sportwissenschaft (xAI Grok-3 + Inngest)</span>
           </div>
           <h1 className="text-3xl font-black text-white tracking-tight flex items-center gap-2">
             DorfDüsen Smart Coach
           </h1>
           <p className="text-sm text-zinc-400 mt-1">
-            Personalisierte, adaptive Ausdauerpläne nach VDOT & 80/20-Polarisierung.
+            Personalisierte, flexible Trainingspläne nach VDOT, 80/20-Polarisierung und adaptiver Strava-Analyse.
           </p>
         </div>
 
@@ -238,7 +308,7 @@ export function CoachDashboard() {
         <div className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 p-1 rounded-xl self-start md:self-auto">
           <button
             onClick={() => setActiveTab('plan')}
-            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
               activeTab === 'plan'
                 ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20'
                 : 'text-zinc-400 hover:text-white'
@@ -248,17 +318,17 @@ export function CoachDashboard() {
           </button>
           <button
             onClick={() => setActiveTab('metrics')}
-            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
               activeTab === 'metrics'
                 ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20'
                 : 'text-zinc-400 hover:text-white'
             }`}
           >
-            Physiologie & Zonen
+            Physiologie & Körperdaten
           </button>
           <button
             onClick={() => setActiveTab('new-plan')}
-            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
               activeTab === 'new-plan'
                 ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20'
                 : 'text-zinc-400 hover:text-white'
@@ -278,7 +348,7 @@ export function CoachDashboard() {
           <div className="space-y-1 text-center sm:text-left">
             <h4 className="font-bold text-white text-base">Inngest & xAI Grok generieren deinen Plan...</h4>
             <p className="text-xs text-zinc-400">
-              Strava-Baseline wird analysiert, Periodisierungsphasen werden berechnet und maßgeschneiderte Workouts generiert. Das dauert wenige Sekunden.
+              Strava-Baseline wird analysiert, Periodisierungsphasen werden berechnet und maßgeschneiderte Workouts generiert.
             </p>
           </div>
         </div>
@@ -293,10 +363,17 @@ export function CoachDashboard() {
               <div className="absolute top-0 right-0 w-64 h-64 bg-orange-500/10 rounded-full blur-3xl pointer-events-none" />
 
               <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
-                <span className="px-3 py-1 rounded-full bg-orange-500/20 border border-orange-500/40 text-orange-400 font-bold text-xs uppercase tracking-wider flex items-center gap-1.5">
-                  <Flame className="w-3.5 h-3.5 fill-orange-400" />
-                  Heutige Mission
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="px-3 py-1 rounded-full bg-orange-500/20 border border-orange-500/40 text-orange-400 font-bold text-xs uppercase tracking-wider flex items-center gap-1.5">
+                    <Flame className="w-3.5 h-3.5 fill-orange-400" />
+                    Heutige Mission
+                  </span>
+                  {todayWorkout.isFlexible && (
+                    <span className="px-2.5 py-0.5 rounded-full bg-zinc-800 text-zinc-400 text-[11px] font-semibold border border-zinc-700">
+                      Flexibel nach Tagesform
+                    </span>
+                  )}
+                </div>
                 <span className="text-xs font-semibold text-zinc-400">
                   {new Date().toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: 'long' })}
                 </span>
@@ -305,6 +382,11 @@ export function CoachDashboard() {
               <div className="space-y-2 max-w-2xl">
                 <h3 className="text-2xl sm:text-3xl font-black text-white">{todayWorkout.title}</h3>
                 <p className="text-sm text-zinc-300 leading-relaxed">{todayWorkout.description}</p>
+                {todayWorkout.recommendedTiming && (
+                  <p className="text-xs text-orange-400/90 font-medium">
+                    Zeitfenster: {todayWorkout.recommendedTiming}
+                  </p>
+                )}
               </div>
 
               {/* Target Metrics */}
@@ -349,8 +431,10 @@ export function CoachDashboard() {
                   <Calendar className="w-5 h-5" />
                 </div>
                 <div>
-                  <h4 className="font-bold text-white">Heute steht kein Training auf dem Plan</h4>
-                  <p className="text-xs text-zinc-400">Nutze den Tag für Regeneration oder leichtes Dehnen.</p>
+                  <h4 className="font-bold text-white">Heute steht kein festes Workout an</h4>
+                  <p className="text-xs text-zinc-400">
+                    Wähle eine Einheit aus deinem Wochenpool oder gönn dir einen wohlverdienten Ruhetag.
+                  </p>
                 </div>
               </div>
             </div>
@@ -394,7 +478,7 @@ export function CoachDashboard() {
                       </span>
                     </div>
 
-                    {/* Workouts Grid */}
+                    {/* Workouts Grid (Weekly Missions Pool) */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                       {week.workouts.map((w) => {
                         const date = new Date(w.scheduledDate);
@@ -406,26 +490,37 @@ export function CoachDashboard() {
                             className={`p-4 rounded-xl border text-xs space-y-2 transition-all ${
                               w.status === 'COMPLETED'
                                 ? 'bg-emerald-950/20 border-emerald-500/30'
+                                : w.workoutType === 'LONGRUN'
+                                ? 'bg-orange-950/20 border-orange-500/40 shadow-sm shadow-orange-500/5'
                                 : isSunday
-                                ? 'bg-orange-950/15 border-orange-500/30'
+                                ? 'bg-orange-950/10 border-orange-500/20'
                                 : 'bg-zinc-950/60 border-zinc-800/80'
                             }`}
                           >
-                            <div className="flex items-center justify-between">
-                              <span className="font-bold text-zinc-400">
-                                {date.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' })}
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="font-bold text-zinc-300 truncate">
+                                {w.recommendedTiming || date.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' })}
                               </span>
-                              <span
-                                className={`px-2 py-0.5 rounded font-black text-[10px] uppercase ${
-                                  w.workoutType === 'LONGRUN'
-                                    ? 'bg-orange-500/20 text-orange-400'
-                                    : w.workoutType === 'TEMPO'
-                                    ? 'bg-amber-500/20 text-amber-400'
-                                    : 'bg-zinc-800 text-zinc-300'
-                                }`}
-                              >
-                                {w.workoutType}
-                              </span>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                {w.isFlexible && (
+                                  <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-zinc-800 text-zinc-400">
+                                    Flexibel
+                                  </span>
+                                )}
+                                <span
+                                  className={`px-2 py-0.5 rounded font-black text-[10px] uppercase ${
+                                    w.workoutType === 'LONGRUN'
+                                      ? 'bg-orange-500/20 text-orange-400'
+                                      : w.workoutType === 'TEMPO'
+                                      ? 'bg-amber-500/20 text-amber-400'
+                                      : w.workoutType === 'INTERVAL'
+                                      ? 'bg-rose-500/20 text-rose-400'
+                                      : 'bg-zinc-800 text-zinc-300'
+                                  }`}
+                                >
+                                  {w.workoutType}
+                                </span>
+                              </div>
                             </div>
 
                             <h5 className="font-bold text-white text-sm line-clamp-1">{w.title}</h5>
@@ -433,8 +528,11 @@ export function CoachDashboard() {
 
                             <div className="pt-2 border-t border-zinc-800/60 flex items-center justify-between text-[11px] font-semibold">
                               <span className="text-white font-bold">{w.targetDistance ? `${w.targetDistance} km` : '-'}</span>
-                              <span className="text-orange-400">{w.targetPaceMin || 'Easy'}</span>
+                              <span className="text-orange-400">{w.targetPaceMin ? `${w.targetPaceMin} - ${w.targetPaceMax}` : 'Easy'}</span>
                               <span className="text-emerald-400">Z{w.targetHrZone || 2}</span>
+                              <span className="text-zinc-400">
+                                {w.status === 'COMPLETED' ? '✅' : '⏳'}
+                              </span>
                             </div>
                           </div>
                         );
@@ -451,11 +549,11 @@ export function CoachDashboard() {
               </div>
               <h3 className="text-xl font-bold text-white">Noch kein Trainingsplan aktiv</h3>
               <p className="text-sm text-zinc-400 max-w-md mx-auto">
-                Erstelle jetzt deinen ersten personalisierten Plan mit xAI Grok und unserer Sportwissenschafts-Engine.
+                Erstelle jetzt deinen ersten personalisierten Plan mit flexiblen Wochen-Missionen.
               </p>
               <button
                 onClick={() => setActiveTab('new-plan')}
-                className="px-6 py-3 rounded-xl bg-orange-500 hover:bg-orange-600 font-bold text-white text-sm transition-all shadow-lg shadow-orange-500/20 inline-flex items-center gap-2"
+                className="px-6 py-3 rounded-xl bg-orange-500 hover:bg-orange-600 font-bold text-white text-sm transition-all shadow-lg shadow-orange-500/20 inline-flex items-center gap-2 cursor-pointer"
               >
                 <span>Plan jetzt erstellen</span>
                 <ArrowRight className="w-4 h-4" />
@@ -465,7 +563,7 @@ export function CoachDashboard() {
         </div>
       )}
 
-      {/* TAB 2: PHYSIOLOGY & METRICS */}
+      {/* TAB 2: PHYSIOLOGY & HEALTH METRICS */}
       {activeTab === 'metrics' && profileData && (
         <div className="space-y-8">
           {/* Key VDOT & Heartrate Cards */}
@@ -513,12 +611,142 @@ export function CoachDashboard() {
             </div>
           </div>
 
+          {/* NEW SECTION: HISTORICAL HEALTH METRICS TRACKER */}
+          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 sm:p-8 space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <Scale className="w-5 h-5 text-orange-400" />
+                  <h3 className="text-xl font-black text-white">Körperdaten & Vital-Tracking</h3>
+                </div>
+                <p className="text-xs text-zinc-400 mt-1">
+                  Tracke dein Gewicht und deinen Ruhepuls historisch. Hält deinen VDOT und die Pulszonen aktuell.
+                </p>
+              </div>
+
+              {/* Quick Entry Form */}
+              <form onSubmit={handleSaveHealthMetric} className="flex flex-wrap items-center gap-2">
+                <input
+                  type="number"
+                  step="0.1"
+                  placeholder="Gewicht (kg)"
+                  value={newWeight}
+                  onChange={(e) => setNewWeight(e.target.value)}
+                  className="w-28 bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-orange-500"
+                />
+                <input
+                  type="number"
+                  placeholder="Ruhepuls (bpm)"
+                  value={newRestingHr}
+                  onChange={(e) => setNewRestingHr(e.target.value)}
+                  className="w-28 bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-orange-500"
+                />
+                <input
+                  type="text"
+                  placeholder="Notiz (optional)"
+                  value={newMetricNotes}
+                  onChange={(e) => setNewMetricNotes(e.target.value)}
+                  className="w-36 bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-orange-500 hidden md:block"
+                />
+                <button
+                  type="submit"
+                  disabled={savingMetric || (!newWeight && !newRestingHr)}
+                  className="px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 font-bold text-xs text-white transition-all shadow-md shadow-orange-500/20 disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
+                >
+                  {savingMetric ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+                  <span>Eintragen</span>
+                </button>
+              </form>
+            </div>
+
+            {metricSavedToast && (
+              <div className="p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-emerald-300 text-xs font-semibold flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                <span>Messwert erfolgreich gespeichert und Trainingszonen synchronisiert!</span>
+              </div>
+            )}
+
+            {/* Metrics History Cards & Table */}
+            {metricsHistory.length > 0 ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  <div className="p-3.5 rounded-xl bg-zinc-950 border border-zinc-800">
+                    <span className="text-[10px] font-bold uppercase text-zinc-500 block">Neuestes Gewicht</span>
+                    <span className="text-lg font-black text-white">
+                      {metricsHistory[0].weightKg ? `${metricsHistory[0].weightKg} kg` : '-'}
+                    </span>
+                    <span className="text-[10px] text-zinc-400 block mt-0.5">
+                      {new Date(metricsHistory[0].date).toLocaleDateString('de-DE')}
+                    </span>
+                  </div>
+
+                  <div className="p-3.5 rounded-xl bg-zinc-950 border border-zinc-800">
+                    <span className="text-[10px] font-bold uppercase text-zinc-500 block">Neuester Ruhepuls</span>
+                    <span className="text-lg font-black text-rose-400">
+                      {metricsHistory[0].restingHeartrate ? `${metricsHistory[0].restingHeartrate} bpm` : '-'}
+                    </span>
+                    <span className="text-[10px] text-zinc-400 block mt-0.5">
+                      {new Date(metricsHistory[0].date).toLocaleDateString('de-DE')}
+                    </span>
+                  </div>
+
+                  <div className="p-3.5 rounded-xl bg-zinc-950 border border-zinc-800 col-span-2 sm:col-span-1">
+                    <span className="text-[10px] font-bold uppercase text-zinc-500 block">Erfasste Einträge</span>
+                    <span className="text-lg font-black text-orange-400">{metricsHistory.length}</span>
+                    <span className="text-[10px] text-zinc-400 block mt-0.5">Messpunkte in Historie</span>
+                  </div>
+                </div>
+
+                {/* History Table */}
+                <div className="rounded-xl border border-zinc-800 overflow-hidden">
+                  <div className="max-h-56 overflow-y-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-zinc-950/80 text-zinc-400 border-b border-zinc-800 sticky top-0">
+                        <tr>
+                          <th className="p-2.5 font-bold">Datum</th>
+                          <th className="p-2.5 font-bold">Gewicht</th>
+                          <th className="p-2.5 font-bold">Ruhepuls</th>
+                          <th className="p-2.5 font-bold">Notiz</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-800/60 bg-zinc-950/30">
+                        {metricsHistory.slice(0, 15).map((m) => (
+                          <tr key={m.id} className="hover:bg-zinc-900/40 transition-colors">
+                            <td className="p-2.5 text-zinc-300 font-medium">
+                              {new Date(m.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                            </td>
+                            <td className="p-2.5 font-bold text-white">
+                              {m.weightKg ? `${m.weightKg} kg` : '-'}
+                            </td>
+                            <td className="p-2.5 font-bold text-rose-400">
+                              {m.restingHeartrate ? `${m.restingHeartrate} bpm` : '-'}
+                            </td>
+                            <td className="p-2.5 text-zinc-400 italic">
+                              {m.notes || '-'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="p-6 rounded-2xl bg-zinc-950/60 border border-zinc-800/80 text-center space-y-2">
+                <Info className="w-6 h-6 text-zinc-500 mx-auto" />
+                <p className="text-xs text-zinc-400">
+                  Noch keine manuellen Messwerte eingetragen. Nutze das Formular oben, um dein Gewicht oder deinen Ruhepuls festzuhalten.
+                </p>
+              </div>
+            )}
+          </div>
+
           {/* Daniels Pace Calculator Results */}
           <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 sm:p-8 space-y-6">
             <div>
               <h3 className="text-xl font-black text-white">Deine individuellen Trainings-Paces</h3>
               <p className="text-xs text-zinc-400">
-                Berechnet nach Jack Daniels VDOT-Tabellen basierend auf deinem Leistungsniveau.
+                Berechnet nach Jack Daniels VDOT-Tabellen basierend auf deinem aktuellen Leistungsniveau.
               </p>
             </div>
 
@@ -604,7 +832,7 @@ export function CoachDashboard() {
               Neuen Trainingsplan erstellen
             </h2>
             <p className="text-sm text-zinc-400 mt-1">
-              Wähle dein Ziel. Inngest berechnet die Periodisierung und xAI Grok formuliert deinen individuellen Wochenplan.
+              Wähle dein Ziel. Inngest berechnet die Periodisierung flexibel nach deinen Bedürfnissen und xAI Grok-3 formuliert die Workouts.
             </p>
           </div>
 
@@ -623,7 +851,7 @@ export function CoachDashboard() {
                     key={g.id}
                     type="button"
                     onClick={() => setGoalType(g.id)}
-                    className={`p-3 rounded-xl border text-xs font-bold transition-all text-center ${
+                    className={`p-3 rounded-xl border text-xs font-bold transition-all text-center cursor-pointer ${
                       goalType === g.id
                         ? 'bg-orange-500 border-orange-400 text-white shadow-lg shadow-orange-500/20'
                         : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:text-white'
@@ -673,20 +901,43 @@ export function CoachDashboard() {
               </div>
             </div>
 
-            {/* Long Run Day */}
+            {/* Flexible Long Run Day Option */}
             <div className="space-y-2">
               <label className="text-xs font-bold uppercase text-zinc-300 block">
-                Bevorzugter Tag für den Langen Lauf (Long Run)
+                Langer Lauf (Long Run) Präferenz
               </label>
               <select
                 value={longRunDay}
                 onChange={(e) => setLongRunDay(Number(e.target.value))}
                 className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-orange-500 transition-colors"
               >
-                <option value={0}>Sonntag (DorfDüsen Sunday Run)</option>
-                <option value={6}>Samstag</option>
-                <option value={5}>Freitag</option>
+                <option value={-1}>🌟 Flexibel nach Wetter & Tagesform (Empfohlen)</option>
+                <option value={0}>Sonntag (Fester Tag)</option>
+                <option value={6}>Samstag (Fester Tag)</option>
+                <option value={5}>Freitag (Fester Tag)</option>
+                <option value={4}>Donnerstag (Fester Tag)</option>
+                <option value={3}>Mittwoch (Fester Tag)</option>
+                <option value={2}>Dienstag (Fester Tag)</option>
+                <option value={1}>Montag (Fester Tag)</option>
               </select>
+              <p className="text-[11px] text-zinc-500">
+                Bei flexibler Wahl absolvierst du den Long Run, wann es dir am besten passt. Inngest matcht ihn automatisch an deinen Strava-Lauf.
+              </p>
+            </div>
+
+            {/* Sunday Club Run Toggle */}
+            <div className="flex items-start gap-3 p-4 rounded-xl bg-zinc-950 border border-zinc-800">
+              <input
+                type="checkbox"
+                id="includeSundayRun"
+                checked={includeSundayRun}
+                onChange={(e) => setIncludeSundayRun(e.target.checked)}
+                className="mt-1 w-4 h-4 accent-orange-500 rounded cursor-pointer"
+              />
+              <label htmlFor="includeSundayRun" className="text-xs text-zinc-300 cursor-pointer">
+                <span className="font-bold text-white block">DorfDüsen Sunday Run (5 km) fest einplanen</span>
+                Reserviert sonntags einen lockeren 5-km-Community-Lauf in Zone 2 im Wochenplan.
+              </label>
             </div>
 
             {/* Biometrics */}
@@ -721,7 +972,7 @@ export function CoachDashboard() {
             <button
               type="submit"
               disabled={generating}
-              className="w-full py-4 rounded-xl font-bold bg-orange-500 hover:bg-orange-600 text-white text-sm shadow-xl shadow-orange-500/20 transition-all flex items-center justify-center gap-2 group disabled:opacity-50"
+              className="w-full py-4 rounded-xl font-bold bg-orange-500 hover:bg-orange-600 text-white text-sm shadow-xl shadow-orange-500/20 transition-all flex items-center justify-center gap-2 group disabled:opacity-50 cursor-pointer"
             >
               {generating ? (
                 <>
@@ -731,7 +982,7 @@ export function CoachDashboard() {
               ) : (
                 <>
                   <Sparkles className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                  <span>Plan jetzt generieren</span>
+                  <span>Plan jetzt mit xAI Grok-3 & Inngest generieren</span>
                 </>
               )}
             </button>

@@ -45,7 +45,8 @@ export async function POST(req: Request) {
       targetTimeSeconds,
       targetDate,
       weeklyAvailability = 3,
-      preferredLongRunDay = 0,
+      preferredLongRunDay = null,
+      includeSundayRun = true,
     } = body;
 
     if (!goalType) {
@@ -84,6 +85,11 @@ export async function POST(req: Request) {
     });
 
     // Enqueue background processing in Inngest
+    const parsedLongRunDay =
+      preferredLongRunDay === null || preferredLongRunDay === -1 || preferredLongRunDay === ""
+        ? null
+        : Number(preferredLongRunDay);
+
     await inngest.send({
       name: "coach/plan.requested",
       data: {
@@ -94,7 +100,8 @@ export async function POST(req: Request) {
         targetTimeSeconds: targetTimeSeconds ? Number(targetTimeSeconds) : undefined,
         targetDate: targetDate ? targetDate : undefined,
         weeklyAvailability: Number(weeklyAvailability),
-        preferredLongRunDay: Number(preferredLongRunDay),
+        preferredLongRunDay: parsedLongRunDay,
+        includeSundayRun: Boolean(includeSundayRun),
       },
     });
 

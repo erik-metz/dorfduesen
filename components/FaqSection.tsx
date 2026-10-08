@@ -32,6 +32,10 @@ export function FaqSection({ club }: FaqSectionProps) {
       q: 'Lauft ihr nur oder macht ihr auch andere Sportarten?',
       a: 'In unserer Bio steht nicht umsonst: «Laufen. Rennrad. Eskalieren.»! Neben dem Laufen finden regelmäßig gemeinsame Rennrad- und Gravelbike-Runden statt oder wir nehmen zusammen an Volks- und Stadtläufen in der Region teil.',
     },
+    {
+      q: 'Wie funktioniert der DorfDüsen Smart Coach und eure Trainingsphilosophie?',
+      a: 'Unser Coach basiert auf fundierter Sportwissenschaft statt starrer Pauschalpläne: Wir nutzen das Jack Daniels VDOT-System, um deine individuellen Trainings-Paces (Easy, Threshold, Intervall) exakt anhand deiner echten Strava-Leistungen zu ermitteln. Nach dem 80/20-Prinzip (polarisiertes Training) absolvierst du rund 80 % deines Wochenumfangs im lockeren Grundlagenausdauer-Bereich (Zone 2) – das fördert die Mitochondriendichte und den Fettstoffwechsel, ohne das Nervensystem zu überlasten. Geplante Deload-Wochen und kontrollierte Steigerungen schützen vor Übertraining, während der Sonntagslauf als gemeinsamer Community-Longrun fest verankert ist.',
+    },
   ];
 
   return (

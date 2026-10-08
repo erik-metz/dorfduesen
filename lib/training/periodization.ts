@@ -2,17 +2,21 @@ import { AthleteBaseline } from "./baseline";
 
 export type TrainingPhase = "BASE" | "BUILD" | "PEAK" | "TAPER" | "RECOVERY";
 
+export interface PeriodizationWorkoutSkeleton {
+  dayOfWeek: number; // 0 = Sun, 1 = Mon, ..., 6 = Sat
+  workoutType: "EASY" | "TEMPO" | "INTERVAL" | "LONGRUN" | "RECOVERY" | "REST";
+  approximateKm: number;
+  isFlexible: boolean;
+  recommendedTiming: string;
+}
+
 export interface PeriodizationWeekSkeleton {
   weekNumber: number;
   phase: TrainingPhase;
   targetKm: number;
   isDeloadWeek: boolean;
   focusTitle: string;
-  daysDistribution: {
-    dayOfWeek: number; // 0 = Sun, 1 = Mon, ..., 6 = Sat
-    workoutType: "EASY" | "TEMPO" | "INTERVAL" | "LONGRUN" | "RECOVERY" | "REST";
-    approximateKm: number;
-  }[];
+  daysDistribution: PeriodizationWorkoutSkeleton[];
 }
 
 export interface PeriodizationPlanSkeleton {
@@ -31,7 +35,8 @@ export interface PeriodizationInput {
   targetDate?: Date;
   startDate?: Date;
   weeklyAvailability?: number; // 2 to 6 days
-  preferredLongRunDay?: number; // 0 = Sunday
+  preferredLongRunDay?: number | null; // null or -1 = Flexibel, 0 = So, 1 = Mo, 2 = Di, etc.
+  includeSundayRun?: boolean;
 }
 
 /**
@@ -65,7 +70,8 @@ export function buildPeriodizationSkeleton(input: PeriodizationInput): Periodiza
   }
 
   const daysAvailable = Math.min(Math.max(input.weeklyAvailability || 3, 2), 6);
-  const longRunDay = input.preferredLongRunDay !== undefined ? input.preferredLongRunDay : 0; // Default Sunday
+  const isFlexibleLongRun = input.preferredLongRunDay === null || input.preferredLongRunDay === undefined || input.preferredLongRunDay === -1;
+  const longRunDay = (isFlexibleLongRun || input.preferredLongRunDay == null) ? 0 : input.preferredLongRunDay; // Default placeholder slot Sunday, but marked flexible
 
   // Starting volume based on user baseline
   const startVolume = Math.max(input.baseline.averageWeeklyKm * 0.9, 12);
@@ -97,7 +103,6 @@ export function buildPeriodizationSkeleton(input: PeriodizationInput): Periodiza
 
     if (w > totalWeeks - taperWeeksCount) {
       phase = "TAPER";
-      // Taper reduces volume to 60% then 40%
       const taperStep = totalWeeks - w;
       currentVolume = targetPeakVolume * (0.5 + taperStep * 0.2);
       focusTitle = `Tapering Woche ${taperWeeksCount - taperStep}: Frische tanken & aktivieren`;
@@ -118,7 +123,6 @@ export function buildPeriodizationSkeleton(input: PeriodizationInput): Periodiza
       currentVolume = currentVolume * 0.75;
       focusTitle = `Regenerationswoche: Superkompensation & Erholung`;
     } else if (phase !== "TAPER") {
-      // Normal progression: +6% to +8%
       if (w > 1 && !weeks[w - 2].isDeloadWeek) {
         currentVolume = Math.min(currentVolume * 1.07, targetPeakVolume);
       }
@@ -127,7 +131,14 @@ export function buildPeriodizationSkeleton(input: PeriodizationInput): Periodiza
     const weeklyKm = Math.round(currentVolume * 10) / 10;
 
     // Distribute mileage across days
-    const daysDistribution = distributeDays(weeklyKm, daysAvailable, longRunDay, phase);
+    const daysDistribution = distributeDays(
+      weeklyKm,
+      daysAvailable,
+      longRunDay,
+      isFlexibleLongRun,
+      phase,
+      input.includeSundayRun ?? true
+    );
 
     weeks.push({
       weekNumber: w,
@@ -149,6 +160,8 @@ export function buildPeriodizationSkeleton(input: PeriodizationInput): Periodiza
   };
 }
 
+const DAY_NAMES = ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"];
+
 /**
  * Distributes weekly kilometers across running days
  */
@@ -156,24 +169,26 @@ function distributeDays(
   weeklyKm: number,
   daysCount: number,
   longRunDay: number,
-  phase: TrainingPhase
-) {
+  isFlexibleLongRun: boolean,
+  phase: TrainingPhase,
+  includeSundayRun: boolean
+): PeriodizationWorkoutSkeleton[] {
   // Long run takes ~30-35% of weekly mileage
   const longRunKm = Math.round(weeklyKm * 0.33 * 10) / 10;
   const remainingKm = Math.max(weeklyKm - longRunKm, 4);
 
-  // Available days selection (Monday = 1, Wednesday = 3, Friday = 5, Saturday = 6, Sunday = 0)
+  // Available days selection
   const defaultDaySchedules: Record<number, number[]> = {
-    2: [2, 0],              // Tue, Sun
-    3: [2, 4, 0],           // Tue, Thu, Sun
-    4: [2, 4, 6, 0],        // Tue, Thu, Sat, Sun
-    5: [1, 2, 4, 6, 0],     // Mon, Tue, Thu, Sat, Sun
-    6: [1, 2, 3, 5, 6, 0],  // 6 days
+    2: [2, 0],              // Di, So
+    3: [2, 4, 0],           // Di, Do, So
+    4: [2, 4, 6, 0],        // Di, Do, Sa, So
+    5: [1, 2, 4, 6, 0],     // Mo, Di, Do, Sa, So
+    6: [1, 2, 3, 5, 6, 0],  // 6 Tage
   };
 
   const selectedDays = defaultDaySchedules[daysCount] || defaultDaySchedules[3];
   
-  // Ensure longRunDay is included
+  // Ensure chosen longRunDay is included
   if (!selectedDays.includes(longRunDay)) {
     selectedDays[selectedDays.length - 1] = longRunDay;
   }
@@ -181,7 +196,7 @@ function distributeDays(
   const otherDays = selectedDays.filter((d) => d !== longRunDay);
   const kmPerOtherDay = Math.round((remainingKm / Math.max(otherDays.length, 1)) * 10) / 10;
 
-  const result: PeriodizationWeekSkeleton["daysDistribution"] = [];
+  const result: PeriodizationWorkoutSkeleton[] = [];
 
   for (let d = 0; d < 7; d++) {
     if (d === longRunDay) {
@@ -189,20 +204,27 @@ function distributeDays(
         dayOfWeek: d,
         workoutType: "LONGRUN",
         approximateKm: longRunKm,
+        isFlexible: isFlexibleLongRun,
+        recommendedTiming: isFlexibleLongRun ? "Wochenende / Nach Tagesform & Wetter" : `${DAY_NAMES[d]} (Fester Tag)`,
       });
     } else if (otherDays.includes(d)) {
-      // Determine quality day vs easy day
       const isQualityDay = d === otherDays[0] && (phase === "BUILD" || phase === "PEAK");
+      const isSundayClubRun = d === 0 && includeSundayRun;
+
       result.push({
         dayOfWeek: d,
         workoutType: isQualityDay ? "TEMPO" : "EASY",
-        approximateKm: kmPerOtherDay,
+        approximateKm: isSundayClubRun ? Math.max(kmPerOtherDay, 5.0) : kmPerOtherDay,
+        isFlexible: true,
+        recommendedTiming: isSundayClubRun ? "Sonntag (DorfDüsen Sunday Run)" : "Unter der Woche",
       });
     } else {
       result.push({
         dayOfWeek: d,
         workoutType: "REST",
         approximateKm: 0,
+        isFlexible: true,
+        recommendedTiming: "Ruhetag",
       });
     }
   }
