@@ -161,6 +161,17 @@ export function getGoalBadgeInfo(goalType: string) {
   }
 }
 
+interface MatchedActivity {
+  id: string;
+  stravaId: string;
+  name: string;
+  distance: number;
+  movingTime: number;
+  averageSpeed?: number | null;
+  averageHeartrate?: number | null;
+  startDate: string;
+}
+
 interface Workout {
   id: string;
   scheduledDate: string;
@@ -176,6 +187,7 @@ interface Workout {
   recommendedTiming?: string | null;
   status: string;
   aiFeedback?: string | null;
+  matchedActivity?: MatchedActivity | null;
 }
 
 interface Week {
@@ -737,7 +749,7 @@ export function CoachDashboard() {
                     </div>
 
                     {/* Workouts Grid (Weekly Missions Pool) */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 items-start">
                       {week.workouts.map((w) => {
                         const date = new Date(w.scheduledDate);
                         const isSunday = date.getDay() === 0;
@@ -751,12 +763,65 @@ export function CoachDashboard() {
                           ? `${Math.max(w.targetDistance || 0, 5.0)} km`
                           : (w.targetDistance ? `${w.targetDistance} km` : '-');
 
+                        const isCompleted = w.status === 'COMPLETED';
+                        const matched = w.matchedActivity;
+
+                        // Performance Comparison & Tendency calculation
+                        let distDiffText = null;
+                        let distTendencyColor = 'text-zinc-400';
+                        let actualPaceText = null;
+                        let paceTendencyColor = 'text-zinc-400';
+                        let paceDiffText = null;
+
+                        if (isCompleted && matched) {
+                          const actualKm = Math.round((matched.distance / 1000) * 10) / 10;
+                          const targetKm = w.targetDistance || (isClubRun ? 5.0 : null);
+                          if (targetKm) {
+                            const diffKm = Math.round((actualKm - targetKm) * 10) / 10;
+                            if (diffKm > 0.3) {
+                              distDiffText = `+${diffKm} km weiter`;
+                              distTendencyColor = 'text-emerald-400';
+                            } else if (diffKm < -0.3) {
+                              distDiffText = `${diffKm} km kürzer`;
+                              distTendencyColor = 'text-amber-400';
+                            } else {
+                              distDiffText = 'Punktlandung';
+                              distTendencyColor = 'text-emerald-400';
+                            }
+                          }
+
+                          if (matched.movingTime && matched.distance > 0) {
+                            const secPerKm = matched.movingTime / (matched.distance / 1000);
+                            const pMin = Math.floor(secPerKm / 60);
+                            const pSec = Math.floor(secPerKm % 60);
+                            actualPaceText = `${pMin}:${pSec < 10 ? '0' : ''}${pSec} min/km`;
+
+                            if (w.targetPaceMin) {
+                              const [tMin, tSec] = w.targetPaceMin.split(':').map(Number);
+                              const targetSecPerKm = (tMin || 0) * 60 + (tSec || 0);
+                              if (targetSecPerKm > 0) {
+                                const paceDiff = Math.round(targetSecPerKm - secPerKm);
+                                if (paceDiff > 10) {
+                                  paceDiffText = `${Math.abs(paceDiff)}s schneller`;
+                                  paceTendencyColor = 'text-emerald-400';
+                                } else if (paceDiff < -10) {
+                                  paceDiffText = `${Math.abs(paceDiff)}s ruhiger`;
+                                  paceTendencyColor = 'text-blue-400';
+                                } else {
+                                  paceDiffText = 'Ziel-Pace exakt getroffen';
+                                  paceTendencyColor = 'text-emerald-400';
+                                }
+                              }
+                            }
+                          }
+                        }
+
                         return (
                           <div
                             key={w.id}
-                            className={`p-4 rounded-xl border text-xs space-y-3 transition-all ${
-                              w.status === 'COMPLETED'
-                                ? 'bg-emerald-950/20 border-emerald-500/30'
+                            className={`p-4 rounded-xl border text-xs space-y-3 transition-all min-h-[160px] flex flex-col justify-between ${
+                              isCompleted
+                                ? 'bg-emerald-950/20 border-emerald-500/40 shadow-sm shadow-emerald-500/5'
                                 : isClubRun
                                 ? 'bg-gradient-to-br from-orange-950/30 via-zinc-950/90 to-zinc-950 border-orange-500/40 shadow-sm shadow-orange-500/5'
                                 : w.workoutType === 'LONGRUN'
@@ -764,77 +829,149 @@ export function CoachDashboard() {
                                 : 'bg-zinc-950/60 border-zinc-800/80'
                             }`}
                           >
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                              <span className="font-bold text-zinc-300">
-                                {w.recommendedTiming || date.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' })}
-                              </span>
-                              <div className="flex items-center gap-1.5 shrink-0">
-                                {isClubRun && (
+                            <div className="space-y-3">
+                              {/* Top Bar: Timing & Workout Type Badges */}
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <span className="font-bold text-zinc-300">
+                                  {w.recommendedTiming || date.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' })}
+                                </span>
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  {isClubRun && (
+                                    <a
+                                      href="https://www.strava.com/clubs/1670142/group_events"
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-orange-500/20 text-orange-400 hover:bg-orange-500/30 border border-orange-500/30 transition-colors"
+                                      title="Offizieller Termin im Strava Club (Dorfdüsen)"
+                                    >
+                                      <span>Strava Termin</span>
+                                      <ExternalLink className="w-2.5 h-2.5" />
+                                    </a>
+                                  )}
+                                  {w.isFlexible && !isClubRun && (
+                                    <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-zinc-800 text-zinc-400">
+                                      Flexibel
+                                    </span>
+                                  )}
+                                  <span
+                                    className={`px-2 py-0.5 rounded font-black text-[10px] uppercase ${
+                                      isClubRun
+                                        ? 'bg-orange-500/20 text-orange-400'
+                                        : w.workoutType === 'LONGRUN'
+                                        ? 'bg-orange-500/20 text-orange-400'
+                                        : w.workoutType === 'TEMPO'
+                                        ? 'bg-amber-500/20 text-amber-400'
+                                        : w.workoutType === 'INTERVAL'
+                                        ? 'bg-rose-500/20 text-rose-400'
+                                        : 'bg-zinc-800 text-zinc-300'
+                                    }`}
+                                  >
+                                    {isClubRun ? 'Vereinslauf' : w.workoutType}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Title & Description */}
+                              <div className="space-y-1">
+                                <h5 className="font-bold text-white text-sm leading-snug">{w.title}</h5>
+                                <p className="text-zinc-300 text-xs leading-relaxed whitespace-pre-line">{w.description}</p>
+                              </div>
+
+                              {isClubRun && (
+                                <div className="flex items-center justify-between text-[10px] bg-orange-500/10 border border-orange-500/20 px-2.5 py-1.5 rounded-lg text-orange-300">
+                                  <span className="flex items-center gap-1 font-semibold">
+                                    📍 Nordheim (Biblis) • 10:00 Uhr
+                                  </span>
                                   <a
                                     href="https://www.strava.com/clubs/1670142/group_events"
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-orange-500/20 text-orange-400 hover:bg-orange-500/30 border border-orange-500/30 transition-colors"
-                                    title="Offizieller Termin im Strava Club (Dorfdüsen)"
+                                    className="font-bold text-orange-400 hover:text-white underline underline-offset-2 flex items-center gap-0.5"
                                   >
-                                    <span>Strava Termin</span>
+                                    <span>Club-Termin auf Strava</span>
                                     <ExternalLink className="w-2.5 h-2.5" />
                                   </a>
-                                )}
-                                {w.isFlexible && !isClubRun && (
-                                  <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-zinc-800 text-zinc-400">
-                                    Flexibel
-                                  </span>
-                                )}
-                                <span
-                                  className={`px-2 py-0.5 rounded font-black text-[10px] uppercase ${
-                                    isClubRun
-                                      ? 'bg-orange-500/20 text-orange-400'
-                                      : w.workoutType === 'LONGRUN'
-                                      ? 'bg-orange-500/20 text-orange-400'
-                                      : w.workoutType === 'TEMPO'
-                                      ? 'bg-amber-500/20 text-amber-400'
-                                      : w.workoutType === 'INTERVAL'
-                                      ? 'bg-rose-500/20 text-rose-400'
-                                      : 'bg-zinc-800 text-zinc-300'
-                                  }`}
-                                >
-                                  {isClubRun ? 'Vereinslauf' : w.workoutType}
-                                </span>
-                              </div>
+                                </div>
+                              )}
+
+                              {/* Matched Activity Info & Tendency Box (When Completed) */}
+                              {isCompleted && matched && (
+                                <div className="p-2.5 rounded-lg bg-emerald-950/40 border border-emerald-500/30 space-y-2">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1">
+                                      <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                                      Absolviert via Strava
+                                    </span>
+                                    <a
+                                      href={`https://www.strava.com/activities/${matched.stravaId}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-[10px] font-bold text-orange-400 hover:text-orange-300 flex items-center gap-1 hover:underline"
+                                    >
+                                      <span>{matched.name}</span>
+                                      <ExternalLink className="w-2.5 h-2.5" />
+                                    </a>
+                                  </div>
+
+                                  {/* Stats & Tendencies */}
+                                  <div className="grid grid-cols-2 gap-1.5 text-[11px] pt-1 border-t border-emerald-500/20">
+                                    <div>
+                                      <span className="text-zinc-400 block text-[10px]">Ist-Distanz:</span>
+                                      <span className="font-bold text-white">
+                                        {(matched.distance / 1000).toFixed(1)} km
+                                      </span>
+                                      {distDiffText && (
+                                        <span className={`block text-[10px] font-semibold ${distTendencyColor}`}>
+                                          {distDiffText}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div>
+                                      <span className="text-zinc-400 block text-[10px]">Ist-Pace:</span>
+                                      <span className="font-bold text-white">
+                                        {actualPaceText || '—'}
+                                      </span>
+                                      {paceDiffText && (
+                                        <span className={`block text-[10px] font-semibold ${paceTendencyColor}`}>
+                                          {paceDiffText}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  {/* AI Coach Feedback if present */}
+                                  {w.aiFeedback && (
+                                    <div className="pt-1.5 border-t border-emerald-500/20 text-[10px] text-zinc-300 italic flex items-start gap-1">
+                                      <span>💬</span>
+                                      <span>{w.aiFeedback}</span>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
                             </div>
 
-                            <div className="space-y-1">
-                              <h5 className="font-bold text-white text-sm leading-snug">{w.title}</h5>
-                              <p className="text-zinc-300 text-xs leading-relaxed whitespace-pre-line">{w.description}</p>
-                            </div>
-
-                            {isClubRun && (
-                              <div className="flex items-center justify-between text-[10px] bg-orange-500/10 border border-orange-500/20 px-2.5 py-1.5 rounded-lg text-orange-300">
-                                <span className="flex items-center gap-1 font-semibold">
-                                  📍 Nordheim (Biblis) • 10:00 Uhr
-                                </span>
-                                <a
-                                  href="https://www.strava.com/clubs/1670142/group_events"
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="font-bold text-orange-400 hover:text-white underline underline-offset-2 flex items-center gap-0.5"
-                                >
-                                  <span>Club-Termin auf Strava</span>
-                                  <ExternalLink className="w-2.5 h-2.5" />
-                                </a>
-                              </div>
-                            )}
-
-                            <div className="pt-2 border-t border-zinc-800/60 flex items-center justify-between text-[11px] font-semibold gap-2">
-                              <span className="text-white font-bold">{displayDistance}</span>
+                            {/* Targets Footer Bar */}
+                            <div className="pt-2 border-t border-zinc-800/60 flex items-center justify-between text-[11px] font-semibold gap-2 mt-2">
+                              <span className="text-white font-bold" title="Soll-Distanz">
+                                {displayDistance}
+                              </span>
                               <span className="text-orange-400 bg-orange-500/10 px-2 py-0.5 rounded border border-orange-500/20" title="Ziel-Pace (Minuten pro Kilometer)">
                                 {w.targetPaceMin ? `${w.targetPaceMin} - ${w.targetPaceMax} min/km` : 'Easy-Pace'}
                               </span>
-                              <span className="text-emerald-400">Z{w.targetHrZone || 2}</span>
-                              <span className="text-zinc-400">
-                                {w.status === 'COMPLETED' ? '✅' : '⏳'}
+                              <span className="text-emerald-400" title="Herzfrequenz-Zone">
+                                Z{w.targetHrZone || 2}
                               </span>
+                              {isCompleted ? (
+                                <span className="inline-flex items-center gap-1 text-emerald-400 font-bold bg-emerald-500/20 px-2 py-0.5 rounded-full border border-emerald-500/30">
+                                  <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                                  <span>Erledigt</span>
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-zinc-400 font-medium bg-zinc-800/80 px-2 py-0.5 rounded-full border border-zinc-700">
+                                  <Clock className="w-3 h-3 text-zinc-400" />
+                                  <span>Offen</span>
+                                </span>
+                              )}
                             </div>
                           </div>
                         );

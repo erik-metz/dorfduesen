@@ -44,7 +44,14 @@ export const analyzeActivityFunction = inngest.createFunction(
       const activityDate = new Date(activity.startDate);
       const activityKm = activity.distance / 1000;
 
-      // Find the corresponding plan week (within +/- 3.5 days of workouts)
+      // Strict Date Check: Activity MUST NOT be before the training plan start date (minus 1 day grace period)
+      const planStart = new Date(activePlan.startDate);
+      const planStartWithGrace = new Date(planStart.getTime() - 24 * 3600 * 1000);
+      if (activityDate < planStartWithGrace) {
+        return { matched: false, reason: "Activity is older than the active training plan start date" };
+      }
+
+      // Find the corresponding plan week (within +/- 1 day buffer around scheduled dates)
       let activeWeek = null;
       for (const week of activePlan.weeks) {
         if (week.workouts.length > 0) {
@@ -60,12 +67,12 @@ export const analyzeActivityFunction = inngest.createFunction(
         }
       }
 
-      // If week not found by range, use first week with pending workouts
+      // If week not found within date window, do NOT fall back to arbitrary future weeks!
       if (!activeWeek) {
-        activeWeek = activePlan.weeks.find((w) => w.workouts.some((wo) => wo.status === "PENDING")) || activePlan.weeks[0];
+        return { matched: false, reason: "Activity date does not match any scheduled week of the training plan" };
       }
 
-      const pendingWorkouts = (activeWeek?.workouts || []).filter((wo) => wo.status === "PENDING");
+      const pendingWorkouts = (activeWeek.workouts || []).filter((wo) => wo.status === "PENDING");
       if (pendingWorkouts.length === 0) {
         return { matched: false, reason: "No pending workouts in this week" };
       }

@@ -27,6 +27,20 @@ export async function GET() {
           include: {
             workouts: {
               orderBy: { scheduledDate: "asc" },
+              include: {
+                matchedActivity: {
+                  select: {
+                    id: true,
+                    stravaId: true,
+                    name: true,
+                    distance: true,
+                    movingTime: true,
+                    averageSpeed: true,
+                    averageHeartrate: true,
+                    startDate: true,
+                  },
+                },
+              },
             },
           },
         },
