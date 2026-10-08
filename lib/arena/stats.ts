@@ -310,6 +310,36 @@ export async function getArenaData(
   };
 
   // 4. Leaderboard query for requested period & sport filter
+  const leaderboard = await getArenaLeaderboard(period, sport);
+
+  // 5. Ensure and provide full available Badges definition
+  try {
+    await ensureBadgesSeeded(db);
+  } catch {
+    // Continue if DB is warming up
+  }
+  const availableBadges = BADGE_DEFINITIONS;
+
+  return {
+    weekKm,
+    weekHours,
+    weekActivitiesCount,
+    activeAthletesCount,
+    champions,
+    challenge,
+    leaderboard,
+    availableBadges,
+  };
+}
+
+export async function getArenaLeaderboard(
+  period: 'week' | 'month' | 'all' = 'week',
+  sport: 'all' | 'run' | 'ride' = 'all'
+): Promise<LeaderboardEntry[]> {
+  const startOfWeek = getStartOfWeek();
+  const startOfMonth = getStartOfMonth();
+
+  // Leaderboard query for requested period & sport filter
   const dateFilter =
     period === 'week'
       ? { gte: startOfWeek }
@@ -411,22 +441,5 @@ export async function getArenaData(
       };
     });
 
-  // 5. Ensure and provide full available Badges definition
-  try {
-    await ensureBadgesSeeded(db);
-  } catch {
-    // Continue if DB is warming up
-  }
-  const availableBadges = BADGE_DEFINITIONS;
-
-  return {
-    weekKm,
-    weekHours,
-    weekActivitiesCount,
-    activeAthletesCount,
-    champions,
-    challenge,
-    leaderboard,
-    availableBadges,
-  };
+  return leaderboard;
 }

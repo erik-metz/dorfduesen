@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Trophy, Footprints, Bike, Flame, ArrowUpDown } from 'lucide-react';
+import { Trophy, Footprints, Bike, Flame, ArrowUpDown, Loader2 } from 'lucide-react';
 import { LeaderboardEntry } from '@/lib/arena/stats';
 import { isValidAvatarUrl } from '@/lib/utils/avatar';
 
@@ -15,9 +15,51 @@ export function MultiLeaderboard({ initialEntries }: MultiLeaderboardProps) {
   const [period, setPeriod] = useState<'week' | 'month' | 'all'>('week');
   const [sport, setSport] = useState<'all' | 'run' | 'ride'>('all');
   const [sortBy, setSortBy] = useState<'distance' | 'time' | 'elevation' | 'activities'>('distance');
+  const [entries, setEntries] = useState<LeaderboardEntry[]>(initialEntries);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+
+  // Client-side cache to avoid refetching previously visited filter combinations
+  const cacheRef = useRef<Record<string, LeaderboardEntry[]>>({
+    'week-all': initialEntries,
+  });
+
+  useEffect(() => {
+    const key = `${period}-${sport}`;
+    if (cacheRef.current[key]) {
+      setEntries(cacheRef.current[key]);
+      return;
+    }
+
+    let isCancelled = false;
+    setIsLoading(true);
+
+    fetch(`/api/arena/leaderboard?period=${period}&sport=${sport}`)
+      .then((res) => {
+        if (!res.ok) throw new Error('Netzwerkfehler beim Laden des Leaderboards');
+        return res.json();
+      })
+      .then((data) => {
+        if (!isCancelled && data.success && Array.isArray(data.leaderboard)) {
+          cacheRef.current[key] = data.leaderboard;
+          setEntries(data.leaderboard);
+        }
+      })
+      .catch((err) => {
+        console.error('Fehler beim Laden des Leaderboards:', err);
+      })
+      .finally(() => {
+        if (!isCancelled) {
+          setIsLoading(false);
+        }
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [period, sport]);
 
   // Client-side sort
-  const sortedEntries = [...initialEntries].sort((a, b) => {
+  const sortedEntries = [...entries].sort((a, b) => {
     if (sortBy === 'distance') return b.totalDistanceKm - a.totalDistanceKm;
     if (sortBy === 'time') return b.totalHours - a.totalHours;
     if (sortBy === 'elevation') return b.totalElevation - a.totalElevation;
@@ -32,10 +74,15 @@ export function MultiLeaderboard({ initialEntries }: MultiLeaderboardProps) {
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-600/10 border border-orange-500/20 text-orange-400 text-xs font-bold uppercase tracking-wider mb-2">
             <Trophy className="w-3.5 h-3.5" /> Multi-Leaderboard
           </div>
-          <h2 className="text-2xl sm:text-4xl font-black text-white tracking-tight uppercase">
-            Das Düsen-Ranking
-          </h2>
-          <p className="text-xs sm:text-sm text-zinc-400">
+          <div className="flex items-center gap-3">
+            <h2 className="text-2xl sm:text-4xl font-black text-white tracking-tight uppercase">
+              Das Düsen-Ranking
+            </h2>
+            {isLoading && (
+              <Loader2 className="w-5 h-5 text-orange-500 animate-spin" />
+            )}
+          </div>
+          <p className="text-xs sm:text-sm text-zinc-400 mt-1">
             Filtern nach Zeitraum oder Sportart und verfolge den aktuellen Tabellenstand.
           </p>
         </div>
@@ -106,7 +153,12 @@ export function MultiLeaderboard({ initialEntries }: MultiLeaderboardProps) {
       </div>
 
       {/* Leaderboard Table / Cards */}
-      {sortedEntries.length === 0 ? (
+      {isLoading && entries.length === 0 ? (
+        <div className="rounded-3xl bg-zinc-900/60 border border-zinc-800 p-12 text-center space-y-4">
+          <Loader2 className="w-10 h-10 text-orange-500 animate-spin mx-auto" />
+          <div className="text-lg font-bold text-white">Lade Ranking...</div>
+        </div>
+      ) : sortedEntries.length === 0 ? (
         <div className="rounded-3xl bg-zinc-900/60 border border-zinc-800 p-12 text-center space-y-4">
           <Flame className="w-12 h-12 text-zinc-600 mx-auto" />
           <div className="text-lg font-bold text-white">Noch keine Aktivitäten für diese Filterung</div>
@@ -121,7 +173,7 @@ export function MultiLeaderboard({ initialEntries }: MultiLeaderboardProps) {
           </Link>
         </div>
       ) : (
-        <div className="rounded-3xl bg-zinc-900 border border-zinc-800 overflow-hidden shadow-2xl">
+        <div className={`rounded-3xl bg-zinc-900 border border-zinc-800 overflow-hidden shadow-2xl transition-opacity duration-200 ${isLoading ? 'opacity-60 pointer-events-none' : ''}`}>
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
@@ -129,36 +181,41 @@ export function MultiLeaderboard({ initialEntries }: MultiLeaderboardProps) {
                   <th className="py-4 px-4 sm:px-6 w-16 text-center">Rang</th>
                   <th className="py-4 px-4">Athlet</th>
                   <th
-                    className="py-4 px-4 cursor-pointer hover:text-white"
+                    className={`py-4 px-4 cursor-pointer transition-colors ${sortBy === 'distance' ? 'text-white' : 'hover:text-white'}`}
                     onClick={() => setSortBy('distance')}
                   >
                     <div className="flex items-center gap-1">
                       <span>Distanz</span>
-                      <ArrowUpDown className="w-3 h-3 text-orange-500" />
+                      <ArrowUpDown className={`w-3 h-3 ${sortBy === 'distance' ? 'text-orange-500' : 'text-zinc-600'}`} />
                     </div>
                   </th>
                   <th
-                    className="py-4 px-4 cursor-pointer hover:text-white hidden sm:table-cell"
+                    className={`py-4 px-4 cursor-pointer transition-colors hidden sm:table-cell ${sortBy === 'time' ? 'text-white' : 'hover:text-white'}`}
                     onClick={() => setSortBy('time')}
                   >
                     <div className="flex items-center gap-1">
                       <span>Zeit</span>
+                      <ArrowUpDown className={`w-3 h-3 ${sortBy === 'time' ? 'text-orange-500' : 'text-zinc-600'}`} />
                     </div>
                   </th>
                   <th
-                    className="py-4 px-4 cursor-pointer hover:text-white hidden md:table-cell"
+                    className={`py-4 px-4 cursor-pointer transition-colors hidden md:table-cell ${sortBy === 'elevation' ? 'text-white' : 'hover:text-white'}`}
                     onClick={() => setSortBy('elevation')}
                   >
                     <div className="flex items-center gap-1">
                       <span>Höhe</span>
+                      <ArrowUpDown className={`w-3 h-3 ${sortBy === 'elevation' ? 'text-orange-500' : 'text-zinc-600'}`} />
                     </div>
                   </th>
                   <th className="py-4 px-4 hidden lg:table-cell">Ø Pace</th>
                   <th
-                    className="py-4 px-4 cursor-pointer hover:text-white text-right pr-6"
+                    className={`py-4 px-4 cursor-pointer transition-colors text-right pr-6 ${sortBy === 'activities' ? 'text-white' : 'hover:text-white'}`}
                     onClick={() => setSortBy('activities')}
                   >
-                    Workouts
+                    <div className="flex items-center justify-end gap-1">
+                      <span>Workouts</span>
+                      <ArrowUpDown className={`w-3 h-3 ${sortBy === 'activities' ? 'text-orange-500' : 'text-zinc-600'}`} />
+                    </div>
                   </th>
                 </tr>
               </thead>
