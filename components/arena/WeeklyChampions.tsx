@@ -1,4 +1,6 @@
-import React from 'react';
+'use client';
+
+import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Crown, Sparkles } from 'lucide-react';
@@ -7,9 +9,24 @@ import { isValidAvatarUrl } from '@/lib/utils/avatar';
 
 interface WeeklyChampionsProps {
   champions: ChampionTitle[];
+  currentUserId?: string | null;
 }
 
-export function WeeklyChampions({ champions }: WeeklyChampionsProps) {
+export function WeeklyChampions({ champions, currentUserId }: WeeklyChampionsProps) {
+  const [activeUserId, setActiveUserId] = useState<string | null>(currentUserId || null);
+
+  useEffect(() => {
+    if (!activeUserId) {
+      fetch('/api/auth/me')
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (data?.authenticated && data?.user?.id) {
+            setActiveUserId(data.user.id);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [activeUserId]);
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
@@ -38,11 +55,15 @@ export function WeeklyChampions({ champions }: WeeklyChampionsProps) {
         {champions.map((champ) => {
           const hasWinner = Boolean(champ.winner);
 
+          const isCurrentUser = Boolean(activeUserId && champ.winner?.userId === activeUserId);
+
           return (
             <div
               key={champ.id}
               className={`rounded-3xl border p-6 flex flex-col justify-between transition-all relative overflow-hidden group shadow-xl ${
-                hasWinner
+                isCurrentUser
+                  ? 'bg-gradient-to-b from-orange-950/30 to-zinc-900/90 border-orange-500/60 shadow-orange-950/20 ring-1 ring-orange-500/40'
+                  : hasWinner
                   ? 'bg-zinc-900/80 border-zinc-800 hover:border-orange-500/50'
                   : 'bg-zinc-950/60 border-zinc-900 hover:border-zinc-800'
               }`}
@@ -52,9 +73,15 @@ export function WeeklyChampions({ champions }: WeeklyChampionsProps) {
                   <span className="text-3xl p-2.5 bg-zinc-950 rounded-2xl border border-zinc-800/80 inline-block shadow-inner">
                     {champ.icon}
                   </span>
-                  <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-zinc-800/80 text-zinc-400">
-                    Wochentitel
-                  </span>
+                  {isCurrentUser ? (
+                    <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 animate-pulse">
+                      Deine Führung 👑
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-zinc-800/80 text-zinc-400">
+                      Wochentitel
+                    </span>
+                  )}
                 </div>
 
                 <h3 className="text-lg font-black text-white tracking-tight leading-snug">
@@ -86,10 +113,10 @@ export function WeeklyChampions({ champions }: WeeklyChampionsProps) {
                       </div>
                       <div className="min-w-0">
                         <div className="text-xs text-orange-400 font-bold uppercase tracking-wider">
-                          Aktuelle Führung
+                          {isCurrentUser ? 'Du bist in Führung' : 'Aktuelle Führung'}
                         </div>
                         <div className="text-sm font-bold text-white truncate">
-                          {champ.winner.name}
+                          {isCurrentUser ? 'Du' : champ.winner.name}
                         </div>
                       </div>
                     </div>

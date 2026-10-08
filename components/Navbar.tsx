@@ -20,6 +20,7 @@ import {
 import { ClubData } from '@/types/club';
 import { StravaIcon, InstagramIcon } from '@/components/icons/BrandIcons';
 import { isValidAvatarUrl } from '@/lib/utils/avatar';
+import { NotificationBell } from '@/components/NotificationBell';
 
 interface NavbarProps {
   club: ClubData;
@@ -171,6 +172,7 @@ export function Navbar({ club, currentUser }: NavbarProps) {
 
           {/* Desktop Action Right (One Clear, Focused Element) */}
           <div className="hidden lg:flex items-center gap-3">
+            {user && <NotificationBell />}
             {user ? (
               <Link
                 href="/dashboard"
@@ -201,6 +203,7 @@ export function Navbar({ club, currentUser }: NavbarProps) {
 
           {/* Mobile Right Bar: Fast Action + Hamburger */}
           <div className="flex lg:hidden items-center gap-2">
+            {user && <NotificationBell />}
             {/* Quick Profile/Login Button on Mobile */}
             {user ? (
               <Link
