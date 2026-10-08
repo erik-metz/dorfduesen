@@ -15,7 +15,6 @@ import {
   ChevronRight,
   User as UserIcon,
   LayoutDashboard,
-  Sparkles,
 } from 'lucide-react';
 import { ClubData } from '@/types/club';
 import { StravaIcon, InstagramIcon } from '@/components/icons/BrandIcons';
@@ -84,18 +83,6 @@ export function Navbar({ club, currentUser }: NavbarProps) {
       icon: Trophy,
       description: 'Leaderboard, Titel & Badges',
     },
-    ...(user
-      ? [
-          {
-            label: 'Smart Coach',
-            href: '/dashboard?tab=coach',
-            badge: 'KI',
-            isSpecial: true,
-            icon: Sparkles,
-            description: 'Dein KI-Trainingsplan & VDOT-Zonen',
-          },
-        ]
-      : []),
     {
       label: 'Feed & Vibe',
       href: '/#feed',

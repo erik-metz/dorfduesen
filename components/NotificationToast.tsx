@@ -45,7 +45,11 @@ function ToastContent() {
   useEffect(() => {
     if (login || logout) {
       const timer = setTimeout(() => {
-        router.replace(window.location.pathname);
+        const params = new URLSearchParams(window.location.search);
+        params.delete('login');
+        params.delete('logout');
+        const qs = params.toString();
+        router.replace(qs ? `${window.location.pathname}?${qs}` : window.location.pathname, { scroll: false });
       }, 4000);
       return () => clearTimeout(timer);
     }

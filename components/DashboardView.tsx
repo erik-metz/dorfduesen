@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import {
   ArrowLeft,
   ExternalLink,
@@ -96,6 +96,26 @@ function formatDuration(seconds: number): string {
 
 export function DashboardView({ user, activities, stats, lastSync }: DashboardViewProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
+
+  type MainTab = 'activities' | 'trophies' | 'coach';
+
+  const tabParam = searchParams.get('tab');
+  const mainTab: MainTab =
+    tabParam === 'coach'
+      ? 'coach'
+      : tabParam === 'trophies'
+      ? 'trophies'
+      : 'activities';
+
+  const handleTabChange = (newTab: MainTab) => {
+    if (tabParam === newTab) return;
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('tab', newTab);
+    router.push(`${pathname}?${params.toString()}`, { scroll: false });
+  };
+
   const [filterSport, setFilterSport] = useState<string>('all');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [isManualSyncing, setIsManualSyncing] = useState(false);
@@ -137,18 +157,6 @@ export function DashboardView({ user, activities, stats, lastSync }: DashboardVi
   const [errorIds, setErrorIds] = useState<Record<string, string>>({});
   const [modalDetail, setModalDetail] = useState<ActivityDetailData | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [mainTab, setMainTab] = useState<'activities' | 'trophies' | 'coach'>('activities');
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get('tab') === 'coach') {
-        setMainTab('coach');
-      } else if (params.get('tab') === 'trophies') {
-        setMainTab('trophies');
-      }
-    }
-  }, []);
 
   // Close modal on ESC key
   useEffect(() => {
@@ -322,10 +330,10 @@ export function DashboardView({ user, activities, stats, lastSync }: DashboardVi
         </div>
       </div>
 
-      {/* Main Tabs (Aktivitäten vs. Smart Coach) */}
+      {/* Main Tabs (Aktivitäten vs. Trophäenschrank vs. Smart Coach) */}
       <div className="flex items-center gap-2 border-b border-zinc-800 pb-3">
         <button
-          onClick={() => setMainTab('activities')}
+          onClick={() => handleTabChange('activities')}
           className={`px-5 py-3 rounded-2xl font-bold text-sm transition-all flex items-center gap-2.5 cursor-pointer ${
             mainTab === 'activities'
               ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20'
@@ -340,7 +348,7 @@ export function DashboardView({ user, activities, stats, lastSync }: DashboardVi
         </button>
 
         <button
-          onClick={() => setMainTab('trophies')}
+          onClick={() => handleTabChange('trophies')}
           className={`px-5 py-3 rounded-2xl font-bold text-sm transition-all flex items-center gap-2.5 cursor-pointer ${
             mainTab === 'trophies'
               ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20'
@@ -355,7 +363,7 @@ export function DashboardView({ user, activities, stats, lastSync }: DashboardVi
         </button>
 
         <button
-          onClick={() => setMainTab('coach')}
+          onClick={() => handleTabChange('coach')}
           className={`px-5 py-3 rounded-2xl font-bold text-sm transition-all flex items-center gap-2.5 cursor-pointer ${
             mainTab === 'coach'
               ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20'
