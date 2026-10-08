@@ -45,7 +45,9 @@ export const generatePlanFunction = inngest.createFunction(
 
       const maxHr = profile?.maxHeartrate || stats.measuredMaxHr || 185;
       const restingHr = profile?.restingHeartrate;
-      const vdot = profile?.vdotScore || stats.estimatedVdot;
+      const vdot = profile?.vdotScore && profile.vdotScore >= stats.estimatedVdot
+        ? profile.vdotScore
+        : stats.estimatedVdot;
 
       await db.userProfile.upsert({
         where: { userId },

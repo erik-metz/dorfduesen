@@ -21,7 +21,10 @@ export async function GET() {
 
   const effectiveMaxHr =
     profile?.maxHeartrate || baseline.measuredMaxHr || estimateMaxHeartRate(30);
-  const effectiveVdot = profile?.vdotScore || baseline.estimatedVdot;
+  const effectiveVdot =
+    profile?.vdotScore && profile.vdotScore >= baseline.estimatedVdot
+      ? profile.vdotScore
+      : baseline.estimatedVdot;
 
   const paces = getTrainingPaces(effectiveVdot);
   const zones = calculateHeartRateZones(effectiveMaxHr, profile?.restingHeartrate ?? undefined);
@@ -87,7 +90,7 @@ export async function POST(req: Request) {
         weightKg: weightKg ? Number(weightKg) : undefined,
         restingHeartrate: restingHeartrate ? Number(restingHeartrate) : undefined,
         maxHeartrate: maxHeartrate ? Number(maxHeartrate) : undefined,
-        vdotScore: vdotScore ? Number(vdotScore) : undefined,
+        vdotScore: vdotScore !== undefined ? (vdotScore ? Number(vdotScore) : null) : undefined,
         weeklyAvailability: weeklyAvailability ? Number(weeklyAvailability) : undefined,
         preferredLongRunDay: parsedLongRunDay,
         includeSundayRun: includeSundayRun !== undefined ? Boolean(includeSundayRun) : undefined,

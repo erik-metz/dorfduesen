@@ -24,18 +24,96 @@ export interface PredictedTimes {
 }
 
 /**
- * Calculates VDOT from race distance in meters and time in seconds.
- * Using Jack Daniels approximation formulas.
+ * Calculates Oxygen cost (ml/kg/min) for a given flat velocity in m/min.
+ * Jack Daniels formula: VO2 = -4.60 + 0.182258 * v + 0.000104 * v^2
  */
-export function calculateVDOT(distanceMeters: number, timeSeconds: number): number {
+export function calculateVo2FromVelocity(velocityMetersPerMin: number): number {
+  if (velocityMetersPerMin <= 0) return 0;
+  return -4.60 + 0.182258 * velocityMetersPerMin + 0.000104 * Math.pow(velocityMetersPerMin, 2);
+}
+
+/**
+ * Calculates Gradient Adjusted Pace (GAP) velocity in m/min.
+ * Based on Minetti et al. (2002) energy cost of uphill running.
+ * Each 1% gradient (+10m per 1000m) costs ~3.3% additional metabolic effort.
+ */
+export function calculateGAPVelocity(
+  rawVelocityMetersPerMin: number,
+  elevationGainMeters: number,
+  distanceMeters: number
+): number {
+  if (distanceMeters <= 0 || elevationGainMeters <= 0) return rawVelocityMetersPerMin;
+  const gradient = elevationGainMeters / distanceMeters;
+  // Cap incline multiplier at 1.4x (+40%) to prevent GPS noise distortion
+  const multiplier = Math.min(1 + gradient * 3.3, 1.4);
+  return rawVelocityMetersPerMin * multiplier;
+}
+
+/**
+ * Estimates VDOT from a submaximal training run where heart rate and elevation are recorded.
+ * Uses Swain/Karvonen %VO2max approximation relative to %HRmax / HRR.
+ */
+export function estimateSubmaximalVDOT(
+  distanceMeters: number,
+  timeSeconds: number,
+  elevationGainMeters: number,
+  averageHeartrate: number,
+  maxHeartrate: number,
+  restingHeartrate?: number
+): number | null {
+  if (distanceMeters <= 0 || timeSeconds <= 0) return null;
+  const paceSecondsPerKm = timeSeconds / (distanceMeters / 1000);
+
+  // Plausibility check: Running pace between 2:40 and 10:00 min/km, and at least 8 minutes
+  if (paceSecondsPerKm < 160 || paceSecondsPerKm > 600 || timeSeconds < 480) {
+    return null;
+  }
+
+  // Plausibility check: HR between 100 and maxHeartrate + 10
+  if (averageHeartrate < 100 || averageHeartrate > maxHeartrate + 10) {
+    return null;
+  }
+
+  const rawVelocity = distanceMeters / (timeSeconds / 60);
+  const gapVelocity = calculateGAPVelocity(rawVelocity, elevationGainMeters, distanceMeters);
+  const vo2AtPace = calculateVo2FromVelocity(gapVelocity);
+  if (vo2AtPace <= 0) return null;
+
+  let percentVo2Max: number;
+  if (restingHeartrate && restingHeartrate < averageHeartrate && restingHeartrate < maxHeartrate - 40) {
+    // Heart Rate Reserve (Karvonen): %HRR ≈ %VO2max
+    const hrr = (averageHeartrate - restingHeartrate) / (maxHeartrate - restingHeartrate);
+    percentVo2Max = Math.max(0.45, Math.min(1.0, hrr));
+  } else {
+    // Swain et al. (1994): %VO2max = (%HRmax - 0.37) / 0.64
+    const percentHrMax = averageHeartrate / maxHeartrate;
+    percentVo2Max = Math.max(0.45, Math.min(1.0, (percentHrMax - 0.37) / 0.64));
+  }
+
+  const estimatedVdot = vo2AtPace / percentVo2Max;
+  // Realistic athlete bounds
+  if (estimatedVdot < 25 || estimatedVdot > 85) return null;
+  return Math.round(estimatedVdot * 10) / 10;
+}
+
+/**
+ * Calculates VDOT from race distance in meters and time in seconds.
+ * Using Jack Daniels approximation formulas with optional gradient adjustment.
+ */
+export function calculateVDOT(
+  distanceMeters: number,
+  timeSeconds: number,
+  elevationGainMeters: number = 0
+): number {
   if (distanceMeters <= 0 || timeSeconds <= 0) return 30;
 
   const timeMinutes = timeSeconds / 60;
-  // Velocity in meters per minute
-  const v = distanceMeters / timeMinutes;
+  // Velocity in meters per minute (GAP-adjusted if elevation present)
+  const rawV = distanceMeters / timeMinutes;
+  const v = calculateGAPVelocity(rawV, elevationGainMeters, distanceMeters);
 
   // Oxygen cost formula: VO2 = -4.60 + 0.182258 * v + 0.000104 * v^2
-  const vo2 = -4.60 + 0.182258 * v + 0.000104 * Math.pow(v, 2);
+  const vo2 = calculateVo2FromVelocity(v);
 
   // Percent of VO2max sustainable formula based on duration
   const percentMax =

@@ -229,6 +229,8 @@ interface ProfileData {
   profile?: {
     weightKg?: number | null;
     restingHeartrate?: number | null;
+    maxHeartrate?: number | null;
+    vdotScore?: number | null;
     preferredLongRunDay?: number | null;
     includeSundayRun?: boolean;
   } | null;
@@ -288,6 +290,12 @@ export function CoachDashboard() {
   const [savingMetric, setSavingMetric] = useState(false);
   const [metricSavedToast, setMetricSavedToast] = useState(false);
 
+  // Performance Profile Tuning State
+  const [customVdotInput, setCustomVdotInput] = useState('');
+  const [customMaxHrInput, setCustomMaxHrInput] = useState('');
+  const [savingPerformance, setSavingPerformance] = useState(false);
+  const [performanceSavedToast, setPerformanceSavedToast] = useState(false);
+
   // Plan deletion & replacement states
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showReplaceModal, setShowReplaceModal] = useState(false);
@@ -322,6 +330,8 @@ export function CoachDashboard() {
         setProfileData(prData);
         if (prData.profile?.weightKg) setWeightKg(String(prData.profile.weightKg));
         if (prData.profile?.restingHeartrate) setRestingHr(String(prData.profile.restingHeartrate));
+        if (prData.calculatedVdot) setCustomVdotInput(String(prData.profile?.vdotScore || prData.calculatedVdot));
+        if (prData.calculatedMaxHr) setCustomMaxHrInput(String(prData.profile?.maxHeartrate || prData.calculatedMaxHr));
       }
 
       if (metricsRes.ok) {
@@ -492,6 +502,54 @@ export function CoachDashboard() {
       console.error('Error logging metric:', err);
     } finally {
       setSavingMetric(false);
+    }
+  };
+
+  const handleSavePerformance = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingPerformance(true);
+    try {
+      const res = await fetch('/api/coach/profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          vdotScore: customVdotInput ? Number(customVdotInput) : null,
+          maxHeartrate: customMaxHrInput ? Number(customMaxHrInput) : undefined,
+        }),
+      });
+
+      if (res.ok) {
+        setPerformanceSavedToast(true);
+        setTimeout(() => setPerformanceSavedToast(false), 3000);
+        await loadData();
+      }
+    } catch (err) {
+      console.error('Error updating performance profile:', err);
+    } finally {
+      setSavingPerformance(false);
+    }
+  };
+
+  const handleResetVdotToBaseline = async () => {
+    setSavingPerformance(true);
+    try {
+      const res = await fetch('/api/coach/profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          vdotScore: null,
+        }),
+      });
+
+      if (res.ok) {
+        setPerformanceSavedToast(true);
+        setTimeout(() => setPerformanceSavedToast(false), 3000);
+        await loadData();
+      }
+    } catch (err) {
+      console.error('Error resetting VDOT:', err);
+    } finally {
+      setSavingPerformance(false);
     }
   };
 
@@ -1048,6 +1106,76 @@ export function CoachDashboard() {
                   : 'Erhöhtes Ermüdungsrisiko'}
               </p>
             </div>
+          </div>
+
+          {/* PERFORMANCE PROFILE & VDOT TUNING */}
+          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 sm:p-8 space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <Gauge className="w-5 h-5 text-orange-400" />
+                  <h3 className="text-xl font-black text-white">Leistungsniveau &amp; VDOT Feinabstimmung</h3>
+                </div>
+                <p className="text-xs text-zinc-400 mt-1 max-w-2xl">
+                  Dein VDOT wird automatisch aus deinen Strava-Läufen anhand von <span className="text-orange-400 font-semibold">Puls (Herzfrequenzreserve)</span>, <span className="text-orange-400 font-semibold">Steigung (GAP)</span> und <span className="text-orange-400 font-semibold">Pace</span> berechnet. Du kannst deinen VDOT oder Maximalpuls hier auch direkt manuell anpassen (z. B. aus einer Leistungsdiagnostik oder Garmin VO2max).
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleResetVdotToBaseline}
+                  disabled={savingPerformance}
+                  className="px-3.5 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-bold text-xs border border-zinc-700 transition-all cursor-pointer flex items-center gap-1.5"
+                  title="Auf automatische Strava-Berechnung zurücksetzen"
+                >
+                  <History className="w-3.5 h-3.5 text-orange-400" />
+                  <span>Automatisch ermitteln</span>
+                </button>
+              </div>
+            </div>
+
+            {performanceSavedToast && (
+              <div className="p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-emerald-300 text-xs font-semibold flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                <span>Leistungsdaten &amp; Trainings-Paces erfolgreich aktualisiert!</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSavePerformance} className="flex flex-wrap items-center gap-3 pt-2">
+              <div className="flex items-center gap-2 bg-zinc-950 px-3.5 py-2 rounded-xl border border-zinc-800">
+                <span className="text-xs font-bold text-zinc-400">VDOT:</span>
+                <input
+                  type="number"
+                  step="0.1"
+                  placeholder="z.B. 45.0"
+                  value={customVdotInput}
+                  onChange={(e) => setCustomVdotInput(e.target.value)}
+                  className="w-20 bg-transparent text-sm font-black text-white focus:outline-none"
+                />
+              </div>
+
+              <div className="flex items-center gap-2 bg-zinc-950 px-3.5 py-2 rounded-xl border border-zinc-800">
+                <span className="text-xs font-bold text-zinc-400">Maximalpuls (HRmax):</span>
+                <input
+                  type="number"
+                  placeholder="z.B. 185"
+                  value={customMaxHrInput}
+                  onChange={(e) => setCustomMaxHrInput(e.target.value)}
+                  className="w-20 bg-transparent text-sm font-black text-rose-400 focus:outline-none"
+                />
+                <span className="text-xs text-zinc-500">bpm</span>
+              </div>
+
+              <button
+                type="submit"
+                disabled={savingPerformance}
+                className="px-5 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 font-bold text-xs text-white transition-all shadow-md shadow-orange-500/20 disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
+              >
+                {savingPerformance ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                <span>Paces &amp; Zonen aktualisieren</span>
+              </button>
+            </form>
           </div>
 
           {/* NEW SECTION: HISTORICAL HEALTH METRICS TRACKER */}

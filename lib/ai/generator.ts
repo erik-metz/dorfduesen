@@ -1,7 +1,7 @@
 import { xai, XAI_DEFAULT_MODEL } from "./xai";
 import { PeriodizationPlanSkeleton } from "../training/periodization";
 import { AthleteBaseline } from "../training/baseline";
-import { TrainingPaces } from "../training/vdot";
+import { TrainingPaces, paceToSecondsPerKm } from "../training/vdot";
 import { HeartRateZone } from "../training/zones";
 
 export interface GeneratedWorkout {
@@ -208,7 +208,7 @@ Gib ein JSON-Objekt mit der Eigenschaft "weeks" zurück:
 export function generateAlgorithmicPlan(ctx: PlanGenerationContext): GeneratedWeek[] {
   const { skeleton, paces } = ctx;
 
-  return skeleton.weeks.map((w) => {
+  const unalignedWeeks = skeleton.weeks.map((w) => {
     const workouts: GeneratedWorkout[] = [];
 
     for (const d of w.daysDistribution) {
@@ -219,7 +219,6 @@ export function generateAlgorithmicPlan(ctx: PlanGenerationContext): GeneratedWe
       let paceMin = paces.easyMin;
       let paceMax = paces.easyMax;
       let hrZone = 2;
-      const duration = Math.round(d.approximateKm * 6); // ~6 min/km avg
 
       if (d.dayOfWeek === 0) {
         title = "DorfDüsen Sunday Run (5 km) – Strava Club-Termin";
@@ -280,6 +279,9 @@ export function generateAlgorithmicPlan(ctx: PlanGenerationContext): GeneratedWe
         hrZone = 2;
       }
 
+      const avgPaceSec = (paceToSecondsPerKm(paceMin) + paceToSecondsPerKm(paceMax)) / 2;
+      const duration = Math.round((d.approximateKm * avgPaceSec) / 60);
+
       workouts.push({
         dayOfWeek: d.dayOfWeek,
         date: "", // Filled in alignment
@@ -306,6 +308,8 @@ export function generateAlgorithmicPlan(ctx: PlanGenerationContext): GeneratedWe
       workouts,
     };
   });
+
+  return alignGeneratedPlanWithDates(unalignedWeeks, skeleton);
 }
 
 function alignGeneratedPlanWithDates(
