@@ -10,16 +10,19 @@ import { MultiLeaderboard } from '@/components/arena/MultiLeaderboard';
 import { BadgesShowcase } from '@/components/arena/BadgesShowcase';
 import { NotificationToast } from '@/components/NotificationToast';
 
+import { cacheLife, cacheTag } from 'next/cache';
+
 export const metadata = {
   title: 'Düsen-Arena | Dorfdüsen Nordheim Leaderboard & Titel',
   description:
     'Die gamifizierte Club-Arena der Dorfdüsen Nordheim: Wöchentliche Titel, Gruppenstatistiken, Badges und das Multi-Leaderboard.',
 };
 
-// Revalidate every 60 seconds (Incremental Static Regeneration)
-export const revalidate = 60;
-
 export default async function ArenaPage() {
+  'use cache';
+  cacheLife('minutes');
+  cacheTag('arena');
+
   const [club, arenaData] = await Promise.all([
     getClubData(),
     getArenaData('week', 'all'),

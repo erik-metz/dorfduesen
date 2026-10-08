@@ -124,11 +124,19 @@ export async function syncUserActivities(userId: string, perPage = 30): Promise<
 
     // Revalidate public pages that display leaderboard and club stats
     try {
-      const { revalidatePath } = await import('next/cache');
+      const { revalidatePath, revalidateTag } = await import('next/cache');
       revalidatePath('/arena');
-      revalidatePath('/');
+      revalidateTag('arena', 'minutes');
     } catch {
       // Ignored if called outside Next.js request context
+    }
+
+    // Check if any weekly champion title changed (e.g. Bergziege overtaken)
+    try {
+      const { checkWeeklyTitleChanges } = await import('@/lib/arena/title-tracker');
+      await checkWeeklyTitleChanges();
+    } catch (titleErr) {
+      console.error('Fehler bei Wochentitel-Auswertung:', titleErr);
     }
 
     return { success: true, count: syncedCount };

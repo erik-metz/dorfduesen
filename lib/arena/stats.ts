@@ -53,8 +53,8 @@ export interface ArenaOverview {
   }[];
 }
 
-function getStartOfWeek(): Date {
-  const now = new Date();
+export function getStartOfWeek(date: Date = new Date()): Date {
+  const now = new Date(date);
   const day = now.getDay();
   // Monday is day 1, Sunday is day 0
   const diff = now.getDate() - (day === 0 ? 6 : day - 1);
@@ -63,52 +63,31 @@ function getStartOfWeek(): Date {
   return start;
 }
 
-function getStartOfMonth(): Date {
+export function getWeekKey(date: Date = new Date()): string {
+  return getStartOfWeek(date).toISOString().slice(0, 10);
+}
+
+export function getStartOfMonth(): Date {
   const now = new Date();
   return new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
 }
 
-function formatPace(metersPerSec: number | null): string {
-  if (!metersPerSec || metersPerSec <= 0) return '-';
-  const paceSeconds = 1000 / metersPerSec;
-  const mins = Math.floor(paceSeconds / 60);
-  const secs = Math.floor(paceSeconds % 60);
-  return `${mins}:${secs.toString().padStart(2, '0')} /km`;
-}
-
-export async function getArenaData(
-  period: 'week' | 'month' | 'all' = 'week',
-  sport: 'all' | 'run' | 'ride' = 'all'
-): Promise<ArenaOverview> {
-  const now = new Date();
-  const startOfWeek = getStartOfWeek();
-  const startOfMonth = getStartOfMonth();
-
-  // 1. Fetch current week's activities for Champions calculation & weekly KPI
-  const weekActivities = await db.activity.findMany({
-    where: {
-      startDate: { gte: startOfWeek },
-    },
-    include: {
-      user: {
-        select: {
-          id: true,
-          firstname: true,
-          lastname: true,
-          username: true,
-          profile: true,
-        },
-      },
-    },
-  });
-
-  // Calculate weekly KPIs
-  const weekKm = weekActivities.reduce((sum, a) => sum + a.distance, 0) / 1000;
-  const weekHours = weekActivities.reduce((sum, a) => sum + a.movingTime, 0) / 3600;
-  const weekActivitiesCount = weekActivities.length;
-  const activeAthletesCount = new Set(weekActivities.map((a) => a.userId)).size;
-
-  // 2. Calculate the 6 Weekly Champions
+export function computeWeeklyChampions(
+  weekActivities: Array<{
+    startDateLocal: Date;
+    distance: number;
+    movingTime: number;
+    totalElevationGain: number;
+    averageHeartrate: number | null;
+    user: {
+      id: string;
+      firstname: string | null;
+      lastname: string | null;
+      username: string | null;
+      profile: string | null;
+    };
+  }>
+): ChampionTitle[] {
   type UserMetric = {
     userId: string;
     name: string;
@@ -163,7 +142,6 @@ export async function getArenaData(
 
   const userMetrics = Object.values(userWeekMap);
 
-  // Helper to pick winner
   const pickWinner = (
     predicate: (a: UserMetric) => number,
     formatter: (val: number) => string
@@ -182,7 +160,7 @@ export async function getArenaData(
     };
   };
 
-  const champions: ChampionTitle[] = [
+  return [
     {
       id: 'distance',
       title: 'Kilometer-König/in',
@@ -244,6 +222,71 @@ export async function getArenaData(
       ),
     },
   ];
+}
+
+export async function getWeeklyChampions(startOfWeek = getStartOfWeek()): Promise<ChampionTitle[]> {
+  const weekActivities = await db.activity.findMany({
+    where: {
+      startDate: { gte: startOfWeek },
+    },
+    include: {
+      user: {
+        select: {
+          id: true,
+          firstname: true,
+          lastname: true,
+          username: true,
+          profile: true,
+        },
+      },
+    },
+  });
+
+  return computeWeeklyChampions(weekActivities);
+}
+
+function formatPace(metersPerSec: number | null): string {
+  if (!metersPerSec || metersPerSec <= 0) return '-';
+  const paceSeconds = 1000 / metersPerSec;
+  const mins = Math.floor(paceSeconds / 60);
+  const secs = Math.floor(paceSeconds % 60);
+  return `${mins}:${secs.toString().padStart(2, '0')} /km`;
+}
+
+export async function getArenaData(
+  period: 'week' | 'month' | 'all' = 'week',
+  sport: 'all' | 'run' | 'ride' = 'all'
+): Promise<ArenaOverview> {
+  const now = new Date();
+  const startOfWeek = getStartOfWeek();
+  const startOfMonth = getStartOfMonth();
+
+  // 1. Fetch current week's activities for Champions calculation & weekly KPI
+  const weekActivities = await db.activity.findMany({
+    where: {
+      startDate: { gte: startOfWeek },
+    },
+    include: {
+      user: {
+        select: {
+          id: true,
+          firstname: true,
+          lastname: true,
+          username: true,
+          profile: true,
+        },
+      },
+    },
+  });
+
+  // Calculate weekly KPIs
+  const weekKm = weekActivities.reduce((sum, a) => sum + a.distance, 0) / 1000;
+  const weekHours = weekActivities.reduce((sum, a) => sum + a.movingTime, 0) / 3600;
+  const weekActivitiesCount = weekActivities.length;
+  const activeAthletesCount = new Set(weekActivities.map((a) => a.userId)).size;
+
+  // 2. Weekly Champions
+  const champions = computeWeeklyChampions(weekActivities);
 
   // 3. Team-Challenge (Monthly 1,000 km mission)
   const monthActivities = await db.activity.findMany({
