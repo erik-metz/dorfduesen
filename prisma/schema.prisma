@@ -27,6 +27,8 @@ model User {
   profileData     UserProfile?
   trainingPlans   TrainingPlan[]
   healthMetrics   HealthMetric[]
+  notifications   Notification[]
+  weeklyTitleHolders WeeklyTitleHolder[]
 }
 
 model Account {
@@ -212,4 +214,35 @@ model HealthMetric {
 
   @@index([userId])
   @@index([userId, date])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String   // TITLE_LOST | TITLE_GAINED | SYSTEM
+  title     String
+  message   String
+  link      String?  @default("/arena")
+  isRead    Boolean  @default(false)
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([userId, isRead])
+  @@index([createdAt])
+}
+
+model WeeklyTitleHolder {
+  id        String   @id @default(cuid())
+  weekKey   String   // Monday of the week YYYY-MM-DD
+  titleId   String   // elevation | distance | time | heartrate | early_bird | consistency
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  value     Float
+  updatedAt DateTime @updatedAt
+
+  @@unique([weekKey, titleId])
+  @@index([weekKey])
+  @@index([userId])
 }

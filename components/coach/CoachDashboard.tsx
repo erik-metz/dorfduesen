@@ -19,6 +19,11 @@ import {
   Plus,
   History,
   Info,
+  BookOpen,
+  Zap,
+  BatteryCharging,
+  ShieldCheck,
+  Users,
 } from 'lucide-react';
 
 interface Workout {
@@ -112,7 +117,7 @@ export function CoachDashboard() {
   const [metricsHistory, setMetricsHistory] = useState<HealthMetricItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
-  const [activeTab, setActiveTab] = useState<'plan' | 'metrics' | 'new-plan'>('plan');
+  const [activeTab, setActiveTab] = useState<'plan' | 'metrics' | 'philosophy' | 'new-plan'>('plan');
 
   // Generator form state
   const [goalType, setGoalType] = useState('HALF_MARATHON');
@@ -294,18 +299,18 @@ export function CoachDashboard() {
         <div>
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-500/10 border border-orange-500/30 text-orange-400 text-xs font-bold uppercase tracking-wider mb-2">
             <Sparkles className="w-3.5 h-3.5" />
-            <span>KI & Sportwissenschaft (xAI Grok-3 + Inngest)</span>
+            <span>Sportwissenschaftlich fundiert &amp; KI-gestützt</span>
           </div>
           <h1 className="text-3xl font-black text-white tracking-tight flex items-center gap-2">
             DorfDüsen Smart Coach
           </h1>
           <p className="text-sm text-zinc-400 mt-1">
-            Personalisierte, flexible Trainingspläne nach VDOT, 80/20-Polarisierung und adaptiver Strava-Analyse.
+            Personalisierte, flexible Trainingspläne nach VDOT, 80/20-Polarisierung und physiologischer Periodisierung.
           </p>
         </div>
 
         {/* Tab switch */}
-        <div className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 p-1 rounded-xl self-start md:self-auto">
+        <div className="flex flex-wrap items-center gap-2 bg-zinc-900 border border-zinc-800 p-1 rounded-xl self-start md:self-auto">
           <button
             onClick={() => setActiveTab('plan')}
             className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
@@ -324,7 +329,17 @@ export function CoachDashboard() {
                 : 'text-zinc-400 hover:text-white'
             }`}
           >
-            Physiologie & Körperdaten
+            Physiologie &amp; Zonen
+          </button>
+          <button
+            onClick={() => setActiveTab('philosophy')}
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              activeTab === 'philosophy'
+                ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20'
+                : 'text-zinc-400 hover:text-white'
+            }`}
+          >
+            Trainingsphilosophie
           </button>
           <button
             onClick={() => setActiveTab('new-plan')}
@@ -346,7 +361,7 @@ export function CoachDashboard() {
             <Loader2 className="w-6 h-6 animate-spin" />
           </div>
           <div className="space-y-1 text-center sm:text-left">
-            <h4 className="font-bold text-white text-base">Inngest & xAI Grok generieren deinen Plan...</h4>
+            <h4 className="font-bold text-white text-base">Dein Trainingsplan wird berechnet...</h4>
             <p className="text-xs text-zinc-400">
               Strava-Baseline wird analysiert, Periodisierungsphasen werden berechnet und maßgeschneiderte Workouts generiert.
             </p>
@@ -419,7 +434,7 @@ export function CoachDashboard() {
 
               {todayWorkout.aiFeedback && (
                 <div className="mt-4 p-4 rounded-xl bg-orange-950/30 border border-orange-500/20 text-xs text-orange-200">
-                  <strong className="block mb-1 text-orange-400">Coach Feedback (Grok):</strong>
+                  <strong className="block mb-1 text-orange-400">Coach Feedback &amp; Analyse:</strong>
                   {todayWorkout.aiFeedback}
                 </div>
               )}
@@ -821,18 +836,321 @@ export function CoachDashboard() {
         </div>
       )}
 
-      {/* TAB 3: GENERATE NEW PLAN WIZARD */}
+      {/* TAB 3: TRAINING PHILOSOPHY & SPORTS SCIENCE */}
+      {activeTab === 'philosophy' && (
+        <div className="space-y-8">
+          {/* Hero Banner */}
+          <div className="rounded-3xl bg-gradient-to-br from-zinc-900 via-zinc-900/95 to-zinc-950 border border-orange-500/30 p-6 sm:p-10 relative overflow-hidden shadow-2xl space-y-4">
+            <div className="absolute top-0 right-0 w-80 h-80 bg-orange-500/10 rounded-full blur-3xl pointer-events-none" />
+
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-orange-500/10 border border-orange-500/30 text-orange-400 text-xs font-bold uppercase tracking-wider">
+              <BookOpen className="w-3.5 h-3.5" />
+              <span>DorfDüsen Trainingslehre</span>
+            </div>
+
+            <div className="space-y-3 max-w-3xl">
+              <h2 className="text-2xl sm:text-4xl font-black text-white tracking-tight">
+                Laufen mit Köpfchen: Warum langsam laufen schnell macht
+              </h2>
+              <p className="text-sm sm:text-base text-zinc-300 leading-relaxed">
+                Viele Läufer verfallen in dieselbe Falle: Jedes Training wird im gleichen, anstrengenden Mitteltempo gelaufen. Das Ergebnis sind Stagnation, chronische Müdigkeit oder Überlastungsverletzungen. Unsere Trainingspläne basieren auf moderner Sportwissenschaft (Stephen Seiler, Jack Daniels und Hans van Dijk) – für maximalen Leistungszuwachs bei minimalem Verletzungsrisiko.
+              </p>
+            </div>
+
+            {/* Quick Summary Pill Row */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4 border-t border-zinc-800/80">
+              <div className="bg-zinc-950/60 p-3 rounded-xl border border-zinc-800/80">
+                <span className="text-[11px] font-bold uppercase text-orange-400 block">80/20 Prinzip</span>
+                <span className="text-sm font-black text-white">Polarisiertes Training</span>
+              </div>
+              <div className="bg-zinc-950/60 p-3 rounded-xl border border-zinc-800/80">
+                <span className="text-[11px] font-bold uppercase text-emerald-400 block">Jack Daniels</span>
+                <span className="text-sm font-black text-white">VDOT-Pacezonen</span>
+              </div>
+              <div className="bg-zinc-950/60 p-3 rounded-xl border border-zinc-800/80">
+                <span className="text-[11px] font-bold uppercase text-cyan-400 block">Periodisierung</span>
+                <span className="text-sm font-black text-white">Phasen &amp; Deloads</span>
+              </div>
+              <div className="bg-zinc-950/60 p-3 rounded-xl border border-zinc-800/80">
+                <span className="text-[11px] font-bold uppercase text-purple-400 block">Community</span>
+                <span className="text-sm font-black text-white">Sonntagsrunde als Anker</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Section 1: 80/20 & Polarized Training */}
+          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 sm:p-8 space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <span className="text-xs font-bold uppercase text-orange-400 tracking-wider">Säule 1</span>
+                <h3 className="text-xl sm:text-2xl font-black text-white mt-0.5">
+                  Das 80/20-Prinzip: Polarisiertes Training
+                </h3>
+              </div>
+              <span className="text-xs font-semibold px-3 py-1 rounded-full bg-zinc-800 text-zinc-300 self-start sm:self-auto border border-zinc-700/60">
+                Nach Dr. Stephen Seiler &amp; Matt Fitzgerald
+              </span>
+            </div>
+
+            <p className="text-sm text-zinc-300 leading-relaxed">
+              Studien mit Weltklasse-Athleten zeigen ein klares Bild: Die erfolgreichsten Ausdauersportler trainieren nicht einfach härter, sondern polarisierter. Rund 80 % der gesamten Laufkilometer werden bei sehr niedriger Intensität (Zone 2) gelaufen, während nur ca. 20 % in gezielten Schwellenläufen oder Intervallen stattfinden.
+            </p>
+
+            {/* Visual Ratio Bar */}
+            <div className="space-y-2">
+              <div className="flex justify-between text-xs font-bold">
+                <span className="text-emerald-400">80 % Grundlagenausdauer (Zone 2 / Aerob)</span>
+                <span className="text-orange-400">20 % Qualität &amp; Tempo (Zone 4 &amp; 5)</span>
+              </div>
+              <div className="h-4 w-full bg-zinc-950 rounded-full overflow-hidden flex border border-zinc-800">
+                <div className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 w-[80%]" title="80% Aerob" />
+                <div className="h-full bg-gradient-to-r from-orange-500 to-rose-500 w-[20%]" title="20% Schwellen &amp; Intervalle" />
+              </div>
+            </div>
+
+            {/* 3 Physiological Mechanisms */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+              <div className="p-5 rounded-2xl bg-zinc-950/70 border border-zinc-800 space-y-2">
+                <div className="w-9 h-9 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center border border-emerald-500/20">
+                  <Zap className="w-5 h-5" />
+                </div>
+                <h4 className="font-bold text-white text-base">Mitochondrien-Biogenese</h4>
+                <p className="text-xs text-zinc-400 leading-relaxed">
+                  Mitochondrien sind die „Kraftwerke“ deiner Muskelzellen. Neue Mitochondrien entstehen fast ausschließlich bei niedriger Laktatkonzentration (Zone 2). Mehr Mitochondrien bedeuten mehr aerobe Energie bei gleicher Anstrengung.
+                </p>
+              </div>
+
+              <div className="p-5 rounded-2xl bg-zinc-950/70 border border-zinc-800 space-y-2">
+                <div className="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center border border-amber-500/20">
+                  <Flame className="w-5 h-5" />
+                </div>
+                <h4 className="font-bold text-white text-base">Fettstoffwechsel-Ökonomie</h4>
+                <p className="text-xs text-zinc-400 leading-relaxed">
+                  Lockere Dauerläufe trainieren deinen Körper, Fett als primären Treibstoff zu verbrennen. Dadurch schonst du die begrenzten Glykogenspeicher – der gefürchtete „Mann mit dem Hammer“ bei Kilometer 30 bleibt aus.
+                </p>
+              </div>
+
+              <div className="p-5 rounded-2xl bg-zinc-950/70 border border-zinc-800 space-y-2">
+                <div className="w-9 h-9 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center border border-purple-500/20">
+                  <BatteryCharging className="w-5 h-5" />
+                </div>
+                <h4 className="font-bold text-white text-base">Vegetatives Nervensystem</h4>
+                <p className="text-xs text-zinc-400 leading-relaxed">
+                  Zone 2 überlastet weder das Nervensystem noch schüttet sie übermäßig Stresshormone (Cortisol) aus. Das hält dich frisch, gesund und lässt dich die 20 % harten Einheiten mit voller Qualität durchziehen.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Section 2: VDOT & Daniels Pace System */}
+          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 sm:p-8 space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <span className="text-xs font-bold uppercase text-orange-400 tracking-wider">Säule 2</span>
+                <h3 className="text-xl sm:text-2xl font-black text-white mt-0.5">
+                  Jack Daniels’ VDOT: Dein physiologischer Fingerabdruck
+                </h3>
+              </div>
+              <span className="text-xs font-semibold px-3 py-1 rounded-full bg-zinc-800 text-zinc-300 self-start sm:self-auto border border-zinc-700/60">
+                Daniels’ Running Formula
+              </span>
+            </div>
+
+            <p className="text-sm text-zinc-300 leading-relaxed">
+              Es gibt kein universelles Tempo wie „ein Intervall muss 4:30 min/km sein“. Dein optimaler Trainingsreiz hängt von deiner aktuellen aeroben Leistungsfähigkeit ab. Der VDOT-Wert verbindet deine maximale Sauerstoffaufnahme (VO2max) mit deiner individuellen Laufökonomie.
+            </p>
+
+            <div className="space-y-3">
+              {[
+                {
+                  code: 'E',
+                  name: 'Easy Pace (Zone 2)',
+                  badge: 'Grundlagenausdauer I',
+                  color: 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10',
+                  desc: 'Entspanntes Wohlfühltempo, bei dem du problemlos in ganzen Sätzen sprechen kannst. Dient dem aeroben Kapillarenaufbau, der Regeneration und macht ca. 80% des Plans aus.',
+                },
+                {
+                  code: 'M',
+                  name: 'Marathon Pace (Zone 3)',
+                  badge: 'Dauerlauf zügig',
+                  color: 'text-amber-400 border-amber-500/30 bg-amber-500/10',
+                  desc: 'Gleichmäßiges, zügiges Tempo. Gewöhnt Kopf und Beine an das spezifische Renntempo für Halbmarathon und Marathon.',
+                },
+                {
+                  code: 'T',
+                  name: 'Threshold / Schwellen-Pace (Zone 4)',
+                  badge: 'Laktatschwelle (ca. 88-92% HFmax)',
+                  color: 'text-orange-400 border-orange-500/30 bg-orange-500/10',
+                  desc: 'Das Tempo am Laktat-Gleichgewicht (Steady State): Dein Körper produziert genauso viel Laktat wie er zeitgleich abbauen kann. Verschiebt deine anaerobe Schwelle spürbar nach oben.',
+                },
+                {
+                  code: 'I',
+                  name: 'Interval Pace (Zone 5)',
+                  badge: 'VO2max (95-100% HFmax)',
+                  color: 'text-rose-400 border-rose-500/30 bg-rose-500/10',
+                  desc: 'Harte 3- bis 5-minütige Belastungen mit Trabpausen. Fordert die maximale Sauerstoffaufnahmekapazität und vergrößert das Schlagvolumen des Herzens.',
+                },
+                {
+                  code: 'R',
+                  name: 'Repetition Pace (Zone 5+)',
+                  badge: 'Schnelligkeit & Ökonomie',
+                  color: 'text-purple-400 border-purple-500/30 bg-purple-500/10',
+                  desc: 'Kurze Abschnitte (200m bis 400m) mit voller Erholungspause. Verbessert Schrittfrequenz, Lauftechnik und neuromuskuläre Koordination ohne anaerobe Übersäuerung.',
+                },
+              ].map((item) => (
+                <div
+                  key={item.code}
+                  className="p-4 rounded-2xl bg-zinc-950/80 border border-zinc-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                >
+                  <div className="flex items-start sm:items-center gap-3">
+                    <span className={`w-9 h-9 rounded-xl font-black text-sm flex items-center justify-center shrink-0 border ${item.color}`}>
+                      {item.code}
+                    </span>
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h4 className="font-bold text-white text-sm">{item.name}</h4>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 bg-zinc-800 px-2 py-0.5 rounded">
+                          {item.badge}
+                        </span>
+                      </div>
+                      <p className="text-xs text-zinc-400 mt-1">{item.desc}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Section 3: Periodization & Deloads */}
+          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 sm:p-8 space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <span className="text-xs font-bold uppercase text-orange-400 tracking-wider">Säule 3</span>
+                <h3 className="text-xl sm:text-2xl font-black text-white mt-0.5">
+                  Periodisierung: Anpassung entsteht in den Pausen
+                </h3>
+              </div>
+              <span className="text-xs font-semibold px-3 py-1 rounded-full bg-zinc-800 text-zinc-300 self-start sm:self-auto border border-zinc-700/60">
+                Superkompensation &amp; Belastungssteuerung
+              </span>
+            </div>
+
+            <p className="text-sm text-zinc-300 leading-relaxed">
+              Ein Trainingsplan ist kein starrer Countdown, sondern folgt den biologischen Zyklen menschlicher Anpassung. Der Körper wird im Training nicht stärker – er wird ermüdet. Stärker wird er erst in der Erholungsphase, wenn die Superkompensation greift.
+            </p>
+
+            {/* 4 Phases Timeline */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="p-4 rounded-2xl bg-zinc-950 border border-zinc-800/80 space-y-2">
+                <span className="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-black flex items-center justify-center">1</span>
+                <h4 className="font-bold text-white text-sm">Base-Phase</h4>
+                <p className="text-xs text-zinc-400 leading-relaxed">
+                  Aufbau des aeroben Fundaments. Anpassung von Sehnen, Bändern und Knochenstruktur an die steigenden Kilometer.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-zinc-950 border border-zinc-800/80 space-y-2">
+                <span className="w-6 h-6 rounded-full bg-amber-500/20 text-amber-400 text-xs font-black flex items-center justify-center">2</span>
+                <h4 className="font-bold text-white text-sm">Build-Phase</h4>
+                <p className="text-xs text-zinc-400 leading-relaxed">
+                  Steigerung der Tempohärte. Schwellenläufe und Tempodauerläufe heben die Laktattoleranz an.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-zinc-950 border border-zinc-800/80 space-y-2">
+                <span className="w-6 h-6 rounded-full bg-orange-500/20 text-orange-400 text-xs font-black flex items-center justify-center">3</span>
+                <h4 className="font-bold text-white text-sm">Peak-Phase</h4>
+                <p className="text-xs text-zinc-400 leading-relaxed">
+                  Höchste wettkampfspezifische Belastung. Zielpace-Intervalle und finale lange Vorbereitungsläufe.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-zinc-950 border border-zinc-800/80 space-y-2">
+                <span className="w-6 h-6 rounded-full bg-cyan-500/20 text-cyan-400 text-xs font-black flex items-center justify-center">4</span>
+                <h4 className="font-bold text-white text-sm">Taper-Phase</h4>
+                <p className="text-xs text-zinc-400 leading-relaxed">
+                  Umfangsreduktion um 40–50% bei kurzen Aktivierungsreizen. Volle Glykogenspeicher und frische Beine am Start.
+                </p>
+              </div>
+            </div>
+
+            {/* Deload Box */}
+            <div className="p-5 rounded-2xl bg-gradient-to-r from-emerald-950/30 to-zinc-950 border border-emerald-500/30 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/30">
+                <ShieldCheck className="w-5 h-5" />
+              </div>
+              <div className="space-y-1">
+                <h4 className="font-bold text-white text-sm">Die Deload-Woche (Jede 4. Woche)</h4>
+                <p className="text-xs text-zinc-300 leading-relaxed">
+                  Jede vierte Woche wird das Volumen gezielt um ca. 25 % gesenkt. Das schützt dein Immunsystem, beugt Übertraining vor und gibt dem Bindegewebe Zeit zur Mikrozell-Reparatur. Nach der Deload-Woche startest du mit messbar höherer Leistungsfähigkeit in den nächsten Block.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Section 4: Injury Prevention & Community */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* ACWR & Load safety */}
+            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 sm:p-8 space-y-4">
+              <div className="w-10 h-10 rounded-xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center border border-cyan-500/20">
+                <TrendingUp className="w-5 h-5" />
+              </div>
+              <h3 className="text-xl font-black text-white">
+                Verletzungsprävention &amp; ACWR
+              </h3>
+              <p className="text-xs sm:text-sm text-zinc-300 leading-relaxed">
+                Der häufigste Grund für Verletzungen (wie Shin Splints oder Läuferknie) ist eine zu schnelle Steigerung des Laufvolumens.
+              </p>
+              <ul className="space-y-2 text-xs text-zinc-400">
+                <li className="flex items-start gap-2">
+                  <span className="text-cyan-400 font-bold mt-0.5">•</span>
+                  <span><strong>10%-Regel:</strong> Wochenkilometer steigen maximal um 7–10% pro Belastungswoche.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-cyan-400 font-bold mt-0.5">•</span>
+                  <span><strong>Acute:Chronic Workload:</strong> Das Verhältnis der letzten 7 Tage zum Monatsdurchschnitt bleibt im optimalen Sweet Spot (0.8 – 1.3).</span>
+                </li>
+              </ul>
+            </div>
+
+            {/* Sunday Run Community Anchor */}
+            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 sm:p-8 space-y-4">
+              <div className="w-10 h-10 rounded-xl bg-orange-500/10 text-orange-400 flex items-center justify-center border border-orange-500/20">
+                <Users className="w-5 h-5" />
+              </div>
+              <h3 className="text-xl font-black text-white">
+                Der Sonntagslauf als Long-Run-Anker
+              </h3>
+              <p className="text-xs sm:text-sm text-zinc-300 leading-relaxed">
+                Der sonntägliche Vereinstreff in Nordheim (10:00 Uhr) ist das soziale Herzstück der DorfDüsen und fest im Trainingsplan verankert.
+              </p>
+              <ul className="space-y-2 text-xs text-zinc-400">
+                <li className="flex items-start gap-2">
+                  <span className="text-orange-400 font-bold mt-0.5">•</span>
+                  <span><strong>Gemeinsamer Long Run:</strong> Der lange aerobe Lauf fällt in der Gruppe mental um ein Vielfaches leichter.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-orange-400 font-bold mt-0.5">•</span>
+                  <span><strong>Kein Leistungsdruck:</strong> Das Tempo wird flexibel der Gruppe angepasst – niemand läuft alleine zurück.</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 4: GENERATE NEW PLAN WIZARD */}
       {activeTab === 'new-plan' && (
         <div className="max-w-2xl mx-auto bg-zinc-900 border border-zinc-800 rounded-3xl p-6 sm:p-10 shadow-2xl space-y-8">
           <div>
             <span className="text-xs font-bold uppercase text-orange-400 tracking-wider">
-              Konfiguration & KI-Generierung
+              Konfiguration &amp; Individualisierung
             </span>
             <h2 className="text-2xl sm:text-3xl font-black text-white mt-1">
               Neuen Trainingsplan erstellen
             </h2>
             <p className="text-sm text-zinc-400 mt-1">
-              Wähle dein Ziel. Inngest berechnet die Periodisierung flexibel nach deinen Bedürfnissen und xAI Grok-3 formuliert die Workouts.
+              Wähle dein Ziel. Der Coach berechnet deine physiologische Periodisierung, Schwellenpaces und deinen maßgeschneiderten Wochenplan.
             </p>
           </div>
 

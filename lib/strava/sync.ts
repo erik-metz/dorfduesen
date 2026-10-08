@@ -122,6 +122,15 @@ export async function syncUserActivities(userId: string, perPage = 30): Promise<
       },
     });
 
+    // Revalidate public pages that display leaderboard and club stats
+    try {
+      const { revalidatePath } = await import('next/cache');
+      revalidatePath('/arena');
+      revalidatePath('/');
+    } catch {
+      // Ignored if called outside Next.js request context
+    }
+
     return { success: true, count: syncedCount };
   } catch (error: unknown) {
     const errorMsg = error instanceof Error ? error.message : 'Unbekannter Synchronisationsfehler';
