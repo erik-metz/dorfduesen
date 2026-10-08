@@ -1735,6 +1735,89 @@ export function CoachDashboard() {
           </form>
         </div>
       )}
+
+      {/* Modal: Delete Active Plan */}
+      {showDeleteModal && plan && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl space-y-6 animate-in fade-in zoom-in-95 duration-150">
+            <div className="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center justify-center">
+              <Trash2 className="w-6 h-6" />
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-xl font-black text-white">
+                Trainingsplan wirklich löschen?
+              </h3>
+              <p className="text-sm text-zinc-400 leading-relaxed">
+                Dein aktueller Plan <strong className="text-zinc-200">„{plan.title}“</strong> sowie alle bisher geplanten Einheiten und Fortschritte werden unwiderruflich gelöscht.
+              </p>
+            </div>
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowDeleteModal(false)}
+                disabled={deletingPlan}
+                className="px-4 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-bold text-sm transition-colors cursor-pointer"
+              >
+                Abbrechen
+              </button>
+              <button
+                type="button"
+                onClick={handleDeletePlan}
+                disabled={deletingPlan}
+                className="px-5 py-2.5 rounded-xl bg-rose-500 hover:bg-rose-600 text-white font-bold text-sm transition-all shadow-lg shadow-rose-500/20 flex items-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                {deletingPlan ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Wird gelöscht...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    <span>Plan löschen</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Replace Active Plan on New Generation */}
+      {showReplaceModal && plan && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl space-y-6 animate-in fade-in zoom-in-95 duration-150">
+            <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center">
+              <AlertCircle className="w-6 h-6" />
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-xl font-black text-white">
+                Bestehenden Plan ersetzen?
+              </h3>
+              <p className="text-sm text-zinc-400 leading-relaxed">
+                Du trainierst derzeit nach <strong className="text-zinc-200">„{plan.title}“</strong>. Wenn du fortfährst, wird dieser Plan komplett gelöscht und durch deinen neuen Plan ersetzt.
+              </p>
+            </div>
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowReplaceModal(false)}
+                className="px-4 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-bold text-sm transition-colors cursor-pointer"
+              >
+                Abbrechen
+              </button>
+              <button
+                type="button"
+                onClick={executeCreatePlan}
+                className="px-5 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold text-sm transition-all shadow-lg shadow-orange-500/20 flex items-center gap-2 cursor-pointer"
+              >
+                <Sparkles className="w-4 h-4" />
+                <span>Alten Plan löschen & neuen erstellen</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
