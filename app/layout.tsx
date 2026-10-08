@@ -47,10 +47,6 @@ export const metadata: Metadata = {
     locale: "de_DE",
     type: "website",
   },
-  icons: {
-    icon: "/images/instagram/profile_avatar.jpg",
-    apple: "/images/instagram/profile_avatar.jpg",
-  },
 };
 
 export default function RootLayout({
