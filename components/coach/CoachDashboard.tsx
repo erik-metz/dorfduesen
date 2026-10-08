@@ -731,7 +731,7 @@ export function CoachDashboard() {
               ) : (
                 <>
                   <Sparkles className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                  <span>Plan jetzt mit xAI Grok & Inngest generieren</span>
+                  <span>Plan jetzt generieren</span>
                 </>
               )}
             </button>
