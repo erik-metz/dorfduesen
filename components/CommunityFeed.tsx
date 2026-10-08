@@ -23,6 +23,7 @@ export async function CommunityFeed() {
     distance: number;
     sportType: string;
     startDate: string;
+    userId: string;
     userName: string;
     userProfile: string | null;
   }[] = [];
@@ -48,6 +49,7 @@ export async function CommunityFeed() {
     recentActivities = rawActivities.map((act) => ({
       id: act.id,
       stravaId: act.stravaId,
+      userId: act.userId,
       name: act.name,
       distance: act.distance,
       sportType: act.sportType,

@@ -171,8 +171,8 @@ export async function getActivityDetails(
     }
   }
 
-  // 3. Fetch from Strava API with valid user token
-  const token = await getValidStravaToken(userId);
+  // 3. Fetch from Strava API with valid user token (use activity owner's token)
+  const token = await getValidStravaToken(activity.userId || userId);
 
   // A: Fetch Activity Details
   const detailUrl = `https://www.strava.com/api/v3/activities/${stravaId}`;

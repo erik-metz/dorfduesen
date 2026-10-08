@@ -31,18 +31,25 @@ function isSyncCooldownExpired(lastSyncDate: Date | null | undefined): boolean {
   return Date.now() - lastSyncDate.getTime() > AUTO_SYNC_COOLDOWN_MS;
 }
 
-export default function DashboardPage() {
+export default function DashboardPage(props: {
+  searchParams: Promise<{ userId?: string; athleteId?: string; tab?: string }>;
+}) {
   return (
     <Suspense fallback={<DashboardSkeleton />}>
-      <DashboardContent />
+      <DashboardContent searchParamsPromise={props.searchParams} />
     </Suspense>
   );
 }
 
-async function DashboardContent() {
-  const user = await getCurrentUser();
+async function DashboardContent({
+  searchParamsPromise,
+}: {
+  searchParamsPromise: Promise<{ userId?: string; athleteId?: string; tab?: string }>;
+}) {
+  const searchParams = await searchParamsPromise;
+  const currentUser = await getCurrentUser();
 
-  if (!user) {
+  if (!currentUser) {
     return (
       <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col justify-center items-center px-4 py-16 relative overflow-hidden">
         {/* Glow */}
@@ -99,42 +106,119 @@ async function DashboardContent() {
     );
   }
 
-  // Automatischer Sync beim Aufruf des Strava-Dashboards:
-  // Läuft dank next/server after() vollständig non-blocking im Hintergrund nach dem Page-Render!
-  const lastSyncLog = await db.syncLog.findFirst({
-    where: { userId: user.id, status: 'SUCCESS' },
-    orderBy: { createdAt: 'desc' },
+  // Alle registrierten Dorfdüsen-Mitglieder für die Schnell-Auswahl abrufen
+  const rawMembers = await db.user.findMany({
+    select: {
+      id: true,
+      firstname: true,
+      lastname: true,
+      username: true,
+      profile: true,
+      stravaAthleteId: true,
+      city: true,
+    },
+    orderBy: [
+      { firstname: 'asc' },
+      { lastname: 'asc' },
+    ],
   });
 
-  const shouldAutoSync = isSyncCooldownExpired(lastSyncLog?.createdAt);
+  const allMembers = rawMembers.map((m) => ({
+    id: m.id,
+    name: [m.firstname, m.lastname].filter(Boolean).join(' ') || m.username || 'Dorfdüse',
+    firstname: m.firstname,
+    lastname: m.lastname,
+    username: m.username,
+    profile: m.profile,
+    stravaAthleteId: m.stravaAthleteId,
+    city: m.city,
+  }));
 
-  if (shouldAutoSync) {
-    after(async () => {
-      try {
-        await syncUserActivities(user.id, 30);
-        const { evaluateUserBadges } = await import('@/lib/arena/badge-engine');
-        await evaluateUserBadges(user.id);
-      } catch (syncErr) {
-        console.error('Automatischer Strava-Hintergrund-Sync fehlgeschlagen:', syncErr);
-      }
+  // Bestimmen, welcher User angezeigt werden soll (eigener Account vs. anderes Mitglied)
+  let targetUser = currentUser;
+  let isReadOnly = false;
+
+  if (searchParams.userId && searchParams.userId !== currentUser.id) {
+    const foundUser = await db.user.findUnique({
+      where: { id: searchParams.userId },
+      include: {
+        account: {
+          select: {
+            scope: true,
+            expiresAt: true,
+            updatedAt: true,
+          },
+        },
+        _count: {
+          select: {
+            activities: true,
+          },
+        },
+      },
     });
-  } else {
-    after(async () => {
-      try {
-        const { evaluateUserBadges } = await import('@/lib/arena/badge-engine');
-        await evaluateUserBadges(user.id);
-      } catch (badgeErr) {
-        console.error('Fehler bei automatischer Badge-Auswertung im Dashboard:', badgeErr);
-      }
+    if (foundUser) {
+      targetUser = foundUser;
+      isReadOnly = true;
+    }
+  } else if (searchParams.athleteId && searchParams.athleteId !== currentUser.stravaAthleteId) {
+    const foundUser = await db.user.findUnique({
+      where: { stravaAthleteId: searchParams.athleteId },
+      include: {
+        account: {
+          select: {
+            scope: true,
+            expiresAt: true,
+            updatedAt: true,
+          },
+        },
+        _count: {
+          select: {
+            activities: true,
+          },
+        },
+      },
     });
+    if (foundUser) {
+      targetUser = foundUser;
+      isReadOnly = true;
+    }
   }
 
-  // Neuesten Sync-Zeitpunkt ermitteln
-  const currentSyncLog = lastSyncLog;
+  // Automatischer Sync beim Aufruf des Strava-Dashboards:
+  // NUR für das eigene Profil des angemeldeten Benutzers! Fremde Profile werden rein passiv gelesen.
+  if (!isReadOnly) {
+    const lastSyncLog = await db.syncLog.findFirst({
+      where: { userId: currentUser.id, status: 'SUCCESS' },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const shouldAutoSync = isSyncCooldownExpired(lastSyncLog?.createdAt);
+
+    if (shouldAutoSync) {
+      after(async () => {
+        try {
+          await syncUserActivities(currentUser.id, 30);
+          const { evaluateUserBadges } = await import('@/lib/arena/badge-engine');
+          await evaluateUserBadges(currentUser.id);
+        } catch (syncErr) {
+          console.error('Automatischer Strava-Hintergrund-Sync fehlgeschlagen:', syncErr);
+        }
+      });
+    } else {
+      after(async () => {
+        try {
+          const { evaluateUserBadges } = await import('@/lib/arena/badge-engine');
+          await evaluateUserBadges(currentUser.id);
+        } catch (badgeErr) {
+          console.error('Fehler bei automatischer Badge-Auswertung im Dashboard:', badgeErr);
+        }
+      });
+    }
+  }
 
   // User ist angemeldet -> Hole Aktivitäten aus der DB
   const rawActivities = await db.activity.findMany({
-    where: { userId: user.id },
+    where: { userId: targetUser.id },
     orderBy: { startDate: 'desc' },
     take: 100,
   });
@@ -168,46 +252,64 @@ async function DashboardContent() {
     activityCount: activities.length,
   };
 
-  const lastSync = currentSyncLog?.createdAt
-    ? currentSyncLog.createdAt.toISOString()
-    : user.account?.updatedAt
-    ? user.account.updatedAt.toISOString()
-    : null;
+  // Benachrichtigungen: Nur für das eigene Profil laden, niemals für fremde Mitglieder
+  let notifications: Array<{
+    id: string;
+    type: string;
+    title: string;
+    message: string;
+    link: string | null;
+    isRead: boolean;
+    metadata: import('@/types/notification').NotificationMetadata | null;
+    createdAt: string;
+  }> = [];
 
-  // User ist angemeldet -> Hole Benachrichtigungen aus der DB
-  const rawNotifications = await db.notification.findMany({
-    where: { userId: user.id },
-    orderBy: { createdAt: 'desc' },
-    take: 50,
-  });
+  if (!isReadOnly) {
+    const rawNotifications = await db.notification.findMany({
+      where: { userId: currentUser.id },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    });
 
-  const notifications = rawNotifications.map((n) => ({
-    id: n.id,
-    type: n.type,
-    title: n.title,
-    message: n.message,
-    link: n.link,
-    isRead: n.isRead,
-    metadata: n.metadata as import('@/types/notification').NotificationMetadata | null,
-    createdAt: n.createdAt.toISOString(),
-  }));
+    notifications = rawNotifications.map((n) => ({
+      id: n.id,
+      type: n.type,
+      title: n.title,
+      message: n.message,
+      link: n.link,
+      isRead: n.isRead,
+      metadata: n.metadata as import('@/types/notification').NotificationMetadata | null,
+      createdAt: n.createdAt.toISOString(),
+    }));
+  }
+
+  const currentUserName =
+    [currentUser.firstname, currentUser.lastname].filter(Boolean).join(' ') ||
+    currentUser.username ||
+    'Dorfdüse';
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
       <DashboardView
         user={{
-          id: user.id,
-          firstname: user.firstname,
-          lastname: user.lastname,
-          username: user.username,
-          profile: user.profile,
-          city: user.city,
-          country: user.country,
-          stravaAthleteId: user.stravaAthleteId,
+          id: targetUser.id,
+          firstname: targetUser.firstname,
+          lastname: targetUser.lastname,
+          username: targetUser.username,
+          profile: targetUser.profile,
+          city: targetUser.city,
+          country: targetUser.country,
+          stravaAthleteId: targetUser.stravaAthleteId,
         }}
+        currentUser={{
+          id: currentUser.id,
+          name: currentUserName,
+          profile: currentUser.profile,
+        }}
+        allMembers={allMembers}
+        isReadOnly={isReadOnly}
         activities={activities}
         stats={stats}
-        lastSync={lastSync}
         initialNotifications={notifications}
       />
       <NotificationToast />

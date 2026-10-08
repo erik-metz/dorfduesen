@@ -5,22 +5,28 @@ import { evaluateUserBadges } from '@/lib/arena/badge-engine';
 import { BADGE_DEFINITIONS, ensureBadgesSeeded } from '@/lib/arena/badge-definitions';
 import { getWeekKey } from '@/lib/arena/stats';
 
-export async function GET() {
+export async function GET(request: Request) {
   await connection();
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ error: 'Nicht autorisiert' }, { status: 401 });
   }
 
+  const { searchParams } = new URL(request.url);
+  const targetUserId = searchParams.get('userId') || user.id;
+  const isReadOnly = targetUserId !== user.id;
+
   try {
     await ensureBadgesSeeded(db);
 
-    // Auto-evaluate current athlete to keep badges fresh
-    await evaluateUserBadges(user.id);
+    // Only auto-evaluate when athlete looks at their own cabinet
+    if (!isReadOnly) {
+      await evaluateUserBadges(user.id);
+    }
 
     // 1. Fetch user unlocked badges
     const userBadges = await db.userBadge.findMany({
-      where: { userId: user.id },
+      where: { userId: targetUserId },
       include: { badge: true },
     });
 
@@ -28,13 +34,13 @@ export async function GET() {
 
     // 2. Fetch weekly title holders (current and historical)
     const weeklyHolders = await db.weeklyTitleHolder.findMany({
-      where: { userId: user.id },
+      where: { userId: targetUserId },
       orderBy: { weekKey: 'desc' },
     });
 
     // 3. Fetch monthly title holders
     const monthlyHolders = await db.monthlyTitleHolder.findMany({
-      where: { userId: user.id },
+      where: { userId: targetUserId },
       orderBy: { monthKey: 'desc' },
     });
 
@@ -44,7 +50,7 @@ export async function GET() {
       where: { weekKey: currentWeekKey },
     });
     const currentWeekLeaderTitles = new Set(
-      currentWeekHolders.filter((h) => h.userId === user.id).map((h) => h.titleId)
+      currentWeekHolders.filter((h) => h.userId === targetUserId).map((h) => h.titleId)
     );
 
     // 5. Build full badge list

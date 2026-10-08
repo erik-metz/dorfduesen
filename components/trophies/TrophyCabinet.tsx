@@ -32,6 +32,8 @@ export interface TrophyItem {
 
 interface TrophyCabinetProps {
   initialBadges?: TrophyItem[];
+  userId?: string;
+  isReadOnly?: boolean;
 }
 
 const RARITY_CONFIG: Record<
@@ -77,7 +79,7 @@ const WEEKLY_TITLES = [
   { id: 'consistency', code: 'WEEKLY_CONSISTENCY', title: 'Dauer-Düser', icon: '📅', desc: 'Meiste Aktivitäten in der Woche' },
 ];
 
-export function TrophyCabinet({ initialBadges }: TrophyCabinetProps) {
+export function TrophyCabinet({ initialBadges, userId, isReadOnly = false }: TrophyCabinetProps) {
   const [badges, setBadges] = useState<TrophyItem[]>(initialBadges || []);
   const [loading, setLoading] = useState(!initialBadges || initialBadges.length === 0);
   const [evaluating, setEvaluating] = useState(false);
@@ -85,10 +87,12 @@ export function TrophyCabinet({ initialBadges }: TrophyCabinetProps) {
   const [activeLeaderTitles, setActiveLeaderTitles] = useState<string[]>([]);
   const [selectedTrophy, setSelectedTrophy] = useState<TrophyItem | null>(null);
 
+  const apiEndpoint = userId ? `/api/trophies?userId=${encodeURIComponent(userId)}` : '/api/trophies';
+
   const reloadTrophies = async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/trophies');
+      const res = await fetch(apiEndpoint);
       const data = await res.json();
       if (res.ok && data.badges) {
         setBadges(data.badges);
@@ -107,7 +111,7 @@ export function TrophyCabinet({ initialBadges }: TrophyCabinetProps) {
     let ignore = false;
     async function loadInitial() {
       try {
-        const res = await fetch('/api/trophies');
+        const res = await fetch(apiEndpoint);
         const data = await res.json();
         if (!ignore && res.ok && data.badges) {
           setBadges(data.badges);
@@ -125,9 +129,10 @@ export function TrophyCabinet({ initialBadges }: TrophyCabinetProps) {
     return () => {
       ignore = true;
     };
-  }, []);
+  }, [apiEndpoint]);
 
   const handleEvaluate = async () => {
+    if (isReadOnly) return;
     try {
       setEvaluating(true);
       const res = await fetch('/api/trophies/evaluate', { method: 'POST' });
@@ -188,14 +193,21 @@ export function TrophyCabinet({ initialBadges }: TrophyCabinetProps) {
 
           {/* Action & Quick Stats */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-            <button
-              onClick={handleEvaluate}
-              disabled={evaluating}
-              className="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 active:scale-95 text-zinc-200 text-xs font-bold border border-zinc-700 transition-all cursor-pointer shadow-md disabled:opacity-50"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${evaluating ? 'animate-spin text-orange-400' : ''}`} />
-              <span>{evaluating ? 'Prüfe Erfolge...' : 'Erfolge neu abgleichen'}</span>
-            </button>
+            {!isReadOnly ? (
+              <button
+                onClick={handleEvaluate}
+                disabled={evaluating}
+                className="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 active:scale-95 text-zinc-200 text-xs font-bold border border-zinc-700 transition-all cursor-pointer shadow-md disabled:opacity-50"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${evaluating ? 'animate-spin text-orange-400' : ''}`} />
+                <span>{evaluating ? 'Prüfe Erfolge...' : 'Erfolge neu abgleichen'}</span>
+              </button>
+            ) : (
+              <div className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-zinc-800/60 border border-zinc-700/60 text-xs text-zinc-400">
+                <Trophy className="w-3.5 h-3.5 text-amber-400" />
+                <span>Vitrine (Nur Ansicht)</span>
+              </div>
+            )}
           </div>
         </div>
 

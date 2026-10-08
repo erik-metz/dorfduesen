@@ -251,7 +251,11 @@ export function MultiLeaderboard({ initialEntries }: MultiLeaderboardProps) {
 
                       {/* Athlete Profile */}
                       <td className="py-4 px-4">
-                        <div className="flex items-center gap-3">
+                        <Link
+                          href={`/dashboard?userId=${row.userId}`}
+                          className="flex items-center gap-3 group/link hover:opacity-90 transition-opacity"
+                          title={`${row.name} im Dashboard ansehen`}
+                        >
                           <div className="relative w-9 h-9 rounded-full overflow-hidden bg-zinc-800 shrink-0 border border-zinc-700">
                             {isValidAvatarUrl(row.profile) ? (
                               <Image
@@ -268,14 +272,14 @@ export function MultiLeaderboard({ initialEntries }: MultiLeaderboardProps) {
                             )}
                           </div>
                           <div>
-                            <div className="font-bold text-white group-hover:text-orange-400 transition-colors">
+                            <div className="font-bold text-white group-hover/link:text-orange-400 transition-colors">
                               {row.name}
                             </div>
                             <div className="text-[11px] text-zinc-500">
                               Dorfdüse #{idx + 1}
                             </div>
                           </div>
-                        </div>
+                        </Link>
                       </td>
 
                       {/* Distance */}

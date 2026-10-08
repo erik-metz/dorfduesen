@@ -26,6 +26,9 @@ import {
   Crown,
   Bell,
   ChevronRight,
+  Eye,
+  Users,
+  Lock,
 } from 'lucide-react';
 import { StravaIcon } from '@/components/icons/BrandIcons';
 import { polylineToSvgPath } from '@/lib/strava/polyline';
@@ -54,6 +57,17 @@ export interface ActivityItem {
   detailData?: ActivityDetailData | null;
 }
 
+export interface MemberPreview {
+  id: string;
+  name: string;
+  firstname: string | null;
+  lastname: string | null;
+  username: string | null;
+  profile: string | null;
+  stravaAthleteId: string;
+  city: string | null;
+}
+
 interface DashboardViewProps {
   user: {
     id: string;
@@ -65,6 +79,13 @@ interface DashboardViewProps {
     country: string | null;
     stravaAthleteId: string;
   };
+  currentUser?: {
+    id: string;
+    name: string;
+    profile: string | null;
+  };
+  allMembers?: MemberPreview[];
+  isReadOnly?: boolean;
   activities: ActivityItem[];
   stats: {
     totalDistanceKm: number;
@@ -72,7 +93,6 @@ interface DashboardViewProps {
     totalElevation: number;
     activityCount: number;
   };
-  lastSync: string | null;
   initialNotifications?: NotificationItem[];
 }
 
@@ -101,9 +121,11 @@ function formatDuration(seconds: number): string {
 
 export function DashboardView({
   user,
+  currentUser,
+  allMembers = [],
+  isReadOnly = false,
   activities,
   stats,
-  lastSync,
   initialNotifications = [],
 }: DashboardViewProps) {
   const router = useRouter();
@@ -118,7 +140,7 @@ export function DashboardView({
       ? 'coach'
       : tabParam === 'trophies'
       ? 'trophies'
-      : tabParam === 'notifications'
+      : tabParam === 'notifications' && !isReadOnly
       ? 'notifications'
       : 'activities';
 
@@ -130,9 +152,10 @@ export function DashboardView({
   };
 
   const [notifications, setNotifications] = useState<NotificationItem[]>(initialNotifications);
-  const unreadCount = notifications.filter((n) => !n.isRead).length;
+  const unreadCount = isReadOnly ? 0 : notifications.filter((n) => !n.isRead).length;
 
   useEffect(() => {
+    if (isReadOnly) return;
     const handleRefresh = async () => {
       try {
         const res = await fetch('/api/notifications');
@@ -147,33 +170,10 @@ export function DashboardView({
 
     window.addEventListener('dorfdusen-refresh-notifications', handleRefresh);
     return () => window.removeEventListener('dorfdusen-refresh-notifications', handleRefresh);
-  }, []);
+  }, [isReadOnly]);
 
   const [filterSport, setFilterSport] = useState<string>('all');
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [isManualSyncing, setIsManualSyncing] = useState(false);
-  const [syncFeedback, setSyncFeedback] = useState<string | null>(null);
-
-  const handleManualSync = async () => {
-    if (isManualSyncing) return;
-    setIsManualSyncing(true);
-    setSyncFeedback(null);
-    try {
-      const res = await fetch('/api/strava/sync', { method: 'POST' });
-      const data = await res.json();
-      if (res.ok) {
-        setSyncFeedback(data.message || 'Synchronisiert!');
-        router.refresh();
-      } else {
-        setSyncFeedback(data.error || 'Fehler beim Sync');
-      }
-    } catch {
-      setSyncFeedback('Verbindungsfehler');
-    } finally {
-      setIsManualSyncing(false);
-      setTimeout(() => setSyncFeedback(null), 3500);
-    }
-  };
 
   // Initialize cache with any pre-loaded detailData from DB
   const [detailsCache, setDetailsCache] = useState<Record<string, ActivityDetailData>>(() => {
@@ -279,6 +279,15 @@ export function DashboardView({
           <span>Zurück zur Startseite</span>
         </Link>
         <div className="flex items-center gap-3">
+          {isReadOnly && (
+            <Link
+              href="/dashboard"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-orange-600/20 hover:bg-orange-600/30 border border-orange-500/40 text-xs font-bold text-orange-400 hover:text-orange-300 transition-colors"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Mein Profil</span>
+            </Link>
+          )}
           <a
             href={`https://www.strava.com/athletes/${user.stravaAthleteId}`}
             target="_blank"
@@ -297,6 +306,87 @@ export function DashboardView({
           </a>
         </div>
       </div>
+
+      {/* Read-Only Notice Banner */}
+      {isReadOnly && (
+        <div className="rounded-3xl bg-gradient-to-r from-orange-950/70 via-zinc-900 to-zinc-900 border border-orange-500/40 p-5 sm:p-6 shadow-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-fade-in">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-orange-600/20 border border-orange-500/40 text-orange-400 flex items-center justify-center shrink-0">
+              <Eye className="w-6 h-6" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-orange-600/30 text-orange-300 border border-orange-500/40">
+                  Nur-Lese-Modus
+                </span>
+                <span className="text-xs text-zinc-400">
+                  Keine Änderungen möglich
+                </span>
+              </div>
+              <p className="text-sm font-semibold text-white mt-1">
+                Du betrachtest die Daten und Aktivitäten von <strong className="text-orange-400">{displayName}</strong>.
+              </p>
+            </div>
+          </div>
+          <Link
+            href="/dashboard"
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white text-xs font-bold transition-all shadow-lg shadow-orange-600/20 shrink-0 self-start sm:self-auto"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Zurück zu meinem Dashboard</span>
+          </Link>
+        </div>
+      )}
+
+      {/* Team Member Switcher */}
+      {allMembers && allMembers.length > 0 && (
+        <div className="rounded-2xl bg-zinc-900/60 border border-zinc-800 p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-xs font-bold text-zinc-300 uppercase tracking-wider">
+              <Users className="w-4 h-4 text-orange-400" />
+              <span>Dorfdüsen Team ({allMembers.length} Athleten)</span>
+            </div>
+            <span className="text-[11px] text-zinc-500 hidden sm:inline">
+              Klicke auf einen Athleten, um dessen Aktivitäten im Nur-Lese-Modus anzusehen
+            </span>
+          </div>
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+            {allMembers.map((member) => {
+              const isSelected = member.id === user.id;
+              const isMe = currentUser && member.id === currentUser.id;
+              const href = isMe ? '/dashboard' : `/dashboard?userId=${member.id}`;
+              return (
+                <Link
+                  key={member.id}
+                  href={href}
+                  className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 border ${
+                    isSelected
+                      ? 'bg-orange-600 text-white border-orange-500 shadow-md shadow-orange-600/20'
+                      : 'bg-zinc-900 text-zinc-300 border-zinc-800 hover:border-zinc-700 hover:text-white'
+                  }`}
+                  title={`${member.name}${isMe ? ' (Du)' : ''}`}
+                >
+                  <div className="relative w-5 h-5 rounded-full overflow-hidden bg-zinc-800 shrink-0 border border-zinc-700">
+                    {isValidAvatarUrl(member.profile) ? (
+                      <Image src={member.profile!} alt={member.name} fill unoptimized className="object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-[10px] text-orange-400 font-bold">
+                        {member.name.charAt(0)}
+                      </div>
+                    )}
+                  </div>
+                  <span className="max-w-[120px] truncate">{member.name}</span>
+                  {isMe && (
+                    <span className="text-[10px] px-1.5 py-0.2 rounded bg-black/30 text-zinc-300 font-normal">
+                      Du
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* User Header Profile Card */}
       <div className="rounded-3xl bg-zinc-900 border border-zinc-800 p-6 sm:p-8 shadow-2xl relative overflow-hidden">
@@ -333,33 +423,12 @@ export function DashboardView({
             </div>
           </div>
 
-          {/* Auto-Sync Status Indicator & Manual Sync Button */}
-          <div className="flex flex-col items-start md:items-end gap-1.5 w-full md:w-auto">
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-zinc-950/80 border border-zinc-800 text-xs font-medium text-zinc-300 shadow-inner">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                </span>
-                <span>Auto-Sync aktiv</span>
-              </div>
-
-              <button
-                onClick={handleManualSync}
-                disabled={isManualSyncing}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold text-zinc-300 hover:text-white transition-all disabled:opacity-50 cursor-pointer shadow-sm active:scale-95"
-                title="Jetzt manuell von Strava synchronisieren"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${isManualSyncing ? 'animate-spin text-orange-400' : 'text-zinc-400'}`} />
-                <span>{isManualSyncing ? 'Synchronisiere...' : syncFeedback || 'Jetzt Sync'}</span>
-              </button>
+          {isReadOnly && (
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-zinc-950/80 border border-zinc-800 text-xs font-medium text-zinc-400 shadow-inner">
+              <Eye className="w-3.5 h-3.5 text-orange-400" />
+              <span>Nur-Lese-Ansicht</span>
             </div>
-            {lastSync && (
-              <span className="text-[11px] text-zinc-500">
-                Zuletzt synchronisiert: {new Date(lastSync).toLocaleString('de-DE')}
-              </span>
-            )}
-          </div>
+          )}
         </div>
       </div>
 
@@ -403,40 +472,73 @@ export function DashboardView({
               : 'text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800'
           }`}
         >
-          <Sparkles className="w-4 h-4 text-orange-400" />
+          {isReadOnly ? (
+            <Lock className="w-4 h-4 text-zinc-400" />
+          ) : (
+            <Sparkles className="w-4 h-4 text-orange-400" />
+          )}
           <span>Smart Coach</span>
-          <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-orange-600 text-white">
-            KI
-          </span>
-        </button>
-
-        <button
-          onClick={() => handleTabChange('notifications')}
-          className={`px-5 py-3 rounded-2xl font-bold text-sm transition-all flex items-center gap-2.5 cursor-pointer shrink-0 ${
-            mainTab === 'notifications'
-              ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20'
-              : 'text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800'
-          }`}
-        >
-          <Bell className="w-4 h-4" />
-          <span>Benachrichtigungen</span>
-          {unreadCount > 0 ? (
-            <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-rose-600 text-white animate-pulse">
-              {unreadCount} neu
+          {isReadOnly ? (
+            <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700">
+              Privat
             </span>
           ) : (
-            <span className="text-xs px-2 py-0.5 rounded-full bg-black/20 text-zinc-300">
-              {notifications.length}
+            <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-orange-600 text-white">
+              KI
             </span>
           )}
         </button>
+
+        {!isReadOnly && (
+          <button
+            onClick={() => handleTabChange('notifications')}
+            className={`px-5 py-3 rounded-2xl font-bold text-sm transition-all flex items-center gap-2.5 cursor-pointer shrink-0 ${
+              mainTab === 'notifications'
+                ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20'
+                : 'text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800'
+            }`}
+          >
+            <Bell className="w-4 h-4" />
+            <span>Benachrichtigungen</span>
+            {unreadCount > 0 ? (
+              <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-rose-600 text-white animate-pulse">
+                {unreadCount} neu
+              </span>
+            ) : (
+              <span className="text-xs px-2 py-0.5 rounded-full bg-black/20 text-zinc-300">
+                {notifications.length}
+              </span>
+            )}
+          </button>
+        )}
       </div>
 
       {mainTab === 'coach' ? (
-        <CoachDashboard />
+        isReadOnly ? (
+          <div className="rounded-3xl bg-zinc-900 border border-zinc-800 p-8 sm:p-12 text-center max-w-xl mx-auto space-y-4">
+            <div className="w-16 h-16 rounded-2xl bg-orange-600/15 border border-orange-500/30 text-orange-400 mx-auto flex items-center justify-center">
+              <Lock className="w-8 h-8" />
+            </div>
+            <h3 className="text-xl font-black text-white uppercase tracking-tight">
+              Smart Coach ist privat
+            </h3>
+            <p className="text-sm text-zinc-400 leading-relaxed">
+              Persönliche KI-Trainingspläne, Gesundheitsmetriken und Ruhepulsdaten sind geschützt und nur für den Athleten selbst einsehbar.
+            </p>
+            <Link
+              href="/dashboard?tab=coach"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white text-xs font-bold transition-all shadow-lg shadow-orange-600/20"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Zu deinem eigenen Smart Coach</span>
+            </Link>
+          </div>
+        ) : (
+          <CoachDashboard />
+        )
       ) : mainTab === 'trophies' ? (
-        <TrophyCabinet />
-      ) : mainTab === 'notifications' ? (
+        <TrophyCabinet userId={user.id} isReadOnly={isReadOnly} />
+      ) : mainTab === 'notifications' && !isReadOnly ? (
         <DashboardNotifications
           initialNotifications={notifications}
           onTabChange={handleTabChange}
@@ -444,7 +546,7 @@ export function DashboardView({
       ) : (
         <>
           {/* Unread Notifications Alert Banner on Activities Tab */}
-          {unreadCount > 0 && (
+          {unreadCount > 0 && !isReadOnly && (
             <div className="rounded-2xl bg-gradient-to-r from-orange-950/40 via-zinc-900 to-zinc-900 border border-orange-500/30 p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-lg shadow-black/20">
               <div className="flex items-center gap-3.5 min-w-0">
                 <div className="w-10 h-10 rounded-xl bg-orange-500/20 border border-orange-500/40 text-orange-400 flex items-center justify-center shrink-0">

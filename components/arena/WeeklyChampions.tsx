@@ -95,7 +95,11 @@ export function WeeklyChampions({ champions, currentUserId }: WeeklyChampionsPro
               <div className="pt-6 mt-6 border-t border-zinc-800/80">
                 {hasWinner && champ.winner ? (
                   <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3 min-w-0">
+                    <Link
+                      href={isCurrentUser ? '/dashboard' : `/dashboard?userId=${champ.winner.userId}`}
+                      className="flex items-center gap-3 min-w-0 group/winner hover:opacity-90 transition-opacity"
+                      title={`${champ.winner.name} im Dashboard ansehen`}
+                    >
                       <div className="relative w-10 h-10 rounded-full overflow-hidden border-2 border-orange-500 shrink-0 bg-zinc-950">
                         {isValidAvatarUrl(champ.winner.profile) ? (
                           <Image
@@ -115,11 +119,11 @@ export function WeeklyChampions({ champions, currentUserId }: WeeklyChampionsPro
                         <div className="text-xs text-orange-400 font-bold uppercase tracking-wider">
                           {isCurrentUser ? 'Du bist in Führung' : 'Aktuelle Führung'}
                         </div>
-                        <div className="text-sm font-bold text-white truncate">
+                        <div className="text-sm font-bold text-white truncate group-hover/winner:text-orange-400 transition-colors">
                           {isCurrentUser ? 'Du' : champ.winner.name}
                         </div>
                       </div>
-                    </div>
+                    </Link>
 
                     <div className="text-right shrink-0">
                       <span className="text-sm sm:text-base font-black text-white">
