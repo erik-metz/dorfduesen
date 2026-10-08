@@ -9,4 +9,4 @@ export const xai = new OpenAI({
   baseURL: "https://api.x.ai/v1",
 });
 
-export const XAI_DEFAULT_MODEL = "grok-2-1212";
+export const XAI_DEFAULT_MODEL = process.env.XAI_MODEL || "grok-3";
