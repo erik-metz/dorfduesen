@@ -3,31 +3,49 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { inngest } from "@/lib/inngest/client";
 
+const DAILY_GENERATION_LIMIT = 5;
+
 export async function GET() {
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const plan = await db.trainingPlan.findFirst({
-    where: {
-      userId: user.id,
-      status: { in: ["ACTIVE", "PROCESSING", "QUEUED"] },
-    },
-    orderBy: { createdAt: "desc" },
-    include: {
-      weeks: {
-        orderBy: { weekNumber: "asc" },
-        include: {
-          workouts: {
-            orderBy: { scheduledDate: "asc" },
+  const startOfDay = new Date();
+  startOfDay.setHours(0, 0, 0, 0);
+
+  const [plan, generationsToday] = await Promise.all([
+    db.trainingPlan.findFirst({
+      where: {
+        userId: user.id,
+        status: { in: ["ACTIVE", "PROCESSING", "QUEUED"] },
+      },
+      orderBy: { createdAt: "desc" },
+      include: {
+        weeks: {
+          orderBy: { weekNumber: "asc" },
+          include: {
+            workouts: {
+              orderBy: { scheduledDate: "asc" },
+            },
           },
         },
       },
-    },
-  });
+    }),
+    db.trainingPlan.count({
+      where: {
+        userId: user.id,
+        createdAt: { gte: startOfDay },
+      },
+    }),
+  ]);
 
-  return NextResponse.json({ plan });
+  return NextResponse.json({
+    plan,
+    generationsToday,
+    dailyLimit: DAILY_GENERATION_LIMIT,
+    remainingToday: Math.max(0, DAILY_GENERATION_LIMIT - generationsToday),
+  });
 }
 
 export async function POST(req: Request) {
@@ -37,6 +55,26 @@ export async function POST(req: Request) {
   }
 
   try {
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const generationsToday = await db.trainingPlan.count({
+      where: {
+        userId: user.id,
+        createdAt: { gte: startOfDay },
+      },
+    });
+
+    if (generationsToday >= DAILY_GENERATION_LIMIT) {
+      return NextResponse.json(
+        {
+          error: `Tageslimit erreicht: Du hast heute bereits ${generationsToday} von ${DAILY_GENERATION_LIMIT} Trainingsplänen generiert. Bitte versuche es morgen wieder.`,
+          generationsToday,
+          dailyLimit: DAILY_GENERATION_LIMIT,
+        },
+        { status: 429 }
+      );
+    }
     const body = await req.json();
     const {
       title,

@@ -263,6 +263,9 @@ export function CoachDashboard() {
   const [includeSundayRun, setIncludeSundayRun] = useState(true);
   const [weightKg, setWeightKg] = useState('');
   const [restingHr, setRestingHr] = useState('');
+  const [generationsToday, setGenerationsToday] = useState(0);
+  const [dailyLimit, setDailyLimit] = useState(5);
+  const [generationError, setGenerationError] = useState<string | null>(null);
 
   // Quick Health Log State
   const [newWeight, setNewWeight] = useState('');
@@ -282,6 +285,12 @@ export function CoachDashboard() {
       if (planRes.ok) {
         const pData = await planRes.json();
         setPlan(pData.plan);
+        if (typeof pData.generationsToday === 'number') {
+          setGenerationsToday(pData.generationsToday);
+        }
+        if (typeof pData.dailyLimit === 'number') {
+          setDailyLimit(pData.dailyLimit);
+        }
         if (pData.plan?.status === 'QUEUED' || pData.plan?.status === 'PROCESSING') {
           setGenerating(true);
         } else {
@@ -319,6 +328,9 @@ export function CoachDashboard() {
       const res = await fetch('/api/coach/plan');
       if (res.ok) {
         const data = await res.json();
+        if (typeof data.generationsToday === 'number') {
+          setGenerationsToday(data.generationsToday);
+        }
         if (data.plan?.status === 'ACTIVE') {
           setPlan(data.plan);
           setGenerating(false);
@@ -331,6 +343,7 @@ export function CoachDashboard() {
 
   const handleCreatePlan = async (e: React.FormEvent) => {
     e.preventDefault();
+    setGenerationError(null);
     setGenerating(true);
 
     try {
@@ -390,9 +403,17 @@ export function CoachDashboard() {
 
       if (res.ok) {
         await loadData();
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        setGenerationError(errData.error || 'Fehler beim Erstellen des Trainingsplans.');
+        if (typeof errData.generationsToday === 'number') {
+          setGenerationsToday(errData.generationsToday);
+        }
+        setGenerating(false);
       }
     } catch (err) {
       console.error(err);
+      setGenerationError('Netzwerkfehler beim Erstellen des Trainingsplans.');
       setGenerating(false);
     }
   };
@@ -1321,17 +1342,40 @@ export function CoachDashboard() {
       {/* TAB 4: GENERATE NEW PLAN WIZARD */}
       {activeTab === 'new-plan' && (
         <div className="max-w-2xl mx-auto bg-zinc-900 border border-zinc-800 rounded-3xl p-6 sm:p-10 shadow-2xl space-y-8">
-          <div>
-            <span className="text-xs font-bold uppercase text-orange-400 tracking-wider">
-              Konfiguration &amp; Individualisierung
-            </span>
-            <h2 className="text-2xl sm:text-3xl font-black text-white mt-1">
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-xs font-bold uppercase text-orange-400 tracking-wider">
+                Konfiguration &amp; Individualisierung
+              </span>
+              <span
+                className={`text-[11px] font-bold px-3 py-1 rounded-full border transition-all ${
+                  generationsToday >= dailyLimit
+                    ? 'bg-rose-500/10 border-rose-500/30 text-rose-400'
+                    : generationsToday >= dailyLimit - 1
+                    ? 'bg-amber-500/10 border-amber-500/30 text-amber-400'
+                    : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                }`}
+              >
+                ⚡ {generationsToday}/{dailyLimit} Plangenerierungen heute
+              </span>
+            </div>
+            <h2 className="text-2xl sm:text-3xl font-black text-white">
               Neuen Trainingsplan erstellen
             </h2>
-            <p className="text-sm text-zinc-400 mt-1">
+            <p className="text-sm text-zinc-400">
               Wähle dein Ziel. Der Coach berechnet deine physiologische Periodisierung, Schwellenpaces und deinen maßgeschneiderten Wochenplan.
             </p>
           </div>
+
+          {generationError && (
+            <div className="p-4 rounded-2xl bg-rose-950/40 border border-rose-500/30 text-rose-300 text-xs flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <span className="font-bold text-rose-200 block text-sm">Hinweis zur Plangenerierung</span>
+                <p className="leading-relaxed">{generationError}</p>
+              </div>
+            </div>
+          )}
 
           <form onSubmit={handleCreatePlan} className="space-y-6">
             {/* Goal selection: 2 Steps (Category -> Presets & Custom note) */}
@@ -1558,23 +1602,37 @@ export function CoachDashboard() {
               </div>
             </div>
 
-            <button
-              type="submit"
-              disabled={generating}
-              className="w-full py-4 rounded-xl font-bold bg-orange-500 hover:bg-orange-600 text-white text-sm shadow-xl shadow-orange-500/20 transition-all flex items-center justify-center gap-2 group disabled:opacity-50 cursor-pointer"
-            >
-              {generating ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  <span>Wird generiert...</span>
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                  <span>Plan jetzt generieren</span>
-                </>
-              )}
-            </button>
+            {(() => {
+              const isLimitReached = generationsToday >= dailyLimit;
+              return (
+                <button
+                  type="submit"
+                  disabled={generating || isLimitReached}
+                  className={`w-full py-4 rounded-xl font-bold text-sm shadow-xl transition-all flex items-center justify-center gap-2 group cursor-pointer ${
+                    isLimitReached
+                      ? 'bg-zinc-800 border border-zinc-700/80 text-zinc-500 cursor-not-allowed shadow-none'
+                      : 'bg-orange-500 hover:bg-orange-600 text-white shadow-orange-500/20 disabled:opacity-50'
+                  }`}
+                >
+                  {generating ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      <span>Wird generiert...</span>
+                    </>
+                  ) : isLimitReached ? (
+                    <>
+                      <AlertCircle className="w-5 h-5 text-zinc-500" />
+                      <span>Tageslimit erreicht (max. {dailyLimit} Pläne/Tag) – Morgen wieder verfügbar</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                      <span>Plan jetzt generieren ({Math.max(0, dailyLimit - generationsToday)} von {dailyLimit} heute übrig)</span>
+                    </>
+                  )}
+                </button>
+              );
+            })()}
           </form>
         </div>
       )}
