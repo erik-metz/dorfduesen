@@ -27,6 +27,7 @@ import {
   Trophy,
   Target,
   ExternalLink,
+  Trash2,
 } from 'lucide-react';
 
 export const GOAL_CATEGORIES = [
@@ -275,6 +276,11 @@ export function CoachDashboard() {
   const [savingMetric, setSavingMetric] = useState(false);
   const [metricSavedToast, setMetricSavedToast] = useState(false);
 
+  // Plan deletion & replacement states
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showReplaceModal, setShowReplaceModal] = useState(false);
+  const [deletingPlan, setDeletingPlan] = useState(false);
+
   const loadData = React.useCallback(async () => {
     try {
       const [planRes, profileRes, metricsRes] = await Promise.all([
@@ -342,8 +348,26 @@ export function CoachDashboard() {
     return () => clearInterval(interval);
   }, [generating]);
 
-  const handleCreatePlan = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleDeletePlan = async () => {
+    setDeletingPlan(true);
+    try {
+      const res = await fetch('/api/coach/plan', {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        setPlan(null);
+        setShowDeleteModal(false);
+        setShowReplaceModal(false);
+      }
+    } catch (err) {
+      console.error('Error deleting plan:', err);
+    } finally {
+      setDeletingPlan(false);
+    }
+  };
+
+  const executeCreatePlan = async () => {
+    setShowReplaceModal(false);
     setGenerationError(null);
     setGenerating(true);
 
@@ -417,6 +441,15 @@ export function CoachDashboard() {
       setGenerationError('Netzwerkfehler beim Erstellen des Trainingsplans.');
       setGenerating(false);
     }
+  };
+
+  const handleCreatePlan = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (plan) {
+      setShowReplaceModal(true);
+      return;
+    }
+    await executeCreatePlan();
   };
 
   const handleSaveHealthMetric = async (e: React.FormEvent) => {
@@ -599,7 +632,7 @@ export function CoachDashboard() {
                 <div className="bg-zinc-950/60 p-3.5 rounded-xl border border-zinc-800">
                   <span className="text-[11px] font-bold uppercase text-zinc-500 block">Soll-Pace</span>
                   <span className="text-xl font-black text-orange-400">
-                    {todayWorkout.targetPaceMin ? `${todayWorkout.targetPaceMin} - ${todayWorkout.targetPaceMax}` : 'Wohlfühltempo'}
+                    {todayWorkout.targetPaceMin ? `${todayWorkout.targetPaceMin} - ${todayWorkout.targetPaceMax} min/km` : 'Wohlfühltempo'}
                   </span>
                 </div>
                 <div className="bg-zinc-950/60 p-3.5 rounded-xl border border-zinc-800">
@@ -667,6 +700,15 @@ export function CoachDashboard() {
                     {new Date(plan.startDate).toLocaleDateString('de-DE')}
                   </p>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteModal(true)}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 text-xs font-bold transition-all self-start sm:self-center cursor-pointer shrink-0"
+                  title="Trainingsplan löschen"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Plan löschen</span>
+                </button>
               </div>
 
               <div className="space-y-4">
@@ -784,9 +826,11 @@ export function CoachDashboard() {
                               </div>
                             )}
 
-                            <div className="pt-2 border-t border-zinc-800/60 flex items-center justify-between text-[11px] font-semibold">
+                            <div className="pt-2 border-t border-zinc-800/60 flex items-center justify-between text-[11px] font-semibold gap-2">
                               <span className="text-white font-bold">{displayDistance}</span>
-                              <span className="text-orange-400">{w.targetPaceMin ? `${w.targetPaceMin} - ${w.targetPaceMax}` : 'Easy'}</span>
+                              <span className="text-orange-400 bg-orange-500/10 px-2 py-0.5 rounded border border-orange-500/20" title="Ziel-Pace (Minuten pro Kilometer)">
+                                {w.targetPaceMin ? `${w.targetPaceMin} - ${w.targetPaceMax} min/km` : 'Easy-Pace'}
+                              </span>
                               <span className="text-emerald-400">Z{w.targetHrZone || 2}</span>
                               <span className="text-zinc-400">
                                 {w.status === 'COMPLETED' ? '✅' : '⏳'}
@@ -1416,6 +1460,18 @@ export function CoachDashboard() {
               <div className="space-y-1">
                 <span className="font-bold text-rose-200 block text-sm">Hinweis zur Plangenerierung</span>
                 <p className="leading-relaxed">{generationError}</p>
+              </div>
+            </div>
+          )}
+
+          {plan && (
+            <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <span className="font-bold text-amber-300 block text-sm">Aktiver Trainingsplan vorhanden</span>
+                <p className="leading-relaxed text-amber-200/90">
+                  Du trainierst aktuell nach <strong>„{plan.title}“</strong>. Beim Erstellen eines neuen Trainingsplans wird dein bisheriger Plan gelöscht und durch den neuen ersetzt.
+                </p>
               </div>
             </div>
           )}
