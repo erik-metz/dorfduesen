@@ -1,6 +1,8 @@
 import React from 'react';
 import { getClubData } from '@/lib/data/club';
 import { getArenaData } from '@/lib/arena/stats';
+import { getRecentArenaActivities } from '@/lib/arena/recent-activities';
+import { RecentActivities } from '@/components/arena/RecentActivities';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
 import { ArenaHero } from '@/components/arena/ArenaHero';
@@ -26,9 +28,10 @@ export default async function ArenaPage() {
   });
   cacheTag('arena');
 
-  const [club, arenaData] = await Promise.all([
+  const [club, arenaData, recentActivities] = await Promise.all([
     getClubData(),
     getArenaData('week', 'all'),
+    getRecentArenaActivities(),
   ]);
 
   return (
@@ -54,6 +57,8 @@ export default async function ArenaPage() {
 
         {/* Multi-Leaderboard Table */}
         <MultiLeaderboard initialEntries={arenaData.leaderboard} />
+
+        <RecentActivities activities={recentActivities} />
 
         {/* Badges & Milestones Showcase */}
         <BadgesShowcase badges={arenaData.availableBadges} />

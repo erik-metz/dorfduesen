@@ -56,6 +56,24 @@ test('database: dashboard totals cover 246 activities and all pages remain reach
   assert.equal((await getDashboardActivities(u.id, '1', 'all', '99999')).activities.length, 20);
 });
 
+test('database: arena feed combines all members and returns the newest 20 activities', { skip: !url }, async () => {
+  const members = await Promise.all([user(), user()]);
+  await db.activity.createMany({ data: Array.from({ length: 22 }, (_, index) => ({
+    ...activityData(members[index % 2].id, new Date(Date.UTC(2030, 0, 1, 0, index)).toISOString()),
+    name: `Feed ${index}`,
+  })) });
+  const { getRecentArenaActivities } = loadTs('lib/arena/recent-activities.ts', {
+    '@/lib/db': { db }, 'next/cache': { cacheLife() {}, cacheTag() {} },
+  });
+  const feed = await getRecentArenaActivities();
+  assert.equal(feed.length, 20);
+  assert.equal(feed[0].name, 'Feed 21');
+  assert.equal(feed[19].name, 'Feed 2');
+  assert.equal(new Set(feed.map(activity => activity.userId)).size, 2);
+  assert.ok(feed.every(activity => activity.distanceKm === 5));
+  assert.ok(feed.every(activity => !('detailJson' in activity)));
+});
+
 test('database: concurrent requests reserve one plan; deleting plans retains quota', { skip: !url }, async () => {
   const u = await user();
   const { reservePlan } = loadTs('lib/training/plan-requests.ts', { '@/lib/db': { db } });
