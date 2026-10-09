@@ -1,8 +1,8 @@
 import { db } from '@/lib/db';
 
-export async function getDashboardActivities(userId: string, rawPage?: string, rawSport?: string) {
+export async function getDashboardActivities(userId: string, rawPage?: string, rawSport?: string, rawPageSize?: string) {
   const sport = rawSport === 'run' || rawSport === 'ride' ? rawSport : 'all';
-  const pageSize = 100;
+  const pageSize = rawPageSize === '50' ? 50 : rawPageSize === '100' ? 100 : 20;
   const where = { userId, ...(sport === 'all' ? {} : { sportType: { contains: sport, mode: 'insensitive' as const } }) };
   const [totals, filteredCount] = await Promise.all([
     db.activity.aggregate({ where: { userId }, _sum: { distance: true, movingTime: true, totalElevationGain: true }, _count: { _all: true } }),

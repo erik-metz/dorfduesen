@@ -33,7 +33,7 @@ function isSyncCooldownExpired(lastSyncDate: Date | null | undefined): boolean {
 }
 
 export default function DashboardPage(props: {
-  searchParams: Promise<{ userId?: string; athleteId?: string; tab?: string; activityPage?: string; activitySport?: string }>;
+  searchParams: Promise<{ userId?: string; athleteId?: string; tab?: string; activityPage?: string; activitySport?: string; activityPageSize?: string }>;
 }) {
   return (
     <Suspense fallback={<DashboardSkeleton />}>
@@ -45,7 +45,7 @@ export default function DashboardPage(props: {
 async function DashboardContent({
   searchParamsPromise,
 }: {
-  searchParamsPromise: Promise<{ userId?: string; athleteId?: string; tab?: string; activityPage?: string; activitySport?: string }>;
+  searchParamsPromise: Promise<{ userId?: string; athleteId?: string; tab?: string; activityPage?: string; activitySport?: string; activityPageSize?: string }>;
 }) {
   const searchParams = await searchParamsPromise;
   const currentUser = await getCurrentUser();
@@ -217,7 +217,7 @@ async function DashboardContent({
 
   // User ist angemeldet -> Hole Aktivitäten aus der DB
   const { activities: rawActivities, stats, pagination } = await getDashboardActivities(
-    targetUser.id, searchParams.activityPage, searchParams.activitySport);
+    targetUser.id, searchParams.activityPage, searchParams.activitySport, searchParams.activityPageSize);
 
   const activities = rawActivities.map((act) => ({
     id: act.id,

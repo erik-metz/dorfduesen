@@ -31,19 +31,29 @@ test('database: dashboard totals cover 246 activities and all pages remain reach
     ...activityData(u.id, '2026-01-01T10:00:00Z', 1000), sportType: i < 120 ? 'Run' : 'Ride',
   })) });
   const { getDashboardActivities } = loadTs('lib/data/dashboard.ts', { '@/lib/db': { db } });
-  const pages = await Promise.all(['1', '2', '3'].map(page => getDashboardActivities(u.id, page)));
+  const pages = await Promise.all(['1', '2', '3'].map(page => getDashboardActivities(u.id, page, 'all', '100')));
   assert.deepEqual(pages.map(p => p.activities.length), [100, 100, 46]);
   assert.equal(new Set(pages.flatMap(p => p.activities.map(a => a.id))).size, 246);
   for (const page of pages) {
     assert.equal(page.stats.activityCount, 246);
     assert.equal(page.stats.totalDistanceKm, 246);
   }
-  const runs = await getDashboardActivities(u.id, '2', 'run');
+  const runs = await getDashboardActivities(u.id, '2', 'run', '100');
   assert.equal(runs.pagination.filteredCount, 120);
   assert.equal(runs.activities.length, 20);
   assert.ok(runs.activities.every(a => a.sportType === 'Run'));
   assert.equal(runs.stats.activityCount, 246);
-  assert.equal((await getDashboardActivities(u.id, '999')).pagination.page, 3);
+  assert.equal((await getDashboardActivities(u.id, '999', 'all', '100')).pagination.page, 3);
+  for (const [size, expectedPages, lastCount] of [['20', 13, 6], ['50', 5, 46], ['100', 3, 46]]) {
+    const first = await getDashboardActivities(u.id, '1', 'all', size);
+    const last = await getDashboardActivities(u.id, '999', 'all', size);
+    assert.equal(first.activities.length, Number(size));
+    assert.equal(first.pagination.pageCount, expectedPages);
+    assert.equal(last.activities.length, lastCount);
+    assert.equal(last.stats.activityCount, 246);
+  }
+  assert.equal((await getDashboardActivities(u.id)).activities.length, 20);
+  assert.equal((await getDashboardActivities(u.id, '1', 'all', '99999')).activities.length, 20);
 });
 
 test('database: concurrent requests reserve one plan; deleting plans retains quota', { skip: !url }, async () => {

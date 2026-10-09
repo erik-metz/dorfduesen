@@ -174,10 +174,11 @@ export function DashboardView({
   }, [isReadOnly]);
 
   const filterSport = pagination.sport;
-  const activityHref = (page: number, sport = filterSport) => {
+  const activityHref = (page: number, sport = filterSport, pageSize = pagination.pageSize) => {
     const params = new URLSearchParams(searchParams.toString());
     params.set('activityPage', String(page));
     params.set('activitySport', sport);
+    params.set('activityPageSize', String(pageSize));
     params.set('tab', 'activities');
     return `${pathname}?${params.toString()}`;
   };
@@ -669,6 +670,18 @@ export function DashboardView({
           <span className="text-zinc-400">
             {pagination.filteredCount === 0 ? '0 Aktivitäten' : `${(pagination.page - 1) * pagination.pageSize + 1}–${(pagination.page - 1) * pagination.pageSize + activities.length} von ${pagination.filteredCount} Aktivitäten`}
           </span>
+          <label className="flex items-center gap-2 text-zinc-400">
+            Pro Seite
+            <select
+              value={pagination.pageSize}
+              onChange={(event) => router.push(activityHref(1, filterSport, Number(event.target.value)), { scroll: false })}
+              className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-zinc-100 focus-visible:outline-2 focus-visible:outline-orange-500"
+            >
+              <option value={20}>20</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+            </select>
+          </label>
           <div className="flex items-center gap-4">
             {pagination.page > 1 && <Link href={activityHref(pagination.page - 1)} scroll={false} className="font-bold text-orange-400 hover:underline">Zurück</Link>}
             <span className="text-zinc-400">Seite {pagination.page} / {pagination.pageCount}</span>
