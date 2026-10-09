@@ -4,7 +4,8 @@ import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Crown, Sparkles } from 'lucide-react';
-import { ChampionTitle } from '@/lib/arena/stats';
+import type { ChampionTitle } from '@/lib/arena/stats';
+import { championProgress } from '@/lib/arena/champion-progress';
 import { isValidAvatarUrl } from '@/lib/utils/avatar';
 
 interface WeeklyChampionsProps {
@@ -13,20 +14,19 @@ interface WeeklyChampionsProps {
 }
 
 export function WeeklyChampions({ champions, currentUserId }: WeeklyChampionsProps) {
-  const [activeUserId, setActiveUserId] = useState<string | null>(currentUserId || null);
+  const [personal, setPersonal] = useState<{ userId: string; values: Record<string, number> } | null>(null);
+  const activeUserId = personal?.userId ?? currentUserId ?? null;
 
   useEffect(() => {
-    if (!activeUserId) {
-      fetch('/api/auth/me')
-        .then((res) => (res.ok ? res.json() : null))
-        .then((data) => {
-          if (data?.authenticated && data?.user?.id) {
-            setActiveUserId(data.user.id);
-          }
-        })
-        .catch(() => {});
-    }
-  }, [activeUserId]);
+    const controller = new AbortController();
+    fetch('/api/arena/champions/me', { cache: 'no-store', signal: controller.signal })
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data?.userId && data?.values && !controller.signal.aborted) setPersonal(data);
+      })
+      .catch(() => {});
+    return () => controller.abort();
+  }, []);
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
@@ -142,6 +142,15 @@ export function WeeklyChampions({ champions, currentUserId }: WeeklyChampionsPro
                     </Link>
                   </div>
                 )}
+                {personal ? (
+                  <p className={`mt-4 rounded-xl border px-3 py-2.5 text-xs leading-relaxed ${
+                    isCurrentUser
+                      ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300'
+                      : 'border-orange-500/20 bg-orange-500/5 text-orange-200'
+                  }`}>
+                    {championProgress(champ, personal.values[champ.id] ?? 0, personal.userId)}
+                  </p>
+                ) : null}
               </div>
             </div>
           );

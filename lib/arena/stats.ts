@@ -212,9 +212,10 @@ export function computeWeeklyChampions(
   ];
 }
 
-export async function getWeeklyChampions(startOfWeek = getStartOfWeek()): Promise<ChampionTitle[]> {
+export async function getWeeklyChampions(startOfWeek = getStartOfWeek(), userId?: string): Promise<ChampionTitle[]> {
   const weekActivities = await db.activity.findMany({
     where: {
+      ...(userId ? { userId } : {}),
       startDate: { gte: startOfWeek, lt: weekRange(startOfWeek).end },
     },
     select: {
