@@ -3,7 +3,7 @@ import { getCurrentUser } from '@/lib/auth/session';
 import { db } from '@/lib/db';
 import { evaluateUserBadges } from '@/lib/arena/badge-engine';
 import { BADGE_DEFINITIONS, ensureBadgesSeeded } from '@/lib/arena/badge-definitions';
-import { getWeeklyChampions, getWeekKey } from '@/lib/arena/stats';
+import { getWeeklyChampions } from '@/lib/arena/stats';
 
 export async function GET(request: Request) {
   await connection();
@@ -45,18 +45,11 @@ export async function GET(request: Request) {
     });
 
     // 4. Current week leaders for live indicator
-    const currentWeekKey = getWeekKey(new Date());
-    const currentWeekHolders = await db.weeklyTitleHolder.findMany({
-      where: { weekKey: currentWeekKey },
-    });
-    const currentWeekLeaderTitles = new Set(
-      currentWeekHolders.filter((h) => h.userId === targetUserId).map((h) => h.titleId)
-    );
-
+    // Derive live indicators from the active rules, not superseded stored leaders.
     const liveChampions = await getWeeklyChampions();
-    for (const champ of liveChampions) {
-      if (champ.recipients?.some(r => r.userId === targetUserId)) currentWeekLeaderTitles.add(champ.id);
-    }
+    const currentWeekLeaderTitles = new Set(liveChampions.filter(champ =>
+      champ.recipients?.some(r => r.userId === targetUserId) || champ.winner?.userId === targetUserId
+    ).map(champ => champ.id));
 
     // 5. Build full badge list
     const badges = BADGE_DEFINITIONS.map((def) => {

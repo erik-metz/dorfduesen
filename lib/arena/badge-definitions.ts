@@ -172,7 +172,7 @@ export const BADGE_DEFINITIONS: BadgeDefinition[] = [
     icon: '💓',
     category: 'WEEKLY',
     rarity: 'EPIC',
-    hint: 'Historische Trophäe – wird seit dem 12.10.2026 nicht mehr vergeben.',
+    hint: 'Historische Trophäe – wird ab der Woche vom 05.10.2026 nicht mehr vergeben.',
   },
   {
     code: 'WEEKLY_EARLYBIRD',

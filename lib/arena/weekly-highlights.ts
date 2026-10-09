@@ -2,7 +2,7 @@ import type { ChampionTitle } from './stats';
 import { berlinMidnight, shiftDay, weekRange } from '@/lib/time';
 
 // Completed weeks retain their original rules and trophies.
-export const HIGHLIGHTS_START_WEEK = '2026-10-12';
+export const HIGHLIGHTS_START_WEEK = '2026-10-05';
 type Athlete = { id: string; firstname: string | null; lastname: string | null; username: string | null; profile: string | null };
 type Activity = { startDate: Date; startDateLocal: Date; sportType: string; distance: number; movingTime: number; user: Athlete };
 

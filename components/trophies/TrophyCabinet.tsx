@@ -280,7 +280,7 @@ export function TrophyCabinet({ initialBadges, userId, isReadOnly = false }: Tro
               Deine Wochen-Erfolge
             </h3>
             <p className="text-xs text-zinc-400">
-              Jeden Montag nach Wochenabschluss werden deine Erfolge ausgezeichnet. Bisherige Trophäen bleiben erhalten. Neue Regeln ab 12.10.2026.
+              Jeden Montag nach Wochenabschluss werden deine Erfolge ausgezeichnet. Bisherige Trophäen bleiben erhalten. Die neuen Regeln gelten bereits für die laufende Woche.
             </p>
           </div>
         </div>

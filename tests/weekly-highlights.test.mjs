@@ -88,3 +88,21 @@ test('weekly finalization awards every shared recipient exactly once, including 
   assert.ok(awards.has(JSON.stringify({ userId: 'b', badgeId: 'WEEKLY_STAYED_ACTIVE' })));
   assert.equal([...holders.values()].every(h => h.isFinalized), true);
 });
+
+test('new rules apply to the current October 5 week; completed September weeks retain legacy titles', async () => {
+  const { getWeeklyChampions } = loadTs('lib/arena/stats.ts', {
+    '@/lib/db': { db: {
+      activity: { findMany: async () => [] },
+      weeklyGoal: { findMany: async () => [] },
+      user: { findMany: async () => [] },
+      weeklyTitleHolder: { groupBy: async () => [] },
+    } },
+    'next/cache': {},
+  });
+  const current = await getWeeklyChampions(new Date('2026-10-09T12:00:00Z'));
+  assert.equal(current.some(c => c.id === 'stayed_active'), true);
+  assert.equal(current.some(c => c.id === 'heartrate'), false);
+  const previous = await getWeeklyChampions(new Date('2026-10-04T12:00:00Z'));
+  assert.equal(previous.some(c => c.id === 'heartrate'), true);
+  assert.equal(previous.some(c => c.id === 'stayed_active'), false);
+});

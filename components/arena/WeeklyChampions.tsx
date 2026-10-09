@@ -95,7 +95,7 @@ export function WeeklyChampions({ champions, currentUserId }: { champions: Champ
       <p className="text-orange-400 text-xs font-bold uppercase tracking-wider">Leistung · Routine · persönliche Erfolge</p>
       <h2 id="weekly-highlights" className="text-2xl sm:text-4xl font-black text-white">Unsere Wochen-Highlights</h2>
       <p className="text-sm text-zinc-400 mt-2">Jeder Fortschritt zählt. Die Woche läuft von Montag bis Sonntag; Trophäen werden nach Wochenabschluss vergeben.</p>
-      {!newRules ? <p className="text-sm text-orange-200 mt-3">Ab 12.10.2026: getrennte Lauf- und Radsiege sowie Ehrungen für alle, die dranbleiben, ihre Routine stärken oder ihr eigenes Ziel erreichen. Diese Woche gelten noch die bisherigen Titel.</p> : null}
+      {!newRules ? <p className="text-sm text-orange-200 mt-3">Die neuen Wochen-Highlights gelten bereits für die laufende Woche: getrennte Lauf- und Radsiege sowie persönliche Erfolge.</p> : null}
     </div>
     {personal ? <div className="rounded-3xl border border-orange-500/30 bg-orange-500/5 p-6 space-y-4">
       <h3 className="font-bold text-white">Deine Woche, dein Ziel</h3>

@@ -77,9 +77,9 @@ Integrationstests prüfen echte Transaktionen, parallele Planreservierungen und 
 
 Für lokale HTTP-Prüfungen einen separaten App-Prozess mit der Testdatenbank und einem eigenen `SESSION_SECRET` starten. Anschließend `TEST_BASE_URL`, `TEST_DATABASE_URL` und denselben `SESSION_SECRET` für `node tests/http-smoke.mjs` setzen. Die Prüfungen erzeugen ausschließlich lokale Testnutzer und prüfen auch die beabsichtigte Detailfreigabe unter Mitgliedern.
 
-## Wochen-Highlights ab 12.10.2026
+## Wochen-Highlights ab der laufenden Woche vom 05.10.2026
 
-Die Migration `20261009120000_weekly_goals` vor dem neuen App-Code mit `npx prisma migrate deploy` anwenden. Sie ergänzt ausschließlich persönliche Wochenziele. Abgeschlossene Wochen vor dem 12.10.2026 werden weiter nach den alten Regeln berechnet; vorhandene Trophäen bleiben erhalten.
+Die Migration `20261009120000_weekly_goals` vor dem neuen App-Code mit `npx prisma migrate deploy` anwenden. Sie ergänzt ausschließlich persönliche Wochenziele. Abgeschlossene Wochen vor dem 05.10.2026 werden weiter nach den alten Regeln berechnet; vorhandene Trophäen bleiben erhalten.
 
 Lauf- und Radleistung werden getrennt ausgezeichnet (Run/TrailRun/VirtualRun bzw. Ride/MountainBikeRide/GravelRide/VirtualRide/Handcycle/Velomobile; keine E-Bikes). Exakte Gleichstände teilen den Titel. Persönliche Ehrungen gelten für alle Sportarten mit positiver Bewegungszeit: zwei aktive Tage, drei Wochen in Folge mit zwei aktiven Tagen, vor Wochenstart gewähltes Tagesziel und Fortschritt gegenüber vier vollständigen Vorwochen. Mitgliedschaft muss für den Fortschrittsvergleich mindestens seit Beginn dieser vier Wochen bestehen; Nullwochen zählen mit. Ein lokaler Aktivitätstag zählt einmal.
 
