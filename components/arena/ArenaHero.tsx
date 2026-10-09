@@ -1,5 +1,6 @@
 import React from 'react';
 import { Route, Clock, Activity, Users, Trophy } from 'lucide-react';
+import { ArenaRefresh } from './ArenaRefresh';
 
 interface ArenaHeroProps {
   weekKm: number;
@@ -68,6 +69,8 @@ export function ArenaHero({
           Wöchentliche Titel, gemeinsame Meilensteine und der sportliche Wettstreit im Ried. 
           Egal ob 5 km Sonntagsrunde oder 100 km Rennrad-Schleife: Jeder Kilometer zählt!
         </p>
+
+        <ArenaRefresh />
 
         {/* 4 Weekly KPIs */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 pt-6">
