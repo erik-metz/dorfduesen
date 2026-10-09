@@ -40,7 +40,7 @@ export default async function ArenaPage() {
       <Navbar club={club} />
 
       {/* Main Arena Content */}
-      <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-16">
+      <main className="w-full min-w-0 flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-16">
         {/* Hero with weekly KPIs */}
         <ArenaHero
           weekKm={arenaData.weekKm}

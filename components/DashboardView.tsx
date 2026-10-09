@@ -35,6 +35,7 @@ import { isValidAvatarUrl } from '@/lib/utils/avatar';
 import { ActivityDetailData } from '@/lib/strava/activity-detail';
 import { ActivityDetailCard } from '@/components/strava/ActivityDetailCard';
 import { CoachDashboard } from '@/components/coach/CoachDashboard';
+import { WeeklyGoal } from '@/components/dashboard/WeeklyGoal';
 import { TrophyCabinet } from '@/components/trophies/TrophyCabinet';
 import { DashboardNotifications } from '@/components/dashboard/DashboardNotifications';
 import { NotificationItem } from '@/types/notification';
@@ -549,7 +550,10 @@ export function DashboardView({
           <CoachDashboard />
         )
       ) : mainTab === 'trophies' ? (
-        <TrophyCabinet userId={user.id} isReadOnly={isReadOnly} />
+        <div className="space-y-6">
+          {!isReadOnly ? <WeeklyGoal /> : null}
+          <TrophyCabinet userId={user.id} isReadOnly={isReadOnly} />
+        </div>
       ) : mainTab === 'notifications' && !isReadOnly ? (
         <DashboardNotifications
           initialNotifications={notifications}

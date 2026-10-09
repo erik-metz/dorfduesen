@@ -130,12 +130,12 @@ export const BADGE_DEFINITIONS: BadgeDefinition[] = [
     hint: 'Mindestens 2 Läufe/Fahrten pro Woche über einen ganzen Monat.',
   },
 
-  { code: 'WEEKLY_RUN_DISTANCE', name: 'Laufleistung der Woche', description: 'Die meisten Laufkilometer der Woche.', icon: '🏃', category: 'WEEKLY', rarity: 'RARE', hint: 'Sammle Laufkilometer. Bei Gleichstand teilen sich alle den Sieg.' },
-  { code: 'WEEKLY_RIDE_DISTANCE', name: 'Radleistung der Woche', description: 'Die meisten Radkilometer der Woche, ohne E-Bike.', icon: '🚲', category: 'WEEKLY', rarity: 'RARE', hint: 'Sammle Radkilometer. Bei Gleichstand teilen sich alle den Sieg.' },
-  { code: 'WEEKLY_STAYED_ACTIVE', name: 'Drangeblieben', description: 'An mindestens zwei verschiedenen Tagen der Woche aktiv.', icon: '🌱', category: 'WEEKLY', rarity: 'RARE', hint: 'Jeder aktive Kalendertag zählt einmal, unabhängig von Distanz und Tempo.' },
-  { code: 'WEEKLY_ROUTINE', name: 'Gute Routine', description: 'Drei Wochen in Folge jeweils mindestens zwei aktive Tage.', icon: '📅', category: 'WEEKLY', rarity: 'RARE', hint: 'Bleibe drei Wochen regelmäßig dabei.' },
-  { code: 'WEEKLY_GOAL', name: 'Wochenziel geschafft', description: 'Das vor Wochenbeginn selbst gewählte Ziel erreicht.', icon: '🎯', category: 'WEEKLY', rarity: 'RARE', hint: 'Lege in der Arena dein Tagesziel für nächste Woche fest.' },
-  { code: 'WEEKLY_PROGRESS', name: 'Persönlicher Fortschritt', description: 'Mehr aktive Tage als im Durchschnitt der vier Vorwochen.', icon: '✨', category: 'WEEKLY', rarity: 'RARE', hint: 'Nach vier vollständigen Wochen zählt dein eigener Vergleich, auch Wochen ohne Training.' },
+  { code: 'WEEKLY_RUN_DISTANCE', name: 'Sohlen runter.', description: 'Die meisten Laufkilometer der Woche.', icon: '👟', category: 'WEEKLY', rarity: 'RARE', hint: 'Sammle Laufkilometer. Bei Gleichstand teilen sich alle den Sieg.' },
+  { code: 'WEEKLY_RIDE_DISTANCE', name: 'Kette rechts.', description: 'Die meisten Radkilometer der Woche, ohne E-Bike.', icon: '🚲', category: 'WEEKLY', rarity: 'RARE', hint: 'Sammle Radkilometer. Bei Gleichstand teilen sich alle den Sieg.' },
+  { code: 'WEEKLY_STAYED_ACTIVE', name: 'Sofa hat verloren.', description: 'An mindestens zwei verschiedenen Tagen der Woche aktiv.', icon: '🛋️', category: 'WEEKLY', rarity: 'RARE', hint: 'Jeder aktive Kalendertag zählt einmal, unabhängig von Distanz und Tempo.' },
+  { code: 'WEEKLY_ROUTINE', name: 'Dauer-Düse.', description: 'Drei Wochen in Folge jeweils mindestens zwei aktive Tage.', icon: '🔥', category: 'WEEKLY', rarity: 'RARE', hint: 'Bleibe drei Wochen regelmäßig dabei.' },
+  { code: 'WEEKLY_GOAL', name: 'Vorgenommen. Durchgezogen.', description: 'Das vor Wochenbeginn selbst gewählte Ziel erreicht.', icon: '🎯', category: 'WEEKLY', rarity: 'RARE', hint: 'Lege in der Arena dein Tagesziel für nächste Woche fest.' },
+  { code: 'WEEKLY_PROGRESS', name: 'Eine Schippe drauf.', description: 'Mehr aktive Tage als im Durchschnitt der vier Vorwochen.', icon: '🚀', category: 'WEEKLY', rarity: 'RARE', hint: 'Nach vier vollständigen Wochen zählt dein eigener Vergleich, auch Wochen ohne Training.' },
 
   // --- WÖCHENTLICHE KRONEN (LEVELBAR DURCH SIEGE) ---
   {

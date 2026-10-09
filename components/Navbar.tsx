@@ -108,8 +108,8 @@ export function Navbar({ club, currentUser }: NavbarProps) {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-18 sm:h-20">
           {/* Logo / Brand */}
-          <Link href="/" className="flex items-center gap-3 group shrink-0">
-            <div className="relative w-10 h-10 sm:w-11 sm:h-11 rounded-full overflow-hidden ring-2 ring-orange-500/80 ring-offset-2 ring-offset-zinc-950 group-hover:scale-105 transition-all shadow-md shadow-orange-500/20">
+          <Link href="/" className="flex min-w-0 items-center gap-3 group">
+            <div className="relative shrink-0 w-10 h-10 sm:w-11 sm:h-11 rounded-full overflow-hidden ring-2 ring-orange-500/80 ring-offset-2 ring-offset-zinc-950 group-hover:scale-105 transition-all shadow-md shadow-orange-500/20">
               <Image
                 src={club.assets.instagramAvatar || club.assets.stravaAvatar}
                 alt={club.name}
@@ -118,10 +118,10 @@ export function Navbar({ club, currentUser }: NavbarProps) {
                 priority
               />
             </div>
-            <div className="flex flex-col">
+            <div className="flex min-w-0 flex-col">
               <span className="text-lg sm:text-xl font-black tracking-tight text-white flex items-center gap-1.5 group-hover:text-orange-400 transition-colors">
-                {club.name}
-                <Flame className="w-4 h-4 text-orange-500 fill-orange-500 inline-block animate-pulse" />
+                <span className="truncate">{club.name}</span>
+                <Flame className="w-4 h-4 shrink-0 text-orange-500 fill-orange-500 inline-block animate-pulse" />
               </span>
               <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-zinc-400">
                 Runclub Nordheim

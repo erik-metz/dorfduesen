@@ -32,6 +32,12 @@ export function computeHighlights(
       days.add(localDay); m.history.set(key, days);
     }
   }
+  // A reproducible weekly tie-break rotates equally decorated members without flicker.
+  const rotation = (id: string) => {
+    let hash = 2166136261;
+    for (const char of `${weekKey}:${id}`) hash = Math.imul(hash ^ char.charCodeAt(0), 16777619);
+    return hash >>> 0;
+  };
   const rows = [...metrics.values()].filter(m => m.days.size > 0);
   const recipient = (m: typeof rows[number], value: number, formattedValue: string) => ({
     userId: m.user.id, name: [m.user.firstname, m.user.lastname].filter(Boolean).join(' ') || m.user.username || 'Athlet',
@@ -44,23 +50,23 @@ export function computeHighlights(
     const winners = best ? sorted.filter(m => m[key] === best[key]).map(m => recipient(m, m[key], `${m[key].toFixed(1)} km`)) : [];
     return { id, title, icon, subtitle: key === 'run' ? 'Laufkilometer dieser Woche · gemeinsame Siege bei Gleichstand' : 'Radkilometer dieser Woche · ohne E-Bike', winner: winners[0] ?? null, recipients: winners };
   };
-  const recognition = (id: string, title: string, icon: string, subtitle: string, qualify: (m: typeof rows[number]) => boolean, format = (m: typeof rows[number]) => `${m.days.size} aktive Tage`): ChampionTitle => ({
+  const recognition = (id: string, title: string, icon: string, subtitle: string, qualify: (m: typeof rows[number]) => boolean, format = (m: typeof rows[number]) => `${m.days.size} ${m.days.size === 1 ? 'Tag' : 'Tage'} aktiv`): ChampionTitle => ({
     id, title, icon, subtitle, kind: 'recognition', winner: null,
-    recipients: rows.filter(qualify).sort((a, b) => (pastHonors[a.user.id] ?? 0) - (pastHonors[b.user.id] ?? 0) || a.user.id.localeCompare(b.user.id))
+    recipients: rows.filter(qualify).sort((a, b) => (pastHonors[a.user.id] ?? 0) - (pastHonors[b.user.id] ?? 0) || rotation(a.user.id) - rotation(b.user.id) || a.user.id.localeCompare(b.user.id))
       .map(m => recipient(m, m.days.size, format(m))),
   });
   const average = (m: typeof rows[number]) => [...m.history.values()].reduce((sum, days) => sum + days.size, 0) / 4;
   return [
-    performance('run_distance', 'Laufleistung der Woche', '🏃', 'run'),
-    performance('ride_distance', 'Radleistung der Woche', '🚲', 'ride'),
-    recognition('stayed_active', 'Drangeblieben', '🌱', 'Mindestens zwei verschiedene aktive Tage – für alle erreichbar', m => m.days.size >= 2),
-    recognition('routine', 'Gute Routine', '📅', 'Drei Wochen in Folge jeweils mindestens zwei aktive Tage', m => m.days.size >= 2 && [-7, -14].every(offset => (m.history.get(shiftDay(weekKey, offset))?.size ?? 0) >= 2)),
-    recognition('goal', 'Wochenziel geschafft', '🎯', 'Das vor Wochenbeginn selbst gewählte Tagesziel erreicht', m => {
+    performance('run_distance', 'Sohlen runter.', '👟', 'run'),
+    performance('ride_distance', 'Kette rechts.', '🚲', 'ride'),
+    recognition('stayed_active', 'Sofa hat verloren.', '🛋️', 'Mindestens zwei verschiedene aktive Tage – für alle erreichbar', m => m.days.size >= 2),
+    recognition('routine', 'Dauer-Düse.', '🔥', 'Drei Wochen in Folge jeweils mindestens zwei aktive Tage', m => m.days.size >= 2 && [-7, -14].every(offset => (m.history.get(shiftDay(weekKey, offset))?.size ?? 0) >= 2), () => '3 Wochen regelmäßig am Start'),
+    recognition('goal', 'Vorgenommen. Durchgezogen.', '🎯', 'Das vor Wochenbeginn selbst gewählte Tagesziel erreicht', m => {
       const goal = goals.find(g => g.userId === m.user.id);
       return Boolean(goal && goal.createdAt < start && goal.updatedAt < start && m.days.size >= goal.activeDays);
-    }),
-    recognition('progress', 'Persönlicher Fortschritt', '✨', 'Mehr aktive Tage als im eigenen Vier-Wochen-Durchschnitt', m =>
+    }, () => 'Eigenes Wochenziel geschafft'),
+    recognition('progress', 'Eine Schippe drauf.', '🚀', 'Mehr aktive Tage als im eigenen Vier-Wochen-Durchschnitt', m =>
       (joined.get(m.user.id)?.getTime() ?? Infinity) <= historyStart.getTime() && m.days.size > average(m),
-      m => `${m.days.size} Tage · zuvor Ø ${average(m).toLocaleString('de-DE', { maximumFractionDigits: 1 })}`),
+      m => `${m.days.size} aktive Tage statt bisher Ø ${average(m).toLocaleString('de-DE', { maximumFractionDigits: 1 })}`),
   ];
 }

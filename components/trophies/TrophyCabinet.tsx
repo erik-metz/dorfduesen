@@ -71,12 +71,12 @@ const RARITY_CONFIG: Record<
 };
 
 const WEEKLY_TITLES = [
-  { id: 'run_distance', code: 'WEEKLY_RUN_DISTANCE', title: 'Laufleistung der Woche', icon: '🏃', desc: 'Meiste Laufkilometer · Gleichstände teilen den Sieg' },
-  { id: 'ride_distance', code: 'WEEKLY_RIDE_DISTANCE', title: 'Radleistung der Woche', icon: '🚲', desc: 'Meiste Radkilometer · ohne E-Bike' },
-  { id: 'stayed_active', code: 'WEEKLY_STAYED_ACTIVE', title: 'Drangeblieben', icon: '🌱', desc: 'Mindestens zwei aktive Tage' },
-  { id: 'routine', code: 'WEEKLY_ROUTINE', title: 'Gute Routine', icon: '📅', desc: 'Drei Wochen mit jeweils mindestens zwei aktiven Tagen' },
-  { id: 'goal', code: 'WEEKLY_GOAL', title: 'Wochenziel geschafft', icon: '🎯', desc: 'Dein vor Wochenbeginn gewähltes Tagesziel erreicht' },
-  { id: 'progress', code: 'WEEKLY_PROGRESS', title: 'Persönlicher Fortschritt', icon: '✨', desc: 'Mehr aktive Tage als dein Vier-Wochen-Durchschnitt' },
+  { id: 'run_distance', code: 'WEEKLY_RUN_DISTANCE', title: 'Sohlen runter.', icon: '👟', desc: 'Meiste Laufkilometer · Gleichstände teilen den Sieg' },
+  { id: 'ride_distance', code: 'WEEKLY_RIDE_DISTANCE', title: 'Kette rechts.', icon: '🚲', desc: 'Meiste Radkilometer · ohne E-Bike' },
+  { id: 'stayed_active', code: 'WEEKLY_STAYED_ACTIVE', title: 'Sofa hat verloren.', icon: '🛋️', desc: 'Mindestens zwei aktive Tage' },
+  { id: 'routine', code: 'WEEKLY_ROUTINE', title: 'Dauer-Düse.', icon: '🔥', desc: 'Drei Wochen mit jeweils mindestens zwei aktiven Tagen' },
+  { id: 'goal', code: 'WEEKLY_GOAL', title: 'Vorgenommen. Durchgezogen.', icon: '🎯', desc: 'Dein vor Wochenbeginn gewähltes Tagesziel erreicht' },
+  { id: 'progress', code: 'WEEKLY_PROGRESS', title: 'Eine Schippe drauf.', icon: '🚀', desc: 'Mehr aktive Tage als dein Vier-Wochen-Durchschnitt' },
   { id: 'elevation', code: 'WEEKLY_ELEVATION', title: 'Die Bergziege', icon: '⛰️', desc: 'Meiste Höhenmeter der Woche' },
   { id: 'distance', code: 'WEEKLY_DISTANCE', title: 'Kilometer-Krone', icon: '👑', desc: 'Meiste Wochenkilometer' },
   { id: 'time', code: 'WEEKLY_TIME', title: 'Ausdauer-Büffel', icon: '⏱️', desc: 'Längste Bewegungszeit' },

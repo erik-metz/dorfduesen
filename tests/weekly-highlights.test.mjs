@@ -38,9 +38,9 @@ test('routine spans three weeks, progress uses four full weeks including zero we
   const result = computeHighlights(activities, week, [], [
     { id: 'old', createdAt: new Date('2026-01-01') }, { id: 'new', createdAt: new Date('2026-10-01') },
   ]);
-  assert.deepEqual([...recipients(result, 'routine')], ['new', 'old']);
+  assert.deepEqual([...recipients(result, 'routine')].sort(), ['new', 'old']);
   assert.deepEqual([...recipients(result, 'progress')], ['old']);
-  assert.match(result.find(t => t.id === 'progress').recipients[0].formattedValue, /zuvor Ø 1/);
+  assert.match(result.find(t => t.id === 'progress').recipients[0].formattedValue, /bisher Ø 1/);
 });
 
 test('goals must be chosen and last edited before Berlin week start; future activities excluded', () => {
