@@ -86,6 +86,7 @@ interface DashboardViewProps {
   allMembers?: MemberPreview[];
   isReadOnly?: boolean;
   activities: ActivityItem[];
+  pagination: { page: number; pageCount: number; pageSize: number; filteredCount: number; sport: string };
   stats: {
     totalDistanceKm: number;
     totalHours: number;
@@ -125,6 +126,7 @@ export function DashboardView({
   isReadOnly = false,
   activities,
   stats,
+  pagination,
   initialNotifications = [],
 }: DashboardViewProps) {
   const router = useRouter();
@@ -171,7 +173,15 @@ export function DashboardView({
     return () => window.removeEventListener('dorfdusen-refresh-notifications', handleRefresh);
   }, [isReadOnly]);
 
-  const [filterSport, setFilterSport] = useState<string>('all');
+  const filterSport = pagination.sport;
+  const activityHref = (page: number, sport = filterSport) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('activityPage', String(page));
+    params.set('activitySport', sport);
+    params.set('tab', 'activities');
+    return `${pathname}?${params.toString()}`;
+  };
+  const setFilterSport = (sport: string) => router.push(activityHref(1, sport), { scroll: false });
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   // Initialize cache with any pre-loaded detailData from DB
@@ -257,12 +267,7 @@ export function DashboardView({
     }
   };
 
-  const filteredActivities = activities.filter((act) => {
-    if (filterSport === 'all') return true;
-    if (filterSport === 'run') return act.sportType.toLowerCase().includes('run');
-    if (filterSport === 'ride') return act.sportType.toLowerCase().includes('ride');
-    return true;
-  });
+  const filteredActivities = activities;
 
   const displayName = [user.firstname, user.lastname].filter(Boolean).join(' ') || user.username || 'Dorfdüsen Athlet';
 
@@ -444,7 +449,7 @@ export function DashboardView({
           <Footprints className="w-4 h-4" />
           <span>Aktivitäten & Statistik</span>
           <span className="text-xs px-2 py-0.5 rounded-full bg-black/20 text-zinc-300">
-            {activities.length}
+            {stats.activityCount}
           </span>
         </button>
 
@@ -639,7 +644,7 @@ export function DashboardView({
                 filterSport === 'all' ? 'bg-orange-600 text-white shadow-md' : 'text-zinc-400 hover:text-white'
               }`}
             >
-              Alle ({activities.length})
+              Alle ({stats.activityCount})
             </button>
             <button
               onClick={() => setFilterSport('run')}
@@ -659,6 +664,17 @@ export function DashboardView({
             </button>
           </div>
         </div>
+
+        <nav aria-label="Aktivitätenseiten" className="flex flex-wrap items-center justify-between gap-3 text-sm">
+          <span className="text-zinc-400">
+            {pagination.filteredCount === 0 ? '0 Aktivitäten' : `${(pagination.page - 1) * pagination.pageSize + 1}–${(pagination.page - 1) * pagination.pageSize + activities.length} von ${pagination.filteredCount} Aktivitäten`}
+          </span>
+          <div className="flex items-center gap-4">
+            {pagination.page > 1 && <Link href={activityHref(pagination.page - 1)} scroll={false} className="font-bold text-orange-400 hover:underline">Zurück</Link>}
+            <span className="text-zinc-400">Seite {pagination.page} / {pagination.pageCount}</span>
+            {pagination.page < pagination.pageCount && <Link href={activityHref(pagination.page + 1)} scroll={false} className="font-bold text-orange-400 hover:underline">Weiter</Link>}
+          </div>
+        </nav>
 
         {/* Activities Table / Cards */}
         {filteredActivities.length === 0 ? (

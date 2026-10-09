@@ -25,6 +25,27 @@ async function user() {
 const planData = userId => ({ userId, title: 'Test', goalType: '5K', startDate: new Date('2026-01-01'), endDate: new Date('2026-03-01'), totalWeeks: 8 });
 const activityData = (userId, date, distance = 5000) => ({ userId, stravaId: `test-${crypto.randomUUID()}`, name: 'Testlauf', distance, movingTime: 1800, elapsedTime: 1800, totalElevationGain: 10, sportType: 'Run', startDate: new Date(date), startDateLocal: new Date(date) });
 
+test('database: dashboard totals cover 246 activities and all pages remain reachable', { skip: !url }, async () => {
+  const u = await user();
+  await db.activity.createMany({ data: Array.from({ length: 246 }, (_, i) => ({
+    ...activityData(u.id, '2026-01-01T10:00:00Z', 1000), sportType: i < 120 ? 'Run' : 'Ride',
+  })) });
+  const { getDashboardActivities } = loadTs('lib/data/dashboard.ts', { '@/lib/db': { db } });
+  const pages = await Promise.all(['1', '2', '3'].map(page => getDashboardActivities(u.id, page)));
+  assert.deepEqual(pages.map(p => p.activities.length), [100, 100, 46]);
+  assert.equal(new Set(pages.flatMap(p => p.activities.map(a => a.id))).size, 246);
+  for (const page of pages) {
+    assert.equal(page.stats.activityCount, 246);
+    assert.equal(page.stats.totalDistanceKm, 246);
+  }
+  const runs = await getDashboardActivities(u.id, '2', 'run');
+  assert.equal(runs.pagination.filteredCount, 120);
+  assert.equal(runs.activities.length, 20);
+  assert.ok(runs.activities.every(a => a.sportType === 'Run'));
+  assert.equal(runs.stats.activityCount, 246);
+  assert.equal((await getDashboardActivities(u.id, '999')).pagination.page, 3);
+});
+
 test('database: concurrent requests reserve one plan; deleting plans retains quota', { skip: !url }, async () => {
   const u = await user();
   const { reservePlan } = loadTs('lib/training/plan-requests.ts', { '@/lib/db': { db } });

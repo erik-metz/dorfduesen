@@ -4,6 +4,7 @@ import { after } from 'next/server';
 import { ArrowLeft, Flame, ShieldCheck, Zap } from 'lucide-react';
 import { getCurrentUser } from '@/lib/auth/session';
 import { db } from '@/lib/db';
+import { getDashboardActivities } from '@/lib/data/dashboard';
 import { queueDashboardSync } from '@/lib/strava/queue';
 import { DashboardView } from '@/components/DashboardView';
 import { StravaIcon } from '@/components/icons/BrandIcons';
@@ -32,7 +33,7 @@ function isSyncCooldownExpired(lastSyncDate: Date | null | undefined): boolean {
 }
 
 export default function DashboardPage(props: {
-  searchParams: Promise<{ userId?: string; athleteId?: string; tab?: string }>;
+  searchParams: Promise<{ userId?: string; athleteId?: string; tab?: string; activityPage?: string; activitySport?: string }>;
 }) {
   return (
     <Suspense fallback={<DashboardSkeleton />}>
@@ -44,7 +45,7 @@ export default function DashboardPage(props: {
 async function DashboardContent({
   searchParamsPromise,
 }: {
-  searchParamsPromise: Promise<{ userId?: string; athleteId?: string; tab?: string }>;
+  searchParamsPromise: Promise<{ userId?: string; athleteId?: string; tab?: string; activityPage?: string; activitySport?: string }>;
 }) {
   const searchParams = await searchParamsPromise;
   const currentUser = await getCurrentUser();
@@ -215,12 +216,8 @@ async function DashboardContent({
   }
 
   // User ist angemeldet -> Hole Aktivitäten aus der DB
-  const rawActivities = await db.activity.findMany({
-    where: { userId: targetUser.id },
-    orderBy: { startDate: 'desc' },
-    take: 100,
-    omit: { detailJson: true },
-  });
+  const { activities: rawActivities, stats, pagination } = await getDashboardActivities(
+    targetUser.id, searchParams.activityPage, searchParams.activitySport);
 
   const activities = rawActivities.map((act) => ({
     id: act.id,
@@ -238,18 +235,6 @@ async function DashboardContent({
     maxSpeed: act.maxSpeed,
     detailData: null,
   }));
-
-  // Aggregierte Statistiken
-  const totalDistanceMeters = activities.reduce((sum, a) => sum + a.distance, 0);
-  const totalSeconds = activities.reduce((sum, a) => sum + a.movingTime, 0);
-  const totalElevation = activities.reduce((sum, a) => sum + a.totalElevationGain, 0);
-
-  const stats = {
-    totalDistanceKm: totalDistanceMeters / 1000,
-    totalHours: totalSeconds / 3600,
-    totalElevation,
-    activityCount: activities.length,
-  };
 
   // Benachrichtigungen: Nur für das eigene Profil laden, niemals für fremde Mitglieder
   let notifications: Array<{
@@ -309,6 +294,7 @@ async function DashboardContent({
         isReadOnly={isReadOnly}
         activities={activities}
         stats={stats}
+        pagination={pagination}
         initialNotifications={notifications}
       />
       <NotificationToast />
