@@ -3,7 +3,7 @@ import { getCurrentUser } from '@/lib/auth/session';
 import { db } from '@/lib/db';
 import { evaluateUserBadges } from '@/lib/arena/badge-engine';
 import { BADGE_DEFINITIONS, ensureBadgesSeeded } from '@/lib/arena/badge-definitions';
-import { getWeekKey } from '@/lib/arena/stats';
+import { getWeeklyChampions, getWeekKey } from '@/lib/arena/stats';
 
 export async function GET(request: Request) {
   await connection();
@@ -52,6 +52,11 @@ export async function GET(request: Request) {
     const currentWeekLeaderTitles = new Set(
       currentWeekHolders.filter((h) => h.userId === targetUserId).map((h) => h.titleId)
     );
+
+    const liveChampions = await getWeeklyChampions();
+    for (const champ of liveChampions) {
+      if (champ.recipients?.some(r => r.userId === targetUserId)) currentWeekLeaderTitles.add(champ.id);
+    }
 
     // 5. Build full badge list
     const badges = BADGE_DEFINITIONS.map((def) => {

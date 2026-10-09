@@ -1,6 +1,7 @@
-import { weekRange, monthRange, dayKey } from '@/lib/time';
+import { weekRange, monthRange, dayKey, shiftDay, berlinMidnight } from '@/lib/time';
 import { db } from '@/lib/db';
 import { BADGE_DEFINITIONS, ensureBadgesSeeded } from './badge-definitions';
+import { computeHighlights, HIGHLIGHTS_START_WEEK } from './weekly-highlights';
 import { cacheLife, cacheTag } from 'next/cache';
 
 export interface ChampionTitle {
@@ -8,6 +9,8 @@ export interface ChampionTitle {
   title: string;
   subtitle: string;
   icon: string;
+  recipients?: NonNullable<ChampionTitle['winner']>[];
+  kind?: 'recognition';
   winner: {
     userId: string;
     name: string;
@@ -213,6 +216,7 @@ export function computeWeeklyChampions(
 }
 
 export async function getWeeklyChampions(startOfWeek = getStartOfWeek(), userId?: string): Promise<ChampionTitle[]> {
+  if (getWeekKey(startOfWeek) >= HIGHLIGHTS_START_WEEK) return getHighlights(startOfWeek, userId);
   const weekActivities = await db.activity.findMany({
     where: {
       ...(userId ? { userId } : {}),
@@ -234,6 +238,23 @@ export async function getWeeklyChampions(startOfWeek = getStartOfWeek(), userId?
   });
 
   return computeWeeklyChampions(weekActivities);
+}
+
+async function getHighlights(start: Date, userId?: string): Promise<ChampionTitle[]> {
+  const range = weekRange(start);
+  const historyStart = berlinMidnight(shiftDay(range.key, -28));
+  const [activities, goals, users, pastHonors] = await Promise.all([
+    db.activity.findMany({
+      where: { ...(userId ? { userId } : {}), startDate: { gte: historyStart, lt: range.end } },
+      select: { startDate: true, startDateLocal: true, sportType: true, distance: true, movingTime: true,
+        user: { select: { id: true, firstname: true, lastname: true, username: true, profile: true } } },
+    }),
+    db.weeklyGoal.findMany({ where: { weekKey: range.key, ...(userId ? { userId } : {}) } }),
+    db.user.findMany({ where: userId ? { id: userId } : {}, select: { id: true, createdAt: true } }),
+    db.weeklyTitleHolder.groupBy({ by: ['userId'], where: { weekKey: { lt: range.key }, isFinalized: true }, _count: { _all: true } }),
+  ]);
+  return computeHighlights(activities, range.key, goals, users,
+    Object.fromEntries(pastHonors.map(h => [h.userId, h._count._all])));
 }
 
 function formatRunPace(distanceMeters: number, movingSeconds: number): string {
@@ -301,7 +322,8 @@ export async function getArenaData(
   const activeAthletesCount = new Set(weekActivities.map((a) => a.userId)).size;
 
   // 2. Weekly Champions
-  const champions = computeWeeklyChampions(weekActivities);
+  const champions = getWeekKey(startOfWeek) < HIGHLIGHTS_START_WEEK
+    ? computeWeeklyChampions(weekActivities) : await getHighlights(startOfWeek);
 
   // 3. Team-Challenge (Monthly 1,000 km mission)
   const monthTotals = await db.activity.aggregate({

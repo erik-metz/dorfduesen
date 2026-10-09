@@ -56,6 +56,7 @@ export async function checkWeeklyTitleChanges(refDate: Date = new Date()): Promi
     const results: TitleChangeResult[] = [];
 
     for (const champ of champions) {
+      if (champ.recipients) continue; // New shared awards have no dethroning notifications.
       if (!champ.winner || champ.winner.value <= 0) {
         continue;
       }

@@ -30,6 +30,7 @@ model User {
   trainingPlans   TrainingPlan[]
   healthMetrics   HealthMetric[]
   notifications   Notification[]
+  weeklyGoals WeeklyGoal[]
   weeklyTitleHolders  WeeklyTitleHolder[]
   monthlyTitleHolders MonthlyTitleHolder[]
 }
@@ -293,4 +294,16 @@ model SyncState {
   lastSyncedAt        DateTime?
   lockOwner           String?
   lockedUntil         DateTime?
+}
+
+model WeeklyGoal {
+  id String @id @default(cuid())
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  weekKey String
+  activeDays Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, weekKey])
 }

@@ -71,6 +71,12 @@ const RARITY_CONFIG: Record<
 };
 
 const WEEKLY_TITLES = [
+  { id: 'run_distance', code: 'WEEKLY_RUN_DISTANCE', title: 'Laufleistung der Woche', icon: '🏃', desc: 'Meiste Laufkilometer · Gleichstände teilen den Sieg' },
+  { id: 'ride_distance', code: 'WEEKLY_RIDE_DISTANCE', title: 'Radleistung der Woche', icon: '🚲', desc: 'Meiste Radkilometer · ohne E-Bike' },
+  { id: 'stayed_active', code: 'WEEKLY_STAYED_ACTIVE', title: 'Drangeblieben', icon: '🌱', desc: 'Mindestens zwei aktive Tage' },
+  { id: 'routine', code: 'WEEKLY_ROUTINE', title: 'Gute Routine', icon: '📅', desc: 'Drei Wochen mit jeweils mindestens zwei aktiven Tagen' },
+  { id: 'goal', code: 'WEEKLY_GOAL', title: 'Wochenziel geschafft', icon: '🎯', desc: 'Dein vor Wochenbeginn gewähltes Tagesziel erreicht' },
+  { id: 'progress', code: 'WEEKLY_PROGRESS', title: 'Persönlicher Fortschritt', icon: '✨', desc: 'Mehr aktive Tage als dein Vier-Wochen-Durchschnitt' },
   { id: 'elevation', code: 'WEEKLY_ELEVATION', title: 'Die Bergziege', icon: '⛰️', desc: 'Meiste Höhenmeter der Woche' },
   { id: 'distance', code: 'WEEKLY_DISTANCE', title: 'Kilometer-Krone', icon: '👑', desc: 'Meiste Wochenkilometer' },
   { id: 'time', code: 'WEEKLY_TIME', title: 'Ausdauer-Büffel', icon: '⏱️', desc: 'Längste Bewegungszeit' },
@@ -271,16 +277,16 @@ export function TrophyCabinet({ initialBadges, userId, isReadOnly = false }: Tro
               <Crown className="w-3.5 h-3.5" /> Die Ehrentafel
             </div>
             <h3 className="text-xl sm:text-2xl font-black text-white uppercase tracking-tight">
-              Wöchentliche Titel-Kämpfe
+              Deine Wochen-Erfolge
             </h3>
             <p className="text-xs text-zinc-400">
-              Jeden Montag um 00:05 Uhr werden die Champions der Vorwoche gekürt und ihre Trophäen steigen im Rang.
+              Jeden Montag nach Wochenabschluss werden deine Erfolge ausgezeichnet. Bisherige Trophäen bleiben erhalten. Neue Regeln ab 12.10.2026.
             </p>
           </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {WEEKLY_TITLES.map((wt) => {
+          {WEEKLY_TITLES.filter(wt => ['run_distance', 'ride_distance', 'stayed_active', 'routine', 'goal', 'progress'].includes(wt.id) || badges.some(b => b.code === wt.code && b.isUnlocked) || activeLeaderTitles.includes(wt.id)).map((wt) => {
             const badge = badges.find((b) => b.code === wt.code);
             const isLeaderCurrentWeek = activeLeaderTitles.includes(wt.id);
             const winCount = badge?.level || 0;
@@ -300,7 +306,7 @@ export function TrophyCabinet({ initialBadges, userId, isReadOnly = false }: Tro
                 {isLeaderCurrentWeek && (
                   <div className="absolute top-3 right-3 flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 text-[10px] font-black uppercase tracking-wider animate-pulse">
                     <Flame className="w-3 h-3 fill-emerald-400" />
-                    <span>Live in Führung!</span>
+                    <span>Diese Woche erreicht!</span>
                   </div>
                 )}
 
@@ -317,7 +323,7 @@ export function TrophyCabinet({ initialBadges, userId, isReadOnly = false }: Tro
                       {winCount > 0 && (
                         <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-black text-[10px]">
                           <Star className="w-2.5 h-2.5 fill-amber-300" />
-                          {winCount}× Gewonnen
+                          {winCount}× Erreicht
                         </span>
                       )}
                     </div>
@@ -331,11 +337,11 @@ export function TrophyCabinet({ initialBadges, userId, isReadOnly = false }: Tro
                     <div className="pt-1 flex items-center justify-between text-[11px] text-zinc-500">
                       {winCount > 0 ? (
                         <span className="text-amber-400/90 font-medium">
-                          Letzter Sieg: {String(history[history.length - 1]?.weekKey || 'KW eingetragen')}
+                          Zuletzt erreicht: {String(history[history.length - 1]?.weekKey || 'KW eingetragen')}
                         </span>
                       ) : (
                         <span className="text-zinc-500 flex items-center gap-1">
-                          <Lock className="w-3 h-3" /> Noch kein Wochensieg
+                          <Lock className="w-3 h-3" /> Noch nicht erreicht
                         </span>
                       )}
                       <ChevronRight className="w-3.5 h-3.5 text-zinc-500 group-hover:translate-x-0.5 transition-transform" />

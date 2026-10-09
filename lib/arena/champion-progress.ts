@@ -3,10 +3,12 @@ import type { ChampionTitle } from './stats';
 const number = (value: number) => value.toLocaleString('de-DE', { maximumFractionDigits: 1 });
 
 export function championProgress(champion: ChampionTitle, ownValue: number, userId: string): string {
-  if (champion.winner?.userId === userId) return 'Du führst diese Woche – verteidige deine Krone!';
+  if (champion.winner?.userId === userId || champion.recipients?.some(r => r.userId === userId)) return 'Du führst diese Woche – verteidige deine Krone!';
   const leader = champion.winner?.value ?? 0;
   const gap = Math.max(0, leader - ownValue);
   switch (champion.id) {
+    case 'run_distance':
+    case 'ride_distance':
     case 'distance':
     case 'early_bird': {
       // Round up to the next tenth so the displayed target beats the raw score.

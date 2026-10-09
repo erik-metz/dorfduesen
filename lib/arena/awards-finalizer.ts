@@ -5,6 +5,12 @@ import { getWeeklyChampions } from './stats';
 import { ensureBadgesSeeded } from './badge-definitions';
 
 const TITLE_TO_BADGE_CODE: Record<string, string> = {
+  run_distance: 'WEEKLY_RUN_DISTANCE',
+  ride_distance: 'WEEKLY_RIDE_DISTANCE',
+  stayed_active: 'WEEKLY_STAYED_ACTIVE',
+  routine: 'WEEKLY_ROUTINE',
+  goal: 'WEEKLY_GOAL',
+  progress: 'WEEKLY_PROGRESS',
   elevation: 'WEEKLY_ELEVATION',
   distance: 'WEEKLY_DISTANCE',
   time: 'WEEKLY_TIME',
@@ -30,14 +36,17 @@ export async function finalizeWeeklyAwards(refDate: Date = new Date()) {
     const champions = await getWeeklyChampions(startOfPrevWeek);
     const finalizedResults = [];
 
-    for (const champ of champions) {
+    for (const champ of champions.flatMap(champ =>
+      champ.recipients ? champ.recipients.map(winner => ({ ...champ, winner })) : [champ]
+    )) {
       if (!champ.winner || champ.winner.value <= 0) continue;
 
       const winner = champ.winner;
+      const persistedTitleId = champ.recipients ? `${champ.id}:${winner.userId}` : champ.id;
       const badgeCode = TITLE_TO_BADGE_CODE[champ.id];
 
       const finalized = await tx.weeklyTitleHolder.findUnique({
-        where: { weekKey_titleId: { weekKey: prevWeekKey, titleId: champ.id } },
+        where: { weekKey_titleId: { weekKey: prevWeekKey, titleId: persistedTitleId } },
       });
       if (finalized?.isFinalized) continue;
       // 3. Persist finalized weekly title holder
@@ -45,12 +54,12 @@ export async function finalizeWeeklyAwards(refDate: Date = new Date()) {
         where: {
           weekKey_titleId: {
             weekKey: prevWeekKey,
-            titleId: champ.id,
+            titleId: persistedTitleId,
           },
         },
         create: {
           weekKey: prevWeekKey,
-          titleId: champ.id,
+          titleId: persistedTitleId,
           userId: winner.userId,
           value: winner.value,
           isFinalized: true,
@@ -117,12 +126,12 @@ export async function finalizeWeeklyAwards(refDate: Date = new Date()) {
           data: {
             userId: winner.userId,
             type: 'WEEKLY_CHAMPION',
-            title: `🏆 Wochensieg: ${champ.title}!`,
-            message: `Starke Leistung! Du hast die Kalenderwoche (${prevWeekKey}) als Champion bei "${champ.title}" mit ${winner.formattedValue} abgeschlossen! Deine Trophäe steht im Profil bereit.`,
+            title: `🏆 ${champ.kind === 'recognition' ? 'Wochenerfolg' : 'Wochensieg'}: ${champ.title}!`,
+            message: `Starke Leistung! Du hast die Kalenderwoche (${prevWeekKey}) mit ${winner.formattedValue} bei "${champ.title}" abgeschlossen! Deine Trophäe steht im Profil bereit.`,
             link: '/dashboard?tab=trophies',
             metadata: {
               weekKey: prevWeekKey,
-              titleId: champ.id,
+              titleId: persistedTitleId,
               championTitle: champ.title,
               icon: champ.icon,
               value: winner.value,
@@ -134,7 +143,7 @@ export async function finalizeWeeklyAwards(refDate: Date = new Date()) {
 
         finalizedResults.push({
           weekKey: prevWeekKey,
-          titleId: champ.id,
+          titleId: persistedTitleId,
           champion: champ.title,
           winnerId: winner.userId,
           winnerName: winner.name,
