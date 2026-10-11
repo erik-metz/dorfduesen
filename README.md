@@ -33,6 +33,8 @@ npm run dev
 
 Prisma-CLI liest `.env`; für CLI-Kommandos `DATABASE_URL` explizit setzen, wenn die Konfiguration nur in `.env.local` liegt. Für lokale Hintergrundjobs zusätzlich `npx inngest-cli dev` starten. In Produktion `/api/inngest` mit Inngest verbinden.
 
+Ein Seitenbesuch startet im Hintergrund den Strava-Import aller verknüpften Mitglieder. Eine atomare Datenbanksperre verhindert für die folgenden 30 Minuten weitere Auslösungen, unabhängig von Besucherzahl und Serverinstanz. Nach Ablauf startet erst der nächste Besuch einen neuen Import; es gibt keinen festen Sync-Zeitplan. Auch der manuelle Sync und der geschützte HTTP-Cron-Endpunkt beachten diese gemeinsame Sperre. Bei fehlgeschlagener Event-Übermittlung wird sie für einen erneuten Versuch freigegeben.
+
 ## Bestehende Datenbank übernehmen
 
 Die erste Migration bildet die bereits vorhandene Struktur ab. **Bei einer bestehenden Datenbank diese Migration nicht ausführen und niemals `migrate reset` verwenden.** Erst Schema-Gleichheit mit der Baseline prüfen, dann die Baseline als bereits angewendet markieren:

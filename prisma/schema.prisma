@@ -285,6 +285,12 @@ model PlanGenerationAttempt {
   @@index([userId, createdAt])
 }
 
+model SiteSyncState {
+  id          String   @id
+  owner       String
+  requestedAt DateTime
+}
+
 model SyncState {
   userId              String    @id
   user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)

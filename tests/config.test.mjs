@@ -23,7 +23,7 @@ test('cron denies unconfigured, query-only and incorrect credentials before acce
   let jobs = 0;
   const { GET } = loadTs('app/api/strava/cron/route.ts', {
     'next/server': { NextResponse: { json: (body, options) => Response.json(body, options) } },
-    '@/lib/inngest/client': { inngest: { send: async () => { jobs++; } } },
+    '@/lib/strava/queue': { queueSiteSync: async () => { jobs++; return { queued: true }; } },
   });
   try {
     process.env.CRON_SECRET = '';

@@ -6,9 +6,6 @@ export const syncAllUsersFunction = inngest.createFunction(
     id: "daily-strava-sync",
     name: "Automatischer Strava Sync aller Athleten",
     triggers: [
-      // Auch Aktivitäten nach dem morgendlichen Lauf zeitnah abholen.
-      // 30 Minuten halten die API-Last für alle verknüpften Accounts begrenzt.
-      { cron: "TZ=Europe/Berlin */30 * * * *" },
       { event: "strava/sync.all" },
     ],
   },

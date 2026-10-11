@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { inngest } from '@/lib/inngest/client';
+import { queueSiteSync } from '@/lib/strava/queue';
 import { requireSecret } from '@/lib/config';
 
 export async function GET(request: Request) {
@@ -14,8 +14,8 @@ export async function GET(request: Request) {
   }
 
   try {
-    await inngest.send({ name: 'strava/sync.all', data: {} });
-    return NextResponse.json({ success: true, queued: true }, { status: 202 });
+    const result = await queueSiteSync();
+    return NextResponse.json({ success: true, ...result }, { status: result.queued ? 202 : 200 });
   } catch (error: unknown) {
     const errorMsg = error instanceof Error ? error.message : 'Fehler beim Cron-Sync';
     console.error('Fehler im Cron-Sync-Handler:', error);

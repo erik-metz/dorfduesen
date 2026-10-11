@@ -1,11 +1,9 @@
 import React, { Suspense } from 'react';
 import Link from 'next/link';
-import { after } from 'next/server';
 import { ArrowLeft, Flame, ShieldCheck, Zap } from 'lucide-react';
 import { getCurrentUser } from '@/lib/auth/session';
 import { db } from '@/lib/db';
 import { getDashboardActivities } from '@/lib/data/dashboard';
-import { queueDashboardSync } from '@/lib/strava/queue';
 import { DashboardView } from '@/components/DashboardView';
 import { StravaIcon } from '@/components/icons/BrandIcons';
 import { NotificationToast } from '@/components/NotificationToast';
@@ -24,12 +22,6 @@ function DashboardSkeleton() {
       </div>
     </div>
   );
-}
-
-function isSyncCooldownExpired(lastSyncDate: Date | null | undefined): boolean {
-  if (!lastSyncDate) return true;
-  const AUTO_SYNC_COOLDOWN_MS = 60 * 1000;
-  return Date.now() - lastSyncDate.getTime() > AUTO_SYNC_COOLDOWN_MS;
 }
 
 export default function DashboardPage(props: {
@@ -182,36 +174,6 @@ async function DashboardContent({
     if (foundUser) {
       targetUser = foundUser;
       isReadOnly = true;
-    }
-  }
-
-  // Automatischer Sync beim Aufruf des Strava-Dashboards:
-  // NUR für das eigene Profil des angemeldeten Benutzers! Fremde Profile werden rein passiv gelesen.
-  if (!isReadOnly) {
-    const lastSyncLog = await db.syncLog.findFirst({
-      where: { userId: currentUser.id, status: 'SUCCESS' },
-      orderBy: { createdAt: 'desc' },
-    });
-
-    const shouldAutoSync = isSyncCooldownExpired(lastSyncLog?.createdAt);
-
-    if (shouldAutoSync) {
-      after(async () => {
-        try {
-          await queueDashboardSync(currentUser.id);
-        } catch (syncErr) {
-          console.error('Automatischer Strava-Hintergrund-Sync fehlgeschlagen:', syncErr);
-        }
-      });
-    } else {
-      after(async () => {
-        try {
-          const { evaluateUserBadges } = await import('@/lib/arena/badge-engine');
-          await evaluateUserBadges(currentUser.id);
-        } catch (badgeErr) {
-          console.error('Fehler bei automatischer Badge-Auswertung im Dashboard:', badgeErr);
-        }
-      });
     }
   }
 
