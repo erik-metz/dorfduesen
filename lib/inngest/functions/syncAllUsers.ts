@@ -4,9 +4,11 @@ import { db } from "@/lib/db";
 export const syncAllUsersFunction = inngest.createFunction(
   {
     id: "daily-strava-sync",
-    name: "Täglicher automatischer Strava Sync aller Athleten",
+    name: "Automatischer Strava Sync aller Athleten",
     triggers: [
-      { cron: "TZ=Europe/Berlin 0 4 * * *" }, // Jeden Tag um 04:00 Uhr deutscher Zeit
+      // Auch Aktivitäten nach dem morgendlichen Lauf zeitnah abholen.
+      // 30 Minuten halten die API-Last für alle verknüpften Accounts begrenzt.
+      { cron: "TZ=Europe/Berlin */30 * * * *" },
       { event: "strava/sync.all" },
     ],
   },

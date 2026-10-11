@@ -135,7 +135,7 @@ export async function syncUserActivities(userId: string, perPage = 100, options:
 
 export async function finalizeSync(userId: string) {
   const { revalidatePath, revalidateTag } = await import('next/cache');
-  revalidatePath('/arena'); revalidatePath('/'); revalidateTag('arena', { expire: 0 });
+  revalidatePath('/arena'); revalidatePath('/'); revalidatePath('/dashboard'); revalidateTag('arena', { expire: 0 });
   const { checkWeeklyTitleChanges } = await import('@/lib/arena/title-tracker');
   await checkWeeklyTitleChanges();
   const { evaluateUserBadges } = await import('@/lib/arena/badge-engine');

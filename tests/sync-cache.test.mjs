@@ -20,5 +20,7 @@ test('completed Strava import expires the shared arena cache immediately', async
   await finalizeSync('member');
 
   assert.ok(paths.includes('/arena'));
+  assert.ok(paths.includes('/'));
+  assert.ok(paths.includes('/dashboard'));
   assert.deepEqual(tags, [{ tag: 'arena', expire: 0 }]);
 });
