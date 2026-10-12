@@ -131,8 +131,9 @@ export function calculateVDOT(
 export function velocityToPace(velocityMetersPerMin: number): string {
   if (velocityMetersPerMin <= 0) return "6:00";
   const secondsPerKm = (1000 / velocityMetersPerMin) * 60;
-  const minutes = Math.floor(secondsPerKm / 60);
-  const seconds = Math.round(secondsPerKm % 60);
+  const roundedSeconds = Math.round(secondsPerKm);
+  const minutes = Math.floor(roundedSeconds / 60);
+  const seconds = roundedSeconds % 60;
   return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 }
 

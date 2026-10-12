@@ -1,5 +1,8 @@
 'use client';
 
+import { FitnessHistory } from './FitnessHistory';
+import type { FitnessHistoryPoint } from '@/lib/training/history';
+
 import React, { useState, useEffect } from 'react';
 import {
   Sparkles,
@@ -223,6 +226,7 @@ interface HealthMetricItem {
 }
 
 interface ProfileData {
+  history: FitnessHistoryPoint[];
   calculatedVdot: number;
   calculatedMaxHr: number;
   profile?: {
@@ -1097,7 +1101,7 @@ export function CoachDashboard() {
                 <Gauge className="w-4 h-4 text-orange-400" />
               </div>
               <div className="text-3xl font-black text-white">{profileData.calculatedVdot}</div>
-              <p className="text-[11px] text-zinc-500">Aus Strava-Historie (Jack Daniels Formula)</p>
+              <p className="text-[11px] text-zinc-500">{profileData.profile?.vdotScore != null ? `Manuelle Vorgabe · automatisch: ${profileData.baseline.estimatedVdot}` : 'Automatisch aus Strava-Läufen'}</p>
             </div>
 
             <div className="bg-zinc-900 border border-zinc-800 p-5 rounded-2xl space-y-1">
@@ -1134,6 +1138,8 @@ export function CoachDashboard() {
             </div>
           </div>
 
+          <FitnessHistory points={profileData.history ?? []} />
+
           {/* PERFORMANCE PROFILE & VDOT TUNING */}
           <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 sm:p-8 space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -1143,7 +1149,7 @@ export function CoachDashboard() {
                   <h3 className="text-xl font-black text-white">Leistungsniveau &amp; VDOT Feinabstimmung</h3>
                 </div>
                 <p className="text-xs text-zinc-400 mt-1 max-w-2xl">
-                  Dein VDOT wird automatisch aus deinen Strava-Läufen anhand von <span className="text-orange-400 font-semibold">Puls (Herzfrequenzreserve)</span>, <span className="text-orange-400 font-semibold">Steigung (GAP)</span> und <span className="text-orange-400 font-semibold">Pace</span> berechnet. Du kannst deinen VDOT oder Maximalpuls hier auch direkt manuell anpassen (z. B. aus einer Leistungsdiagnostik oder Garmin VO2max).
+                  Dein VDOT wird automatisch aus deinen Strava-Läufen anhand von <span className="text-orange-400 font-semibold">Puls (Herzfrequenzreserve)</span>, <span className="text-orange-400 font-semibold">Steigung (GAP)</span> und <span className="text-orange-400 font-semibold">Pace</span> berechnet. Du kannst deinen VDOT oder Maximalpuls hier auch direkt manuell anpassen (z. B. aus einer VDOT-Leistungsbestimmung; ein Garmin-VO₂max-Wert ist nicht direkt gleichzusetzen).
                 </p>
               </div>
 

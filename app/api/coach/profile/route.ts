@@ -2,7 +2,8 @@ import { InputError, readCoachBody } from '@/lib/training/validation';
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { db } from "@/lib/db";
-import { calculateAthleteBaseline } from "@/lib/training/baseline";
+import { baselineFromActivities } from "@/lib/training/baseline-calculation";
+import { calculateFitnessHistory } from "@/lib/training/history";
 import { getTrainingPaces } from "@/lib/training/vdot";
 import { calculateHeartRateZones, estimateMaxHeartRate } from "@/lib/training/zones";
 
@@ -12,26 +13,25 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // 1. Fetch user profile from DB
-  const profile = await db.userProfile.findUnique({
-    where: { userId: user.id },
-  });
-
-  // 2. Calculate baseline from Strava historical activities
-  const baseline = await calculateAthleteBaseline(user.id);
+  const now = new Date();
+  const [profile, activities, metrics] = await Promise.all([
+    db.userProfile.findUnique({ where: { userId: user.id } }),
+    db.activity.findMany({ where: { userId: user.id, startDate: { gte: new Date(now.getTime() - 38 * 7 * 86400000), lte: now } } }),
+    db.healthMetric.findMany({ where: { userId: user.id, date: { lte: now } }, orderBy: { date: 'desc' } }),
+  ]);
+  const baseline = baselineFromActivities(user.id, activities, profile, now);
+  const history = calculateFitnessHistory(user.id, activities, metrics, now);
 
   const effectiveMaxHr =
     profile?.maxHeartrate || baseline.measuredMaxHr || estimateMaxHeartRate(30);
-  const effectiveVdot =
-    profile?.vdotScore && profile.vdotScore >= baseline.estimatedVdot
-      ? profile.vdotScore
-      : baseline.estimatedVdot;
+  const effectiveVdot = profile?.vdotScore ?? baseline.estimatedVdot;
 
   const paces = getTrainingPaces(effectiveVdot);
   const zones = calculateHeartRateZones(effectiveMaxHr, profile?.restingHeartrate ?? undefined);
 
   return NextResponse.json({
     profile,
+    history,
     baseline,
     paces,
     zones,

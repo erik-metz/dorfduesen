@@ -55,24 +55,18 @@ export const generatePlanFunction = inngest.createFunction(
 
       const maxHr = profile?.maxHeartrate || stats.measuredMaxHr || 185;
       const restingHr = profile?.restingHeartrate;
-      const vdot = profile?.vdotScore && profile.vdotScore >= stats.estimatedVdot
-        ? profile.vdotScore
-        : stats.estimatedVdot;
+      const vdot = profile?.vdotScore ?? stats.estimatedVdot;
 
       await db.userProfile.upsert({
         where: { userId },
         create: {
           userId,
-          maxHeartrate: maxHr,
           restingHeartrate: restingHr,
-          vdotScore: vdot,
           weeklyAvailability: weeklyAvailability || 3,
           preferredLongRunDay: preferredLongRunDay !== undefined ? preferredLongRunDay : null,
           includeSundayRun: includeSundayRun !== undefined ? Boolean(includeSundayRun) : true,
         },
         update: {
-          maxHeartrate: maxHr,
-          vdotScore: vdot,
           weeklyAvailability: weeklyAvailability || 3,
           preferredLongRunDay: preferredLongRunDay !== undefined ? preferredLongRunDay : null,
           includeSundayRun: includeSundayRun !== undefined ? Boolean(includeSundayRun) : true,
