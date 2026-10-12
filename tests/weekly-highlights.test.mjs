@@ -60,6 +60,7 @@ test('weekly finalization awards every shared recipient exactly once, including 
   const tx = {
     $queryRaw: async () => [],
     weeklyTitleHolder: {
+      findMany: async () => [...holders.values()],
       findUnique: async ({ where }) => holders.get(JSON.stringify(where.weekKey_titleId)) ?? null,
       upsert: async ({ where, create }) => { holders.set(JSON.stringify(where.weekKey_titleId), create); return create; },
     },
@@ -69,7 +70,10 @@ test('weekly finalization awards every shared recipient exactly once, including 
       create: async ({ data }) => { awards.set(JSON.stringify({ userId: data.userId, badgeId: data.badgeId }), data); return data; },
       update: async () => { throw new Error('Unexpected duplicate award'); },
     },
-    notification: { create: async ({ data }) => { notifications.push(data); } },
+    user: { findMany: async () => joined(['a', 'b', 'inactive']).map(u => ({ ...u, firstname: u.id })) },
+    activity: { findMany: async () => [activity('a', week), activity('a', '2026-10-13'), activity('b', week), activity('b', '2026-10-13')].map(a => ({ ...a, userId: a.user.id })) },
+    weeklyGoal: { findMany: async () => [] },
+    notification: { create: async ({ data }) => { notifications.push(data); }, findMany: async () => notifications.filter(n => n.type === 'WEEKLY_RECAP') },
   };
   const champions = computeHighlights([
     activity('a', week), activity('a', '2026-10-13'),
@@ -83,7 +87,11 @@ test('weekly finalization awards every shared recipient exactly once, including 
   await finalizeWeeklyAwards(new Date('2026-10-19T10:00:00Z'));
   await finalizeWeeklyAwards(new Date('2026-10-19T10:00:00Z'));
   assert.equal(awards.size, 4); // Two tied running winners and two personal recognitions.
-  assert.equal(notifications.length, 4);
+  assert.equal(notifications.filter(n => n.type === 'WEEKLY_CHAMPION').length, 4);
+  const recaps = notifications.filter(n => n.type === 'WEEKLY_RECAP');
+  assert.equal(recaps.length, 3);
+  assert.equal(recaps.find(n => n.userId === 'a').metadata.awards.length, 2);
+  assert.equal(recaps.find(n => n.userId === 'inactive').metadata.outcome, 'motivation');
   assert.ok(awards.has(JSON.stringify({ userId: 'a', badgeId: 'WEEKLY_STAYED_ACTIVE' })));
   assert.ok(awards.has(JSON.stringify({ userId: 'b', badgeId: 'WEEKLY_STAYED_ACTIVE' })));
   assert.equal([...holders.values()].every(h => h.isFinalized), true);

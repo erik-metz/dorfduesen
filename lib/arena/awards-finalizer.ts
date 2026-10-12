@@ -1,8 +1,9 @@
-import { weekRange, monthRange } from '@/lib/time';
+import { weekRange, monthRange, shiftDay, berlinMidnight } from '@/lib/time';
 import { db } from '@/lib/db';
 import { Prisma } from '@prisma/client';
 import { getWeeklyChampions } from './stats';
 import { ensureBadgesSeeded } from './badge-definitions';
+import { buildWeeklyRecaps, snapshotWeeklyChampions } from './weekly-recap';
 
 const TITLE_TO_BADGE_CODE: Record<string, string> = {
   run_distance: 'WEEKLY_RUN_DISTANCE',
@@ -151,6 +152,22 @@ export async function finalizeWeeklyAwards(refDate: Date = new Date()) {
           newLevel,
         });
       }
+    }
+
+    // One personal recap per completed week, protected by the same transaction lock.
+    // Read markers persist across retries; individual trophy notifications remain available.
+    const [users, activities, goals, holders] = await Promise.all([
+      tx.user.findMany({ where: { createdAt: { lt: previous.end } }, select: { id: true, firstname: true, createdAt: true } }),
+      tx.activity.findMany({ where: { startDate: { gte: berlinMidnight(shiftDay(prevWeekKey, -28)), lt: previous.end } },
+        select: { userId: true, startDate: true, startDateLocal: true, movingTime: true, sportType: true, distance: true } }),
+      tx.weeklyGoal.findMany({ where: { weekKey: prevWeekKey } }),
+      tx.weeklyTitleHolder.findMany({ where: { weekKey: prevWeekKey, isFinalized: true }, select: { titleId: true, userId: true, value: true } }),
+    ]);
+    const existingRecaps = await tx.notification.findMany({ where: { type: 'WEEKLY_RECAP', metadata: { path: ['weekKey'], equals: prevWeekKey } }, select: { userId: true } });
+    const sentTo = new Set(existingRecaps.map(n => n.userId));
+    for (const recap of buildWeeklyRecaps(prevWeekKey, users, activities, goals, snapshotWeeklyChampions(champions, holders))) {
+      if (sentTo.has(recap.userId)) continue;
+      await tx.notification.create({ data: { ...recap, type: 'WEEKLY_RECAP', link: recap.metadata.outcome === 'celebration' ? '/dashboard?tab=trophies' : '/arena' } });
     }
 
     return finalizedResults;

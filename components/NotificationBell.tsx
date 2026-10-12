@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { Bell, CheckCheck, Trophy, ChevronRight, LayoutDashboard } from 'lucide-react';
+import { WeeklyRecapDialog } from '@/components/WeeklyRecapDialog';
 import type { NotificationItem } from '@/types/notification';
 export type { NotificationItem };
 
@@ -25,6 +26,8 @@ function formatRelativeTime(dateString: string): string {
 
 export function NotificationBell() {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [recap, setRecap] = useState<NotificationItem | null>(null);
+  const shownRecaps = useRef(new Set<string>());
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -36,7 +39,13 @@ export function NotificationBell() {
       if (res.ok) {
         const data = await res.json();
         if (data.authenticated) {
-          setNotifications(data.notifications || []);
+          const items: NotificationItem[] = data.notifications || [];
+          setNotifications(items);
+          const latest = items.find(n => n.type === 'WEEKLY_RECAP' && Date.now() - Date.parse(n.createdAt) < 14 * 86400000);
+          if (latest && !latest.isRead && !shownRecaps.current.has(latest.id)) {
+            shownRecaps.current.add(latest.id);
+            setRecap(latest);
+          }
           setUnreadCount(data.unreadCount || 0);
         }
       }
@@ -121,6 +130,10 @@ export function NotificationBell() {
 
   return (
     <div className="relative" ref={dropdownRef}>
+      {recap && <WeeklyRecapDialog notification={recap} onClose={() => {
+        setRecap(null);
+        if (!recap.isRead) void markOneAsRead(recap.id);
+      }} />}
       {/* Bell Trigger Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
@@ -224,7 +237,7 @@ export function NotificationBell() {
                               : 'bg-zinc-800 text-zinc-400'
                           }`}
                         >
-                          {isLost ? 'Titel abgenommen' : isGained ? 'Titel geholt' : 'Info'}
+                          {item.type === 'WEEKLY_RECAP' ? 'Wochenrückblick' : isLost ? 'Titel abgenommen' : isGained ? 'Titel geholt' : 'Info'}
                         </span>
                         <span className="text-[10px] text-zinc-500">
                           {formatRelativeTime(item.createdAt)}
@@ -238,6 +251,7 @@ export function NotificationBell() {
                         {item.message}
                       </p>
 
+                      {item.type === 'WEEKLY_RECAP' && <button onClick={event => { event.stopPropagation(); setIsOpen(false); setRecap(item); }} className="mt-2 min-h-11 text-xs font-bold text-amber-300">Wochenrückblick öffnen ✨</button>}
                       {/* Link to Arena */}
                       {item.link && (
                         <div className="mt-2.5">
@@ -249,7 +263,7 @@ export function NotificationBell() {
                             }}
                             className="inline-flex items-center gap-1.5 text-[11px] font-bold text-orange-400 hover:text-orange-300 transition-colors"
                           >
-                            <span>Zur Düsen-Arena</span>
+                            <span>{item.link.includes('tab=trophies') ? 'Zum Trophäenschrank' : 'Zur Düsen-Arena'}</span>
                             <ChevronRight className="w-3 h-3" />
                           </Link>
                         </div>

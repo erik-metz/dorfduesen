@@ -12,6 +12,7 @@ import {
   RefreshCw,
   Clock,
 } from 'lucide-react';
+import { WeeklyRecapDialog } from '@/components/WeeklyRecapDialog';
 import { NotificationItem, NotificationMetadata } from '@/types/notification';
 
 interface DashboardNotificationsProps {
@@ -71,6 +72,17 @@ function getNotificationConfig(type: string, metadata?: NotificationMetadata | n
         actionLabel: 'Zur Arena ansehen',
         defaultLink: '/arena',
       };
+    case 'WEEKLY_RECAP':
+      return {
+        label: 'Dein Wochenrückblick',
+        badgeClass: 'bg-orange-500/20 text-orange-300 border-orange-500/30',
+        borderClass: 'border-orange-500/40 hover:border-orange-500/70',
+        bgClass: 'bg-gradient-to-br from-orange-950/40 via-zinc-900/90 to-zinc-900',
+        iconBg: 'bg-orange-500/20 border-orange-500/40 text-orange-300',
+        defaultIcon: metadata?.outcome === 'celebration' ? '🏆' : '🚀',
+        actionLabel: metadata?.outcome === 'celebration' ? 'Deine Trophäen ansehen' : 'Zur neuen Woche',
+        defaultLink: metadata?.outcome === 'celebration' ? '/dashboard?tab=trophies' : '/arena',
+      };
     case 'WEEKLY_CHAMPION':
       return {
         label: 'Wochensieger',
@@ -124,6 +136,7 @@ export function DashboardNotifications({
   initialNotifications = [],
   onTabChange,
 }: DashboardNotificationsProps) {
+  const [recap, setRecap] = useState<NotificationItem | null>(null);
   const [notifications, setNotifications] = useState<NotificationItem[]>(initialNotifications);
   const [filter, setFilter] = useState<FilterType>('all');
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -208,7 +221,7 @@ export function DashboardNotifications({
   const totalCount = notifications.length;
   const unreadCount = notifications.filter((n) => !n.isRead).length;
   const arenaCount = notifications.filter((n) =>
-    ['TITLE_LOST', 'TITLE_GAINED', 'WEEKLY_CHAMPION'].includes(n.type)
+    ['TITLE_LOST', 'TITLE_GAINED', 'WEEKLY_CHAMPION', 'WEEKLY_RECAP'].includes(n.type)
   ).length;
   const badgeCount = notifications.filter((n) =>
     ['BADGE_UNLOCKED', 'MONTHLY_CHAMPION'].includes(n.type)
@@ -218,7 +231,7 @@ export function DashboardNotifications({
   const filteredNotifications = notifications.filter((item) => {
     if (filter === 'unread') return !item.isRead;
     if (filter === 'arena') {
-      return ['TITLE_LOST', 'TITLE_GAINED', 'WEEKLY_CHAMPION'].includes(item.type);
+      return ['TITLE_LOST', 'TITLE_GAINED', 'WEEKLY_CHAMPION', 'WEEKLY_RECAP'].includes(item.type);
     }
     if (filter === 'badges') {
       return ['BADGE_UNLOCKED', 'MONTHLY_CHAMPION'].includes(item.type);
@@ -241,6 +254,7 @@ export function DashboardNotifications({
 
   return (
     <div className="space-y-6">
+      {recap && <WeeklyRecapDialog notification={recap} onClose={() => { setRecap(null); if (!recap.isRead) void markOneAsRead(recap.id); }} />}
       {/* Top Banner / Hero */}
       <div className="rounded-3xl bg-gradient-to-r from-orange-950/40 via-zinc-900/90 to-zinc-900 border border-orange-500/20 p-6 sm:p-8 relative overflow-hidden shadow-xl shadow-black/40">
         <div className="absolute top-0 right-0 w-80 h-80 bg-orange-600/10 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20" />
@@ -478,6 +492,7 @@ export function DashboardNotifications({
                         {item.message}
                       </p>
 
+                      {item.type === 'WEEKLY_RECAP' && <button onClick={() => setRecap(item)} className="min-h-11 text-xs font-bold text-orange-300">Deinen Wochenrückblick öffnen ✨</button>}
                       {/* Extra metadata chips */}
                       {item.metadata?.overtakenByName && (
                         <div className="pt-1 flex items-center gap-2">
