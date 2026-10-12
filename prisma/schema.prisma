@@ -315,9 +315,9 @@ model WeeklyGoal {
 }
 
 model InstagramFeedState {
+  accessToken    String?
+  tokenUpdatedAt DateTime?
   id             String   @id
   posts          Json
   syncedAt       DateTime
-  accessToken    String
-  tokenUpdatedAt DateTime
 }

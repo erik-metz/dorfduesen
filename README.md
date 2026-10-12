@@ -89,13 +89,13 @@ Ziele werden authentifiziert für die jeweils nächste Berliner Kalenderwoche ge
 
 ## Instagram-Feed
 
-Die Homepage zeigt die zwölf neuesten Instagram-Beiträge (Fotos, Reels/Videos und gemischte Karussells). Inngest importiert stündlich zur vollen Stunde und speichert den letzten erfolgreichen Stand in PostgreSQL. Videos starten erst nach Nutzeraktion. Bei Importfehlern bleiben die gespeicherten Beiträge erhalten; ohne Konfiguration/ersten Import erscheint die bisherige Galerie.
+Eine Inngest-Funktion versucht alle drei Tage um 06:00 UTC, die zwölf neuesten öffentlichen Beiträge von `@dorfduesen` ohne Anmeldung oder Meta-Token abzurufen. Der tägliche Cron prüft einen festen Drei-Tage-Rhythmus anhand der UTC-Tage seit Unix-Epoch; dadurch gibt es keine verkürzten Intervalle an Monatsgrenzen. Das Event `instagram/feed.sync` erlaubt einen sofortigen manuellen Versuch.
+
+Fotos, Reels/Videos und gemischte Karussells werden unterstützt, soweit Instagram ihre Medienlinks öffentlich ausliefert. Das ist ein Best-Effort-Import über einen undokumentierten öffentlichen Profil-Endpunkt. Bei Sperren, Login-Aufforderungen, Timeouts, leeren oder geänderten Antworten bleibt der letzte erfolgreiche Stand erhalten. Es gibt keine automatischen Wiederholungen eines blockierten Abrufs. Datenbankfehler bleiben als fehlgeschlagene Inngest-Läufe sichtbar.
 
 Aktivierung:
 1. Migrationen mit `npx prisma migrate deploy` anwenden.
-2. Für @dorfduesen ein Business-/Creator-Konto und eine Meta-App mit **Instagram API with Instagram Login** einrichten. Long-lived Access Token mit `instagram_business_basic` erstellen. Siehe [Meta-Dokumentation](https://developers.facebook.com/docs/instagram-platform/instagram-api-with-instagram-login/).
-3. `INSTAGRAM_USER_ID` und `INSTAGRAM_ACCESS_TOKEN` auf dem Server setzen. Tokens niemals als NEXT_PUBLIC-Variable oder im Repository speichern.
-4. Die bestehende Inngest-Anbindung inklusive Signing Key aktivieren und den aktualisierten `/api/inngest`-Endpunkt synchronisieren. Für den Erstimport in Inngest das Event `instagram/feed.sync` senden, andernfalls die nächste volle Stunde abwarten.
-5. Den erfolgreichen Lauf `sync-instagram-feed` in Inngest und die Homepage prüfen.
+2. Bestehende Inngest-Anbindung inklusive Signing Key aktivieren und den aktualisierten `/api/inngest`-Endpunkt synchronisieren.
+3. In Inngest das Event `instagram/feed.sync` senden und das Ergebnis des Laufs prüfen.
 
-Gespeicherte Long-lived Tokens werden nach sieben Tagen automatisch erneuert. Der initiale Token muss beim ersten Import gültig sein. Bei Widerruf/abgelaufenem Token Zugang erneut autorisieren, die Servervariable ersetzen und den Datensatz `InstagramFeedState` mit ID `dorfduesen` löschen, damit der nächste Import den neuen Token verwendet. API-Fehler werden über fehlgeschlagene Inngest-Läufe sichtbar. API-Medienlinks können ablaufen; bei längerem API-Ausfall muss der Zugang wiederhergestellt werden. Der Feed wird im Seiten-Cache spätestens nach fünf Minuten neu gelesen (bereits geöffnete Seiten benötigen ein Neuladen).
+Ohne erfolgreichen Erstimport zeigt die Homepage die bisherige lokale Galerie. Die gespeicherten Beiträge liegen in PostgreSQL; die Homepage liest den Feed über einen Cache mit fünf Minuten Revalidierung. Bereits geöffnete Seiten benötigen ein Neuladen. Instagram-CDN-Links können vor dem nächsten Import ablaufen; die Medien werden nicht lokal archiviert. Private Inhalte und Stories werden nicht importiert. Die früheren Instagram-Token-Variablen werden nicht mehr benötigt, bestehende Token-Spalten bleiben zur Datenerhaltung bestehen, sind künftig optional und werden nicht mehr verwendet.
