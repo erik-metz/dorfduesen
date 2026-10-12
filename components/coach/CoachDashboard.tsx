@@ -1,6 +1,7 @@
 'use client';
 
 import { FitnessHistory } from './FitnessHistory';
+import type { Vo2maxEstimate } from '@/lib/training/vo2max';
 import type { FitnessHistoryPoint } from '@/lib/training/history';
 
 import React, { useState, useEffect } from 'react';
@@ -226,6 +227,7 @@ interface HealthMetricItem {
 }
 
 interface ProfileData {
+  vo2max: Vo2maxEstimate;
   history: FitnessHistoryPoint[];
   calculatedVdot: number;
   calculatedMaxHr: number;
@@ -1137,6 +1139,27 @@ export function CoachDashboard() {
               </p>
             </div>
           </div>
+
+          <section className="bg-zinc-900 border border-cyan-500/20 rounded-3xl p-6 sm:p-8 space-y-3">
+            <h3 className="text-xl font-black text-white">VO₂max · Schätzung</h3>
+            <div className="flex items-baseline gap-2">
+              <span className="text-4xl font-black text-cyan-400">{profileData.vo2max.value ?? '—'}</span>
+              <span className="text-sm text-zinc-400">ml/kg/min</span>
+            </div>
+            <p className="text-sm text-zinc-300">Datenqualität: {profileData.vo2max.quality === 'moderate' ? 'Mittel' : profileData.vo2max.quality === 'limited' ? 'Begrenzt' : 'Unzureichend'} · {profileData.vo2max.sampleCount} geeignete Läufe / 6 Wochen</p>
+            <p className="text-xs text-zinc-400">{profileData.vo2max.reason}</p>
+            <p className="text-xs text-zinc-400">Verwendeter Maximalpuls: {profileData.vo2max.maxHr} bpm ({profileData.vo2max.maxHrSource === 'profile' ? 'Profileingabe' : profileData.vo2max.maxHrSource === 'age' ? 'Altersschätzung' : 'Standardannahme'}). {profileData.vo2max.method === 'oxygen-reserve' ? 'Mit Ruhepuls / Sauerstoffreserve.' : 'Ohne Ruhepuls / Anteil am Maximalpuls.'}</p>
+            {profileData.vo2max.latestSampleDate ? <p className="text-xs text-zinc-500">Letzter geeigneter Lauf: {new Date(profileData.vo2max.latestSampleDate).toLocaleDateString('de-DE')}</p> : null}
+            <details className="text-xs text-zinc-400">
+              <summary className="cursor-pointer text-cyan-400">Wie wird der Wert geschätzt?</summary>
+              <div className="pt-3 space-y-2 max-w-3xl">
+                <p>Aus der Laufgeschwindigkeit wird der Sauerstoffbedarf modelliert und anhand des Pulses auf maximale Belastung hochgerechnet. Neuere Läufe zählen stärker; Ausreißer werden gefiltert. Der VDOT und deine Trainingspaces werden dadurch nicht verändert.</p>
+                <p>Verwendet werden Straßenläufe ab 15 Minuten und 2 km bei etwa 8–18 km/h, mit Pulsdaten im Bereich 60–90 % des Maximalpulses, höchstens 10 Höhenmetern pro Kilometer und wenigen Pausen. Trail- und virtuelle Läufe werden ausgeschlossen. Durchschnittswerte können Intervalle, Hitze, Wind, Medikamente und individuelle Laufökonomie nicht zuverlässig berücksichtigen. Der Wert ist weder eine Messung noch ein individuell validierter Garmin-/Firstbeat-Wert.</p>
+                <p>Die aktuelle Schätzung nutzt deine heutigen Pulsparameter. Der Verlauf verwendet damalige gespeicherte Ruhepulswerte und den aufgezeichneten Höchstpuls bzw. eine Standardannahme; dadurch kann der jüngste Verlaufspunkt vom aktuellen Wert abweichen.</p>
+                <p>Methodische Grundlagen: <a href="https://pubmed.ncbi.nlm.nih.gov/9502363/" target="_blank" rel="noreferrer" className="underline">Herzfrequenz- und Sauerstoffreserve</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/8133731/" target="_blank" rel="noreferrer" className="underline">Herzfrequenz und VO₂max</a>. Die Kombination mit Aktivitätsdurchschnitten ist eine grobe Modellschätzung.</p>
+              </div>
+            </details>
+          </section>
 
           <FitnessHistory points={profileData.history ?? []} />
 

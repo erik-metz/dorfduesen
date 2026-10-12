@@ -1,5 +1,6 @@
 import type { Activity, HealthMetric } from '@prisma/client';
 import { baselineFromActivities } from './baseline-calculation';
+import { estimateVo2max } from './vo2max';
 import { getTrainingPaces } from './vdot';
 import { calculateHeartRateZones } from './zones';
 
@@ -15,6 +16,7 @@ export function calculateFitnessHistory(userId: string, activities: Activity[], 
     return {
       date: date.toISOString(),
       baseline,
+      vo2max: estimateVo2max(activities, date, maxHr, baseline.measuredMaxHr ? 'recorded' : 'default', restingHeartrate),
       vdot: baseline.hasSufficientData ? baseline.estimatedVdot : null,
       maxHr,
       maxHrSource: baseline.measuredMaxHr ? 'Aufgezeichneter Höchstpuls' : 'Standardannahme',

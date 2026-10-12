@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { baselineFromActivities } from "@/lib/training/baseline-calculation";
 import { calculateFitnessHistory } from "@/lib/training/history";
+import { estimateVo2max } from "@/lib/training/vo2max";
 import { getTrainingPaces } from "@/lib/training/vdot";
 import { calculateHeartRateZones, estimateMaxHeartRate } from "@/lib/training/zones";
 
@@ -24,6 +25,11 @@ export async function GET() {
 
   const effectiveMaxHr =
     profile?.maxHeartrate || baseline.measuredMaxHr || estimateMaxHeartRate(30);
+  const birthDate = profile?.birthDate;
+  const age = birthDate ? now.getUTCFullYear() - birthDate.getUTCFullYear() - (now.getUTCMonth() < birthDate.getUTCMonth() || (now.getUTCMonth() === birthDate.getUTCMonth() && now.getUTCDate() < birthDate.getUTCDate()) ? 1 : 0) : null;
+  const validAge = age !== null && age >= 18 && age <= 100;
+  const vo2maxHr = profile?.maxHeartrate ?? (validAge ? estimateMaxHeartRate(age) : 185);
+  const vo2max = estimateVo2max(activities, now, vo2maxHr, profile?.maxHeartrate ? 'profile' : validAge ? 'age' : 'default', profile?.restingHeartrate);
   const effectiveVdot = profile?.vdotScore ?? baseline.estimatedVdot;
 
   const paces = getTrainingPaces(effectiveVdot);
@@ -32,6 +38,7 @@ export async function GET() {
   return NextResponse.json({
     profile,
     history,
+    vo2max,
     baseline,
     paces,
     zones,
