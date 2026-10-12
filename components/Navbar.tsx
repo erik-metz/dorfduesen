@@ -104,8 +104,8 @@ export function Navbar({ club, currentUser }: NavbarProps) {
   ];
 
   return (
-    <header className="sticky top-0 z-50 backdrop-blur-xl bg-zinc-950/85 border-b border-zinc-800/80 transition-all">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <header className="sticky top-0 z-50 isolate bg-zinc-950/95 border-b border-zinc-800/80">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 backdrop-blur-xl">
         <div className="flex items-center justify-between gap-2 h-18 sm:h-20">
           {/* Logo / Brand */}
           <Link href="/" className="flex flex-1 xl:flex-none min-w-0 items-center gap-2 sm:gap-3 group">
@@ -222,6 +222,8 @@ export function Navbar({ club, currentUser }: NavbarProps) {
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="shrink-0 min-h-11 min-w-11 p-2 sm:p-2.5 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-white hover:bg-zinc-800 focus:outline-none transition-colors"
               aria-label={mobileMenuOpen ? 'Menü schließen' : 'Menü öffnen'}
+              aria-expanded={mobileMenuOpen}
+              aria-controls="mobile-navigation"
             >
               {mobileMenuOpen ? (
                 <X className="w-5 h-5 text-zinc-200" />
@@ -235,7 +237,7 @@ export function Navbar({ club, currentUser }: NavbarProps) {
 
       {/* Modern Mobile Slide-Down / Full-Screen Menu */}
       {mobileMenuOpen && (
-        <div className="fixed inset-x-0 top-18 sm:top-20 bottom-0 z-40 bg-zinc-950/98 backdrop-blur-2xl border-t border-zinc-800/80 overflow-y-auto px-4 py-6 flex flex-col justify-between">
+        <div id="mobile-navigation" role="navigation" aria-label="Mobiles Menü" className="fixed inset-x-0 top-18 sm:top-20 bottom-0 z-40 bg-zinc-950 border-t border-zinc-800/80 overflow-y-auto overscroll-contain px-4 py-6 flex flex-col justify-between gap-6">
           <div className="space-y-4 max-w-md mx-auto w-full">
             {/* Athlete Status Card in Drawer */}
             <div className="p-4 rounded-2xl bg-zinc-900/90 border border-zinc-800 shadow-xl">
