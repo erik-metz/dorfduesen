@@ -320,32 +320,34 @@ export function DashboardNotifications({
 
       {/* Filter Tabs */}
       <div className="flex flex-wrap items-center justify-between gap-3 pb-2">
-        <div className="flex items-center gap-2 overflow-x-auto py-1">
+        <div className="grid w-full grid-cols-2 gap-2 py-1 sm:flex sm:w-auto sm:flex-wrap">
           <button
             onClick={() => setFilter('all')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+            aria-pressed={filter === 'all'}
+            className={`min-h-11 px-2 sm:px-4 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-center gap-1.5 sm:gap-2 ${
               filter === 'all'
                 ? 'bg-zinc-200 text-zinc-950 shadow-md'
                 : 'bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white'
             }`}
           >
-            <span>Alle</span>
-            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-black/20">
+            <span className="whitespace-nowrap">Alle</span>
+            <span className="shrink-0 whitespace-nowrap px-1.5 py-0.2 rounded-full text-[10px] bg-black/20">
               {totalCount}
             </span>
           </button>
 
           <button
             onClick={() => setFilter('unread')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+            aria-pressed={filter === 'unread'}
+            className={`min-h-11 px-2 sm:px-4 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-center gap-1.5 sm:gap-2 ${
               filter === 'unread'
                 ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/20'
                 : 'bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white'
             }`}
           >
-            <span>Ungelesen</span>
+            <span className="whitespace-nowrap">Ungelesen</span>
             {unreadCount > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-black/30 font-black">
+              <span className="shrink-0 whitespace-nowrap px-1.5 py-0.2 rounded-full text-[10px] bg-black/30 font-black">
                 {unreadCount}
               </span>
             )}
@@ -353,37 +355,39 @@ export function DashboardNotifications({
 
           <button
             onClick={() => setFilter('arena')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+            aria-pressed={filter === 'arena'}
+            className={`min-h-11 px-2 sm:px-4 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-center gap-1.5 sm:gap-2 ${
               filter === 'arena'
                 ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20'
                 : 'bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white'
             }`}
           >
-            <Trophy className="w-3.5 h-3.5" />
-            <span>Arena & Titel</span>
-            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-black/20">
+            <Trophy className="hidden sm:block shrink-0 w-3.5 h-3.5" />
+            <span className="whitespace-nowrap">Arena & Titel</span>
+            <span className="shrink-0 whitespace-nowrap px-1.5 py-0.2 rounded-full text-[10px] bg-black/20">
               {arenaCount}
             </span>
           </button>
 
           <button
             onClick={() => setFilter('badges')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+            aria-pressed={filter === 'badges'}
+            className={`min-h-11 px-2 sm:px-4 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-center gap-1.5 sm:gap-2 ${
               filter === 'badges'
                 ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/20'
                 : 'bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white'
             }`}
           >
-            <Award className="w-3.5 h-3.5" />
-            <span>Badges</span>
-            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-black/20">
+            <Award className="hidden sm:block shrink-0 w-3.5 h-3.5" />
+            <span className="whitespace-nowrap">Badges</span>
+            <span className="shrink-0 whitespace-nowrap px-1.5 py-0.2 rounded-full text-[10px] bg-black/20">
               {badgeCount}
             </span>
           </button>
         </div>
 
         <div className="text-xs text-zinc-500 flex items-center gap-1.5">
-          <Clock className="w-3.5 h-3.5" />
+          <Clock className="hidden sm:block shrink-0 w-3.5 h-3.5" />
           <span>Synchronisiert mit Strava & Arena</span>
         </div>
       </div>
