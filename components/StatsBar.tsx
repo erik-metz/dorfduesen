@@ -37,18 +37,18 @@ export function StatsBar({ club }: StatsBarProps) {
   return (
     <section className="border-y border-zinc-800/80 bg-zinc-950/60 py-10 relative">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 lg:gap-8">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-6 lg:gap-8">
           {stats.map((stat, idx) => {
             const Icon = stat.icon;
             return (
               <div
                 key={idx}
-                className="flex flex-col items-center sm:items-start p-4 rounded-xl bg-zinc-900/40 border border-zinc-800/50 hover:border-zinc-700/80 transition-colors"
+                className="flex flex-col items-center sm:items-start text-center sm:text-left p-3 sm:p-4 rounded-xl bg-zinc-900/40 border border-zinc-800/50 hover:border-zinc-700/80 transition-colors"
               >
                 <div className="p-2.5 rounded-lg bg-orange-600/10 text-orange-500 mb-3 border border-orange-500/20">
                   <Icon className="w-5 h-5" />
                 </div>
-                <div className="text-3xl sm:text-4xl font-black text-white tracking-tight">
+                <div className="text-[clamp(1.2rem,5.5vw,1.875rem)] sm:text-4xl whitespace-nowrap font-black text-white tracking-tight">
                   {stat.value}
                 </div>
                 <div className="text-sm font-bold text-zinc-200 mt-1">

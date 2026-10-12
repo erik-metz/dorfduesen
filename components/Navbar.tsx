@@ -106,9 +106,9 @@ export function Navbar({ club, currentUser }: NavbarProps) {
   return (
     <header className="sticky top-0 z-50 backdrop-blur-xl bg-zinc-950/85 border-b border-zinc-800/80 transition-all">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-18 sm:h-20">
+        <div className="flex items-center justify-between gap-2 h-18 sm:h-20">
           {/* Logo / Brand */}
-          <Link href="/" className="flex min-w-0 items-center gap-3 group">
+          <Link href="/" className="flex flex-1 xl:flex-none min-w-0 items-center gap-2 sm:gap-3 group">
             <div className="relative shrink-0 w-10 h-10 sm:w-11 sm:h-11 rounded-full overflow-hidden ring-2 ring-orange-500/80 ring-offset-2 ring-offset-zinc-950 group-hover:scale-105 transition-all shadow-md shadow-orange-500/20">
               <Image
                 src={club.assets.instagramAvatar || club.assets.stravaAvatar}
@@ -119,9 +119,9 @@ export function Navbar({ club, currentUser }: NavbarProps) {
               />
             </div>
             <div className="flex min-w-0 flex-col">
-              <span className="text-lg sm:text-xl font-black tracking-tight text-white flex items-center gap-1.5 group-hover:text-orange-400 transition-colors">
+              <span className="text-sm sm:text-xl font-black tracking-tight text-white flex items-center gap-1.5 group-hover:text-orange-400 transition-colors">
                 <span className="truncate">{club.name}</span>
-                <Flame className="w-4 h-4 shrink-0 text-orange-500 fill-orange-500 inline-block animate-pulse" />
+                <Flame className="w-4 h-4 shrink-0 text-orange-500 fill-orange-500 hidden sm:inline-block animate-pulse" />
               </span>
               <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-zinc-400">
                 Runclub Nordheim
@@ -130,7 +130,7 @@ export function Navbar({ club, currentUser }: NavbarProps) {
           </Link>
 
           {/* Desktop Navigation Links (Clean, Balanced Center) */}
-          <nav className="hidden lg:flex items-center gap-1 xl:gap-2">
+          <nav className="hidden xl:flex items-center gap-1 xl:gap-2">
             {navItems.map((item) => (
               <Link
                 key={item.href}
@@ -158,7 +158,7 @@ export function Navbar({ club, currentUser }: NavbarProps) {
           </nav>
 
           {/* Desktop Action Right (One Clear, Focused Element) */}
-          <div className="hidden lg:flex items-center gap-3">
+          <div className="hidden xl:flex items-center gap-3">
             {user && <NotificationBell />}
             {user ? (
               <Link
@@ -189,13 +189,13 @@ export function Navbar({ club, currentUser }: NavbarProps) {
           </div>
 
           {/* Mobile Right Bar: Fast Action + Hamburger */}
-          <div className="flex lg:hidden items-center gap-2">
+          <div className="flex shrink-0 xl:hidden items-center gap-1.5 sm:gap-2">
             {user && <NotificationBell />}
             {/* Quick Profile/Login Button on Mobile */}
             {user ? (
               <Link
                 href="/dashboard"
-                className="flex items-center gap-2 p-1.5 sm:px-3 sm:py-1.5 rounded-full bg-zinc-900 border border-zinc-800 text-xs font-bold text-white"
+                className="flex shrink-0 min-h-11 min-w-11 justify-center items-center gap-2 p-1.5 sm:px-3 sm:py-1.5 rounded-full bg-zinc-900 border border-zinc-800 text-xs font-bold text-white"
                 aria-label="Dashboard"
               >
                 {isValidAvatarUrl(user.profile) ? (
@@ -220,7 +220,7 @@ export function Navbar({ club, currentUser }: NavbarProps) {
             {/* Hamburger Button */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2 sm:p-2.5 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-white hover:bg-zinc-800 focus:outline-none transition-colors"
+              className="shrink-0 min-h-11 min-w-11 p-2 sm:p-2.5 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-white hover:bg-zinc-800 focus:outline-none transition-colors"
               aria-label={mobileMenuOpen ? 'Menü schließen' : 'Menü öffnen'}
             >
               {mobileMenuOpen ? (

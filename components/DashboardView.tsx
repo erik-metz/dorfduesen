@@ -446,17 +446,17 @@ export function DashboardView({
       </div>
 
       {/* Main Tabs (Aktivitäten vs. Trophäenschrank vs. Smart Coach vs. Benachrichtigungen) */}
-      <div className="flex items-center gap-2 border-b border-zinc-800 pb-3 overflow-x-auto scrollbar-none">
+      <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 border-b border-zinc-800 pb-3">
         <button
           onClick={() => handleTabChange('activities')}
-          className={`px-5 py-3 rounded-2xl font-bold text-sm transition-all flex items-center gap-2.5 cursor-pointer shrink-0 ${
+          className={`min-w-0 px-2 sm:px-5 py-3 rounded-2xl font-bold text-xs sm:text-sm transition-colors flex flex-wrap items-center justify-center gap-1.5 sm:gap-2.5 cursor-pointer ${
             mainTab === 'activities'
               ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20'
               : 'text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800'
           }`}
         >
           <Footprints className="w-4 h-4" />
-          <span>Aktivitäten & Statistik</span>
+          <span><span className="sm:hidden">Aktivitäten</span><span className="hidden sm:inline">Aktivitäten & Statistik</span></span>
           <span className="text-xs px-2 py-0.5 rounded-full bg-black/20 text-zinc-300">
             {stats.activityCount}
           </span>
@@ -464,14 +464,14 @@ export function DashboardView({
 
         <button
           onClick={() => handleTabChange('trophies')}
-          className={`px-5 py-3 rounded-2xl font-bold text-sm transition-all flex items-center gap-2.5 cursor-pointer shrink-0 ${
+          className={`min-w-0 px-2 sm:px-5 py-3 rounded-2xl font-bold text-xs sm:text-sm transition-colors flex flex-wrap items-center justify-center gap-1.5 sm:gap-2.5 cursor-pointer ${
             mainTab === 'trophies'
               ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20'
               : 'text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800'
           }`}
         >
           <Trophy className="w-4 h-4 text-amber-300" />
-          <span>Trophäenschrank</span>
+          <span><span className="sm:hidden">Trophäen</span><span className="hidden sm:inline">Trophäenschrank</span></span>
           <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-600/30 text-amber-300 border border-amber-500/30">
             Vitrine
           </span>
@@ -479,7 +479,7 @@ export function DashboardView({
 
         <button
           onClick={() => handleTabChange('coach')}
-          className={`px-5 py-3 rounded-2xl font-bold text-sm transition-all flex items-center gap-2.5 cursor-pointer shrink-0 ${
+          className={`min-w-0 px-2 sm:px-5 py-3 rounded-2xl font-bold text-xs sm:text-sm transition-colors flex flex-wrap items-center justify-center gap-1.5 sm:gap-2.5 cursor-pointer ${
             mainTab === 'coach'
               ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20'
               : 'text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800'
@@ -505,14 +505,14 @@ export function DashboardView({
         {!isReadOnly && (
           <button
             onClick={() => handleTabChange('notifications')}
-            className={`px-5 py-3 rounded-2xl font-bold text-sm transition-all flex items-center gap-2.5 cursor-pointer shrink-0 ${
+            className={`min-w-0 px-2 sm:px-5 py-3 rounded-2xl font-bold text-xs sm:text-sm transition-colors flex flex-wrap items-center justify-center gap-1.5 sm:gap-2.5 cursor-pointer ${
               mainTab === 'notifications'
                 ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20'
                 : 'text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800'
             }`}
           >
             <Bell className="w-4 h-4" />
-            <span>Benachrichtigungen</span>
+            <span><span className="sm:hidden">Mitteilungen</span><span className="hidden sm:inline">Benachrichtigungen</span></span>
             {unreadCount > 0 ? (
               <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-rose-600 text-white animate-pulse">
                 {unreadCount} neu

@@ -127,7 +127,7 @@ export async function CommunityFeed() {
                       Top Kilometer-Sammler
                     </span>
                   </div>
-                  <span className="text-xs text-orange-400 font-bold">
+                  <span className="shrink-0 text-right text-xs text-orange-400 font-bold">
                     {totalCommunityDistanceKm.toFixed(1)} km Gesamt
                   </span>
                 </div>
@@ -137,10 +137,10 @@ export async function CommunityFeed() {
                     <Link
                       key={ath.userId}
                       href={`/dashboard?userId=${ath.userId}`}
-                      className="flex items-center justify-between p-3.5 rounded-2xl bg-zinc-950/60 border border-zinc-800/80 hover:border-orange-500/40 hover:bg-zinc-900/60 transition-all group"
+                      className="flex items-center justify-between gap-2 p-3 sm:p-3.5 rounded-2xl bg-zinc-950/60 border border-zinc-800/80 hover:border-orange-500/40 hover:bg-zinc-900/60 transition-all group"
                       title={`${ath.name} im Dashboard ansehen`}
                     >
-                      <div className="flex items-center gap-3">
+                      <div className="flex min-w-0 items-center gap-2 sm:gap-3">
                         <span
                           className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black shrink-0 ${
                             idx === 0
@@ -161,15 +161,15 @@ export async function CommunityFeed() {
                             </div>
                           )}
                         </div>
-                        <div>
-                          <div className="text-sm font-bold text-white group-hover:text-orange-400 transition-colors leading-tight">
+                        <div className="min-w-0">
+                          <div className="break-words text-sm font-bold text-white group-hover:text-orange-400 transition-colors leading-tight">
                             {ath.name}
                           </div>
                           <div className="text-[11px] text-zinc-500">{ath.activityCount} Aktivitäten</div>
                         </div>
                       </div>
 
-                      <div className="text-right">
+                      <div className="shrink-0 whitespace-nowrap text-right">
                         <div className="text-sm font-black text-white">{ath.totalKm.toFixed(1)} km</div>
                       </div>
                     </Link>
@@ -211,7 +211,7 @@ export async function CommunityFeed() {
                     </Link>
 
                     <div className="flex items-center gap-4 shrink-0">
-                      <div className="text-right">
+                      <div className="shrink-0 whitespace-nowrap text-right">
                         <div className="text-sm font-black text-white">{(act.distance / 1000).toFixed(2)} km</div>
                         <div className="text-[10px] text-zinc-500">
                           {new Date(act.startDate).toLocaleDateString('de-DE')}

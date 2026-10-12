@@ -17,7 +17,7 @@ function formatSplitPace(metersPerSec: number, sportType: string): string {
   const paceSec = 1000 / metersPerSec;
   const m = Math.floor(paceSec / 60);
   const s = Math.floor(paceSec % 60);
-  return `${m}:${s.toString().padStart(2, '0')} /km`;
+  return `${m}:${s.toString().padStart(2, '0')}\u00a0/km`;
 }
 
 export function ActivitySplitsTable({ splits, sportType }: ActivitySplitsTableProps) {
@@ -49,11 +49,11 @@ export function ActivitySplitsTable({ splits, sportType }: ActivitySplitsTablePr
         <table className="w-full text-xs text-left">
           <thead>
             <tr className="border-b border-zinc-800/80 text-[10px] font-bold uppercase text-zinc-500">
-              <th className="py-2 px-2">KM</th>
-              <th className="py-2 px-2">{isRide ? 'Tempo' : 'Pace'}</th>
-              <th className="py-2 px-2 hidden sm:table-cell">Balken</th>
-              <th className="py-2 px-2 text-right">Höhe</th>
-              <th className="py-2 px-2 text-right"><span className="sm:hidden">Puls</span><span className="hidden sm:inline">Herzfrequenz</span></th>
+              <th className="py-2 px-1 sm:px-2">KM</th>
+              <th className="py-2 px-1 sm:px-2">{isRide ? 'Tempo' : 'Pace'}</th>
+              <th className="py-2 px-1 sm:px-2 hidden sm:table-cell">Balken</th>
+              <th className="py-2 px-1 sm:px-2 text-right">Höhe</th>
+              <th className="py-2 px-1 sm:px-2 text-right"><span className="sm:hidden">Puls</span><span className="hidden sm:inline">Herzfrequenz</span></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-900">
@@ -66,13 +66,13 @@ export function ActivitySplitsTable({ splits, sportType }: ActivitySplitsTablePr
 
               return (
                 <tr key={split.split} className="hover:bg-zinc-900/50 transition-colors">
-                  <td className="py-2 px-2 font-mono font-bold text-zinc-300">
+                  <td className="py-2 px-1 sm:px-2 font-mono font-bold text-zinc-300">
                     {split.split}
                   </td>
-                  <td className="py-2 px-2 font-mono font-semibold text-white whitespace-nowrap">
+                  <td className="py-2 px-1 sm:px-2 font-mono font-semibold text-white whitespace-nowrap">
                     {paceStr}
                   </td>
-                  <td className="py-2 px-2 hidden sm:table-cell w-36">
+                  <td className="py-2 px-1 sm:px-2 hidden sm:table-cell w-36">
                     <div className="w-full bg-zinc-900 h-2 rounded-full overflow-hidden">
                       <div
                         className="bg-orange-500 h-full rounded-full transition-all"
@@ -80,12 +80,12 @@ export function ActivitySplitsTable({ splits, sportType }: ActivitySplitsTablePr
                       />
                     </div>
                   </td>
-                  <td className={`py-2 px-2 text-right font-mono ${elevDiff > 0 ? 'text-amber-400' : elevDiff < 0 ? 'text-emerald-400' : 'text-zinc-500'}`}>
+                  <td className={`py-2 px-1 sm:px-2 text-right whitespace-nowrap font-mono ${elevDiff > 0 ? 'text-amber-400' : elevDiff < 0 ? 'text-emerald-400' : 'text-zinc-500'}`}>
                     {elevDiff > 0 ? `+${elevDiff}m` : elevDiff < 0 ? `${elevDiff}m` : '0m'}
                   </td>
-                  <td className="py-2 px-2 text-right font-mono">
+                  <td className="py-2 px-1 sm:px-2 text-right whitespace-nowrap font-mono">
                     {split.average_heartrate ? (
-                      <span className="inline-flex items-center gap-1 text-rose-400">
+                      <span className="inline-flex whitespace-nowrap items-center gap-1 text-rose-400">
                         <Heart className="w-2.5 h-2.5 fill-rose-500/20 text-rose-500" />
                         {Math.round(split.average_heartrate)} bpm
                       </span>

@@ -124,7 +124,7 @@ export function NotificationBell() {
       {/* Bell Trigger Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`relative p-2 rounded-full border transition-all cursor-pointer ${
+        className={`relative min-h-11 min-w-11 p-2 rounded-full border transition-all cursor-pointer ${
           unreadCount > 0
             ? 'bg-orange-950/40 border-orange-500/50 text-orange-400 hover:bg-orange-900/50 hover:border-orange-500'
             : 'bg-zinc-900 border-zinc-800 text-zinc-300 hover:text-white hover:bg-zinc-800'
