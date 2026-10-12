@@ -7,6 +7,13 @@ import { SpiritSection } from '@/components/SpiritSection';
 import { SundayRunSection } from '@/components/SundayRunSection';
 import { CommunityFeed } from '@/components/CommunityFeed';
 import { PostGallery } from '@/components/PostGallery';
+import { getInstagramPosts } from '@/lib/instagram/feed';
+import type { ClubData } from '@/types/club';
+
+async function InstagramGallery({ club }: { club: ClubData }) {
+  const posts = await getInstagramPosts();
+  return <PostGallery posts={posts ?? club.posts} instagramUrl={club.instagramUrl} />;
+}
 import { StravaSection } from '@/components/StravaSection';
 import { FaqSection } from '@/components/FaqSection';
 import { Footer } from '@/components/Footer';
@@ -37,7 +44,7 @@ export default async function HomePage() {
         <Suspense fallback={<CommunityFeedSkeleton />}>
           <CommunityFeed />
         </Suspense>
-        <PostGallery posts={club.posts} instagramUrl={club.instagramUrl} />
+        <Suspense fallback={<PostGallery posts={club.posts} instagramUrl={club.instagramUrl} />}><InstagramGallery club={club} /></Suspense>
         <StravaSection club={club} />
         <FaqSection club={club} />
       </main>

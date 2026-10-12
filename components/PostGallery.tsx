@@ -15,16 +15,18 @@ function PostCard({ post, instagramUrl }: { post: ClubPost; instagramUrl: string
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const hasMultipleImages = post.images.length > 1;
+  const media = post.media ?? post.images.map(url => ({ type: 'IMAGE' as const, url, poster: undefined }));
+  const current = media[currentSlide];
+  const hasMultipleImages = media.length > 1;
 
   const nextSlide = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setCurrentSlide((prev) => (prev + 1) % post.images.length);
+    setCurrentSlide((prev) => (prev + 1) % media.length);
   };
 
   const prevSlide = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setCurrentSlide((prev) => (prev - 1 + post.images.length) % post.images.length);
+    setCurrentSlide((prev) => (prev - 1 + media.length) % media.length);
   };
 
   const cleanCaption = post.caption.trim();
@@ -33,9 +35,14 @@ function PostCard({ post, instagramUrl }: { post: ClubPost; instagramUrl: string
     <div className="rounded-3xl bg-zinc-900 border border-zinc-800 overflow-hidden flex flex-col justify-between hover:border-zinc-700 transition-all shadow-xl">
       {/* Post Image Container */}
       <div className="relative aspect-square w-full bg-zinc-950 overflow-hidden group">
-        {post.images.length > 0 ? (
+        {current?.type === 'VIDEO' ? (
+          <video key={current.url} src={current.url} poster={current.poster} controls playsInline preload="none"
+            aria-label="Instagram-Video" className="h-full w-full object-contain" />
+        ) : current ? (
           <Image
-            src={post.images[currentSlide]}
+            src={current.url}
+            unoptimized={current.url.startsWith('https://')}
+            sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
             alt={`Dorfdüsen Impression Slide ${currentSlide + 1}`}
             fill
             className="object-cover group-hover:scale-102 transition-transform duration-300"
@@ -68,7 +75,7 @@ function PostCard({ post, instagramUrl }: { post: ClubPost; instagramUrl: string
             <div className="absolute top-3 right-3 px-2.5 py-1 rounded-full bg-black/70 backdrop-blur-md text-[11px] font-bold text-white flex items-center gap-1.5 shadow-md">
               <Layers className="w-3 h-3 text-orange-400" />
               <span>
-                {currentSlide + 1} / {post.images.length}
+                {currentSlide + 1} / {media.length}
               </span>
             </div>
           </>
@@ -112,9 +119,9 @@ function PostCard({ post, instagramUrl }: { post: ClubPost; instagramUrl: string
 
         {/* Action Link to Instagram */}
         <div className="pt-4 mt-4 border-t border-zinc-800/80 flex items-center justify-between">
-          <span className="text-xs text-zinc-400">Live aus Nordheim</span>
+          <span className="text-xs text-zinc-400">Momente aus Nordheim</span>
           <a
-            href={instagramUrl}
+            href={post.permalink ?? instagramUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1 text-xs font-bold text-zinc-300 hover:text-white transition-colors"

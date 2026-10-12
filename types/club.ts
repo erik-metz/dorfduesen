@@ -5,6 +5,8 @@ export interface ClubPost {
   commentCount: number | null;
   takenAt: number | null;
   images: string[];
+  permalink?: string;
+  media?: { type: 'IMAGE' | 'VIDEO'; url: string; poster?: string }[];
 }
 
 export interface ClubMember {

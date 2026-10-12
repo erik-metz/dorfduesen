@@ -9,9 +9,12 @@ import {
   finalizeAwardsMonthlyFunction,
 } from "@/lib/inngest/functions/finalizeAwardsCron";
 
+import { syncInstagramFunction } from '@/lib/inngest/functions/syncInstagram';
+
 export const { GET, POST, PUT } = serve({
   client: inngest,
   functions: [
+    syncInstagramFunction,
     generatePlanFunction,
     analyzeActivityFunction,
     syncAllUsersFunction,

@@ -313,3 +313,11 @@ model WeeklyGoal {
 
   @@unique([userId, weekKey])
 }
+
+model InstagramFeedState {
+  id             String   @id
+  posts          Json
+  syncedAt       DateTime
+  accessToken    String
+  tokenUpdatedAt DateTime
+}
