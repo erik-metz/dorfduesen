@@ -104,7 +104,7 @@ export function Hero({ club }: HeroProps) {
 
                 {/* Content Overlay */}
                 <div className="absolute bottom-0 inset-x-0 p-6 space-y-3">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="text-xs uppercase font-extrabold tracking-wider px-3 py-1 rounded-full bg-orange-600 text-white">
                       Community First
                     </span>

@@ -274,7 +274,7 @@ export function DashboardView({
   const displayName = [user.firstname, user.lastname].filter(Boolean).join(' ') || user.username || 'Dorfdüsen Athlet';
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-10">
+    <div className="w-full min-w-0 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-10">
       {/* Top Bar with back link & logout */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-800 pb-6">
         <Link
@@ -328,7 +328,7 @@ export function DashboardView({
               <Eye className="w-6 h-6" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-orange-600/30 text-orange-300 border border-orange-500/40">
                   Nur-Lese-Modus
                 </span>
@@ -406,8 +406,8 @@ export function DashboardView({
         <div className="absolute top-0 right-0 w-80 h-80 bg-orange-600/10 rounded-full blur-3xl pointer-events-none" />
 
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative z-10">
-          <div className="flex items-center gap-5">
-            <div className="relative w-20 h-20 rounded-2xl overflow-hidden border-2 border-orange-500 shadow-xl shadow-orange-500/20 shrink-0 bg-zinc-950">
+          <div className="flex min-w-0 w-full items-start sm:items-center gap-3 sm:gap-5">
+            <div className="relative w-14 h-14 sm:w-20 sm:h-20 rounded-2xl overflow-hidden border-2 border-orange-500 shadow-xl shadow-orange-500/20 shrink-0 bg-zinc-950">
               {isValidAvatarUrl(user.profile) ? (
                 <Image src={user.profile!} alt={displayName} fill unoptimized className="object-cover" />
               ) : (
@@ -417,8 +417,8 @@ export function DashboardView({
               )}
             </div>
 
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
+            <div className="min-w-0 space-y-1">
+              <div className="flex flex-wrap items-center gap-2">
                 <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-orange-600/20 text-orange-400 border border-orange-500/30">
                   Verifiziert via Strava
                 </span>
@@ -429,7 +429,7 @@ export function DashboardView({
                   </span>
                 )}
               </div>
-              <h1 className="text-2xl sm:text-3xl font-black text-white">{displayName}</h1>
+              <h1 className="text-2xl sm:text-3xl font-black text-white break-words">{displayName}</h1>
               <p className="text-xs text-zinc-400">
                 Strava Athlete ID: <span className="font-mono text-zinc-300">#{user.stravaAthleteId}</span>
               </p>
@@ -569,7 +569,7 @@ export function DashboardView({
                   <Bell className="w-5 h-5" />
                 </div>
                 <div className="space-y-0.5 min-w-0">
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <span className="text-xs font-black uppercase tracking-wider text-orange-400">
                       {unreadCount} {unreadCount === 1 ? 'neue Benachrichtigung' : 'neue Benachrichtigungen'}
                     </span>
@@ -599,7 +599,7 @@ export function DashboardView({
               <div className="text-xs font-bold uppercase tracking-wider text-zinc-400 mb-1">
                 Gesamtdistanz
               </div>
-          <div className="text-2xl sm:text-3xl font-black text-white">
+          <div className="text-2xl sm:text-3xl font-black text-white break-words">
             {stats.totalDistanceKm.toFixed(1)} <span className="text-sm text-orange-400 font-bold">km</span>
           </div>
           <div className="text-[11px] text-zinc-500 mt-1">In der Datenbank synchronisiert</div>
@@ -609,7 +609,7 @@ export function DashboardView({
           <div className="text-xs font-bold uppercase tracking-wider text-zinc-400 mb-1">
             Bewegungszeit
           </div>
-          <div className="text-2xl sm:text-3xl font-black text-white">
+          <div className="text-2xl sm:text-3xl font-black text-white break-words">
             {stats.totalHours.toFixed(1)} <span className="text-sm text-orange-400 font-bold">Std</span>
           </div>
           <div className="text-[11px] text-zinc-500 mt-1">Aktiv auf der Strecke</div>
@@ -619,7 +619,7 @@ export function DashboardView({
           <div className="text-xs font-bold uppercase tracking-wider text-zinc-400 mb-1">
             Höhenmeter
           </div>
-          <div className="text-2xl sm:text-3xl font-black text-white">
+          <div className="text-2xl sm:text-3xl font-black text-white break-words">
             {Math.round(stats.totalElevation)} <span className="text-sm text-orange-400 font-bold">m</span>
           </div>
           <div className="text-[11px] text-zinc-500 mt-1">Überwundene Steigung</div>
@@ -629,7 +629,7 @@ export function DashboardView({
           <div className="text-xs font-bold uppercase tracking-wider text-zinc-400 mb-1">
             Aktivitäten
           </div>
-          <div className="text-2xl sm:text-3xl font-black text-white">
+          <div className="text-2xl sm:text-3xl font-black text-white break-words">
             {stats.activityCount} <span className="text-sm text-orange-400 font-bold">Workouts</span>
           </div>
           <div className="text-[11px] text-zinc-500 mt-1">Läufe, Fahrten & mehr</div>
@@ -761,8 +761,8 @@ export function DashboardView({
                         )}
                       </div>
 
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
+                      <div className="min-w-0 space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
                           <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded bg-zinc-800 text-zinc-300">
                             {act.sportType}
                           </span>
@@ -808,7 +808,7 @@ export function DashboardView({
 
                     <div className="flex items-center justify-between sm:justify-end gap-5 border-t sm:border-t-0 border-zinc-800/80 pt-3 sm:pt-0">
                       <div className="text-left sm:text-right">
-                        <div className="text-base sm:text-lg font-black text-white">{distKm} km</div>
+                        <div className="text-base sm:text-lg font-black text-white break-words">{distKm} km</div>
                         <div className="text-xs text-zinc-400">{durationStr}</div>
                       </div>
 
@@ -817,7 +817,7 @@ export function DashboardView({
                         <div className="text-xs text-zinc-500">+{Math.round(act.totalElevationGain)} m</div>
                       </div>
 
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         {act.kudosCount > 0 && (
                           <span
                             className="hidden sm:inline-flex items-center gap-1 px-2 py-1 rounded-md bg-zinc-800 text-xs text-orange-400 font-bold"
@@ -876,7 +876,7 @@ export function DashboardView({
 
                       {errorMsg && (
                         <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 flex items-center justify-between gap-3 text-xs">
-                          <div className="flex items-center gap-2">
+                          <div className="flex flex-wrap items-center gap-2">
                             <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
                             <span>{errorMsg}</span>
                           </div>
@@ -913,15 +913,15 @@ export function DashboardView({
       {/* Fullscreen Modal View */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 overflow-y-auto animate-fade-in">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl w-full max-w-5xl max-h-[92vh] overflow-y-auto shadow-2xl relative flex flex-col">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl w-full max-w-5xl max-h-[92dvh] overflow-y-auto overscroll-contain shadow-2xl relative flex flex-col">
             {/* Modal Header */}
-            <div className="sticky top-0 z-20 bg-zinc-900/95 backdrop-blur-md px-6 py-4 border-b border-zinc-800 flex items-center justify-between">
-              <div className="flex items-center gap-3">
+            <div className="sticky top-0 z-20 bg-zinc-900/95 backdrop-blur-md px-4 sm:px-6 py-4 border-b border-zinc-800 flex items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-3">
                 <div className="p-2 rounded-xl bg-orange-600/15 text-orange-400 border border-orange-500/30">
                   <Flame className="w-5 h-5 text-orange-500" />
                 </div>
-                <div>
-                  <h3 className="text-lg font-black text-white">
+                <div className="min-w-0">
+                  <h3 className="text-lg font-black text-white break-words">
                     {modalDetail ? modalDetail.name : 'Aktivitäts-Vollansicht'}
                   </h3>
                   {modalDetail && (
@@ -939,8 +939,8 @@ export function DashboardView({
 
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="p-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-colors cursor-pointer"
-                title="Schließen (ESC)"
+                className="shrink-0 min-h-11 min-w-11 p-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-colors cursor-pointer"
+                title="Schließen (ESC)" aria-label="Vollansicht schließen"
               >
                 <X className="w-5 h-5" />
               </button>

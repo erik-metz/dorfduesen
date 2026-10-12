@@ -36,7 +36,7 @@ export function ActivitySplitsTable({ splits, sportType }: ActivitySplitsTablePr
 
   return (
     <div className="space-y-2 bg-zinc-950/70 p-4 sm:p-5 rounded-2xl border border-zinc-800">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h4 className="text-xs font-black uppercase tracking-wider text-zinc-300">
           Kilometer-Splits ({splits.length} km)
         </h4>
@@ -53,7 +53,7 @@ export function ActivitySplitsTable({ splits, sportType }: ActivitySplitsTablePr
               <th className="py-2 px-2">{isRide ? 'Tempo' : 'Pace'}</th>
               <th className="py-2 px-2 hidden sm:table-cell">Balken</th>
               <th className="py-2 px-2 text-right">Höhe</th>
-              <th className="py-2 px-2 text-right">Herzfrequenz</th>
+              <th className="py-2 px-2 text-right"><span className="sm:hidden">Puls</span><span className="hidden sm:inline">Herzfrequenz</span></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-900">
@@ -69,7 +69,7 @@ export function ActivitySplitsTable({ splits, sportType }: ActivitySplitsTablePr
                   <td className="py-2 px-2 font-mono font-bold text-zinc-300">
                     {split.split}
                   </td>
-                  <td className="py-2 px-2 font-mono font-semibold text-white">
+                  <td className="py-2 px-2 font-mono font-semibold text-white whitespace-nowrap">
                     {paceStr}
                   </td>
                   <td className="py-2 px-2 hidden sm:table-cell w-36">

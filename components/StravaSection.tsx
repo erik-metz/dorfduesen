@@ -11,7 +11,7 @@ export function StravaSection({ club }: StravaSectionProps) {
   return (
     <section id="strava" className="py-20 md:py-28 bg-zinc-950/80 border-t border-zinc-800/80 relative">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="rounded-3xl bg-gradient-to-br from-zinc-900 via-zinc-900/90 to-zinc-950 border border-zinc-800 p-8 sm:p-12 shadow-2xl relative overflow-hidden">
+        <div className="rounded-3xl bg-gradient-to-br from-zinc-900 via-zinc-900/90 to-zinc-950 border border-zinc-800 p-5 sm:p-12 shadow-2xl relative overflow-hidden">
           {/* Strava Orange ambient blur */}
           <div className="absolute top-0 right-0 w-96 h-96 bg-[#fc5200]/15 rounded-full blur-3xl pointer-events-none" />
 

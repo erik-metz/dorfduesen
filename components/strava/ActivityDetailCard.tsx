@@ -116,17 +116,17 @@ export function ActivityDetailCard({ detail, onOpenModal, isModal = false }: Act
         )}
 
         {/* Elevation Extents */}
-        {(detail.elevHigh !== null || detail.elevLow !== null) && (
+        {(detail.elevHigh != null || detail.elevLow != null) && (
           <div className="p-3 rounded-xl bg-zinc-950/70 border border-zinc-800/80">
             <div className="flex items-center gap-1.5 text-[11px] font-bold text-zinc-400 uppercase tracking-wider">
               <Mountain className="w-3.5 h-3.5 text-emerald-400" />
               <span>Höhe min/max</span>
             </div>
             <div className="text-lg font-black text-white mt-1">
-              {detail.elevHigh !== null ? Math.round(detail.elevHigh!) : '-'}{' '}
+              {detail.elevHigh != null ? Math.round(detail.elevHigh!) : '-'}{' '}
               <span className="text-xs text-zinc-400 font-normal">m</span>
             </div>
-            {detail.elevLow !== null && (
+            {detail.elevLow != null && (
               <div className="text-[10px] text-zinc-500 font-mono">Tiefste: {Math.round(detail.elevLow!)} m</div>
             )}
           </div>
@@ -194,7 +194,7 @@ export function ActivityDetailCard({ detail, onOpenModal, isModal = false }: Act
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Interactive Charts (Höhenprofil & Herzfrequenz) */}
         <div className={`space-y-4 ${svgMapPath ? 'lg:col-span-8' : 'lg:col-span-12'}`}>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <h4 className="text-xs font-black uppercase tracking-wider text-zinc-300">
               Interaktives Höhen- & Sensor-Profil
             </h4>
@@ -214,7 +214,7 @@ export function ActivityDetailCard({ detail, onOpenModal, isModal = false }: Act
         {/* GPS Route Map Preview */}
         {svgMapPath && (
           <div className="lg:col-span-4 space-y-2 bg-zinc-950/70 p-4 rounded-2xl border border-zinc-800">
-            <div className="flex items-center justify-between text-xs">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
               <span className="font-bold text-zinc-300 uppercase tracking-wider text-[11px] flex items-center gap-1">
                 <MapPin className="w-3.5 h-3.5 text-orange-500" />
                 GPS Strecke
@@ -272,7 +272,7 @@ export function ActivityDetailCard({ detail, onOpenModal, isModal = false }: Act
                       : 'bg-zinc-900/60 border-zinc-800/80'
                   }`}
                 >
-                  <div className="flex items-center justify-between text-xs font-bold text-zinc-300">
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-bold text-zinc-300">
                     <span>{effort.name}</span>
                     {effort.pr_rank && (
                       <span
@@ -297,7 +297,7 @@ export function ActivityDetailCard({ detail, onOpenModal, isModal = false }: Act
       {/* Segment Efforts */}
       {detail.segmentEfforts && detail.segmentEfforts.length > 0 && (
         <div className="space-y-2 bg-zinc-950/70 p-4 sm:p-5 rounded-2xl border border-zinc-800">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <h4 className="text-xs font-black uppercase tracking-wider text-zinc-300">
               Strava Segmente ({detail.segmentEfforts.length})
             </h4>
@@ -310,7 +310,7 @@ export function ActivityDetailCard({ detail, onOpenModal, isModal = false }: Act
               const s = sec % 60;
 
               return (
-                <div key={seg.id} className="py-2 flex items-center justify-between gap-3 text-xs">
+                <div key={seg.id} className="py-2 flex flex-wrap items-center justify-between gap-2 gap-3 text-xs">
                   <div className="truncate">
                     <span className="font-semibold text-zinc-200 block truncate">
                       {seg.name}

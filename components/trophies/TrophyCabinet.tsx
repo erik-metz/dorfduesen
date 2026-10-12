@@ -477,11 +477,11 @@ export function TrophyCabinet({ initialBadges, userId, isReadOnly = false }: Tro
       {/* Trophy Detail Modal */}
       {selectedTrophy && (
         <div
-          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
           onClick={() => setSelectedTrophy(null)}
         >
           <div
-            className="max-w-md w-full rounded-3xl bg-zinc-900 border border-zinc-800 p-6 sm:p-8 space-y-6 shadow-2xl relative"
+            className="max-w-md w-full max-h-[90dvh] overflow-y-auto overscroll-contain rounded-3xl bg-zinc-900 border border-zinc-800 p-6 sm:p-8 space-y-6 shadow-2xl relative"
             onClick={(e) => e.stopPropagation()}
           >
             <button

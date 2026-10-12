@@ -48,7 +48,7 @@ async function DashboardContent({
         {/* Glow */}
         <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[400px] bg-orange-600/15 blur-[120px] pointer-events-none rounded-full" />
 
-        <div className="max-w-md w-full rounded-3xl bg-zinc-900 border border-zinc-800 p-8 shadow-2xl text-center space-y-6 relative z-10">
+        <div className="max-w-md w-full rounded-3xl bg-zinc-900 border border-zinc-800 p-5 sm:p-8 shadow-2xl text-center space-y-6 relative z-10">
           <div className="w-16 h-16 rounded-2xl bg-orange-600/15 border border-orange-500/30 text-orange-500 mx-auto flex items-center justify-center text-3xl shadow-lg shadow-orange-600/20">
             <Flame className="w-8 h-8 fill-orange-500 text-orange-500" />
           </div>

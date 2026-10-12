@@ -45,10 +45,10 @@ export function TeamChallengeBar({ challenge }: TeamChallengeBarProps) {
 
       {/* Progress Bar Container */}
       <div className="space-y-2">
-        <div className="w-full h-5 rounded-full bg-zinc-950 p-1 border border-zinc-800 shadow-inner relative overflow-hidden">
+        <div role="progressbar" aria-label={challenge.title} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.max(0, Math.min(100, percentageRounded))} aria-valuetext={`${percentageRounded}% erreicht`} className="w-full h-5 rounded-full bg-zinc-950 p-1 border border-zinc-800 shadow-inner relative overflow-hidden">
           <div
             className="h-full rounded-full bg-gradient-to-r from-orange-600 via-amber-500 to-orange-500 transition-all duration-1000 shadow-lg shadow-orange-600/40 relative"
-            style={{ width: `${Math.max(4, Math.min(100, challenge.percentage))}%` }}
+            style={{ width: `${Math.max(0, Math.min(100, challenge.percentage))}%` }}
           >
             {/* Shimmer effect */}
             <div className="absolute inset-0 bg-white/20 animate-pulse rounded-full" />

@@ -607,7 +607,7 @@ export function CoachDashboard() {
             <Sparkles className="w-3.5 h-3.5" />
             <span>Sportwissenschaftlich fundiert &amp; KI-gestützt</span>
           </div>
-          <h1 className="text-3xl font-black text-white tracking-tight flex items-center gap-2">
+          <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight flex items-center gap-2">
             DorfDüsen Smart Coach
           </h1>
           <p className="text-sm text-zinc-400 mt-1">
@@ -616,7 +616,7 @@ export function CoachDashboard() {
         </div>
 
         {/* Tab switch */}
-        <div className="flex flex-wrap items-center gap-2 bg-zinc-900 border border-zinc-800 p-1 rounded-xl self-start md:self-auto">
+        <div className="flex flex-wrap max-w-full items-center gap-2 bg-zinc-900 border border-zinc-800 p-1 rounded-xl self-start md:self-auto">
           <button
             onClick={() => setActiveTab('plan')}
             className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
@@ -1292,7 +1292,7 @@ export function CoachDashboard() {
 
                 {/* History Table */}
                 <div className="rounded-xl border border-zinc-800 overflow-hidden">
-                  <div className="max-h-56 overflow-y-auto">
+                  <div className="max-h-56 overflow-auto">
                     <table className="w-full text-left text-xs">
                       <thead className="bg-zinc-950/80 text-zinc-400 border-b border-zinc-800 sticky top-0">
                         <tr>
@@ -1954,7 +1954,7 @@ export function CoachDashboard() {
             </div>
 
             {/* Biometrics */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <label className="text-xs font-bold uppercase text-zinc-300 block">
                   Körpergewicht (kg)
@@ -2019,8 +2019,8 @@ export function CoachDashboard() {
 
       {/* Modal: Delete Active Plan */}
       {showDeleteModal && plan && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl space-y-6 animate-in fade-in zoom-in-95 duration-150">
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 sm:p-8 max-w-md w-full max-h-[90dvh] overflow-y-auto overscroll-contain shadow-2xl space-y-6 animate-in fade-in zoom-in-95 duration-150">
             <div className="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center justify-center">
               <Trash2 className="w-6 h-6" />
             </div>
@@ -2066,8 +2066,8 @@ export function CoachDashboard() {
 
       {/* Modal: Replace Active Plan on New Generation */}
       {showReplaceModal && plan && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl space-y-6 animate-in fade-in zoom-in-95 duration-150">
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 sm:p-8 max-w-md w-full max-h-[90dvh] overflow-y-auto overscroll-contain shadow-2xl space-y-6 animate-in fade-in zoom-in-95 duration-150">
             <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center">
               <AlertCircle className="w-6 h-6" />
             </div>

@@ -116,7 +116,7 @@ export function Footer({ club }: FooterProps) {
 
         {/* Bottom bar */}
         <div className="pt-8 flex flex-col sm:flex-row items-center justify-between text-xs text-zinc-400 gap-4">
-          <div className="flex items-center gap-1.5">
+          <div className="flex flex-wrap justify-center items-center gap-1.5 text-center">
             <span>© {currentYear} Dorfdüsen Nordheim. Erstellt mit</span>
             <Heart className="w-3.5 h-3.5 text-orange-500 fill-orange-500" />
             <span>für die Ried-Community.</span>

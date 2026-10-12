@@ -112,7 +112,7 @@ export function SundayRunSection({ club }: SundayRunProps) {
 
           {/* Right Column: Visual Infobox / Step Guide */}
           <div className="lg:col-span-5">
-            <div className="rounded-3xl bg-zinc-900 border border-zinc-800 p-8 shadow-2xl relative overflow-hidden">
+            <div className="rounded-3xl bg-zinc-900 border border-zinc-800 p-5 sm:p-8 shadow-2xl relative overflow-hidden">
               <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/10 rounded-full blur-2xl pointer-events-none" />
 
               <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">

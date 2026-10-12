@@ -69,10 +69,10 @@ export function MultiLeaderboard({ initialEntries }: MultiLeaderboardProps) {
         {/* Filter Controls */}
         <div className="flex flex-wrap items-center gap-3">
           {/* Period selector */}
-          <div className="flex items-center bg-zinc-900 p-1 rounded-xl border border-zinc-800">
+          <div className="flex flex-wrap items-center bg-zinc-900 p-1 rounded-xl border border-zinc-800">
             <button
               onClick={() => setPeriod('week')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              className={`min-h-11 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
                 period === 'week' ? 'bg-orange-600 text-white shadow-md' : 'text-zinc-400 hover:text-white'
               }`}
             >
@@ -80,7 +80,7 @@ export function MultiLeaderboard({ initialEntries }: MultiLeaderboardProps) {
             </button>
             <button
               onClick={() => setPeriod('month')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              className={`min-h-11 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
                 period === 'month' ? 'bg-orange-600 text-white shadow-md' : 'text-zinc-400 hover:text-white'
               }`}
             >
@@ -88,7 +88,7 @@ export function MultiLeaderboard({ initialEntries }: MultiLeaderboardProps) {
             </button>
             <button
               onClick={() => setPeriod('all')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              className={`min-h-11 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
                 period === 'all' ? 'bg-orange-600 text-white shadow-md' : 'text-zinc-400 hover:text-white'
               }`}
             >
@@ -97,10 +97,10 @@ export function MultiLeaderboard({ initialEntries }: MultiLeaderboardProps) {
           </div>
 
           {/* Sport type selector */}
-          <div className="flex items-center bg-zinc-900 p-1 rounded-xl border border-zinc-800">
+          <div className="flex flex-wrap items-center bg-zinc-900 p-1 rounded-xl border border-zinc-800">
             <button
               onClick={() => setSport('all')}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              className={`min-h-11 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
                 sport === 'all' ? 'bg-zinc-800 text-white' : 'text-zinc-400 hover:text-white'
               }`}
               title="Alle Sportarten"
@@ -109,7 +109,7 @@ export function MultiLeaderboard({ initialEntries }: MultiLeaderboardProps) {
             </button>
             <button
               onClick={() => setSport('run')}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${
+              className={`min-h-11 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${
                 sport === 'run' ? 'bg-zinc-800 text-orange-400' : 'text-zinc-400 hover:text-white'
               }`}
               title="Nur Laufen"
@@ -119,7 +119,7 @@ export function MultiLeaderboard({ initialEntries }: MultiLeaderboardProps) {
             </button>
             <button
               onClick={() => setSport('ride')}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${
+              className={`min-h-11 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${
                 sport === 'ride' ? 'bg-zinc-800 text-amber-400' : 'text-zinc-400 hover:text-white'
               }`}
               title="Nur Rennrad"
@@ -154,13 +154,13 @@ export function MultiLeaderboard({ initialEntries }: MultiLeaderboardProps) {
       ) : (
         <div className={`rounded-3xl bg-zinc-900 border border-zinc-800 overflow-hidden shadow-2xl transition-opacity duration-200 ${isLoading ? 'opacity-60 pointer-events-none' : ''}`}>
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full table-fixed sm:table-auto text-left border-collapse">
               <thead>
                 <tr className="border-b border-zinc-800 text-[11px] font-black uppercase tracking-wider text-zinc-400 bg-zinc-950/40">
-                  <th className="py-4 px-4 sm:px-6 w-16 text-center">Rang</th>
-                  <th className="py-4 px-4">Athlet</th>
+                  <th className="py-4 px-2 sm:px-4 sm:px-6 w-11 sm:w-16 text-center">Rang</th>
+                  <th className="py-4 px-2 sm:px-4">Athlet</th>
                   <th
-                    className={`py-4 px-4 cursor-pointer transition-colors ${sortBy === 'distance' ? 'text-white' : 'hover:text-white'}`}
+                    className={`w-24 sm:w-auto py-4 px-2 sm:px-4 cursor-pointer transition-colors ${sortBy === 'distance' ? 'text-white' : 'hover:text-white'}`}
                     onClick={() => setSortBy('distance')}
                   >
                     <div className="flex items-center gap-1">
@@ -169,7 +169,7 @@ export function MultiLeaderboard({ initialEntries }: MultiLeaderboardProps) {
                     </div>
                   </th>
                   <th
-                    className={`py-4 px-4 cursor-pointer transition-colors hidden sm:table-cell ${sortBy === 'time' ? 'text-white' : 'hover:text-white'}`}
+                    className={`py-4 px-2 sm:px-4 cursor-pointer transition-colors hidden sm:table-cell ${sortBy === 'time' ? 'text-white' : 'hover:text-white'}`}
                     onClick={() => setSortBy('time')}
                   >
                     <div className="flex items-center gap-1">
@@ -178,7 +178,7 @@ export function MultiLeaderboard({ initialEntries }: MultiLeaderboardProps) {
                     </div>
                   </th>
                   <th
-                    className={`py-4 px-4 cursor-pointer transition-colors hidden md:table-cell ${sortBy === 'elevation' ? 'text-white' : 'hover:text-white'}`}
+                    className={`py-4 px-2 sm:px-4 cursor-pointer transition-colors hidden md:table-cell ${sortBy === 'elevation' ? 'text-white' : 'hover:text-white'}`}
                     onClick={() => setSortBy('elevation')}
                   >
                     <div className="flex items-center gap-1">
@@ -186,11 +186,11 @@ export function MultiLeaderboard({ initialEntries }: MultiLeaderboardProps) {
                       <ArrowUpDown className={`w-3 h-3 ${sortBy === 'elevation' ? 'text-orange-500' : 'text-zinc-600'}`} />
                     </div>
                   </th>
-                  <th className="py-4 px-4 hidden lg:table-cell">
+                  <th className="py-4 px-2 sm:px-4 hidden lg:table-cell">
                     {sport === 'ride' ? 'Ø Tempo' : 'Ø Pace'}
                   </th>
                   <th
-                    className={`py-4 px-4 cursor-pointer transition-colors text-right pr-6 ${sortBy === 'activities' ? 'text-white' : 'hover:text-white'}`}
+                    className={`py-4 px-2 sm:px-4 cursor-pointer transition-colors text-right pr-6 hidden sm:table-cell ${sortBy === 'activities' ? 'text-white' : 'hover:text-white'}`}
                     onClick={() => setSortBy('activities')}
                   >
                     <div className="flex items-center justify-end gap-1">
@@ -212,7 +212,7 @@ export function MultiLeaderboard({ initialEntries }: MultiLeaderboardProps) {
                       className="hover:bg-zinc-800/40 transition-colors group"
                     >
                       {/* Rank badge */}
-                      <td className="py-4 px-4 sm:px-6 text-center font-black">
+                      <td className="py-4 px-2 sm:px-4 sm:px-6 text-center font-black">
                         <span
                           className={`inline-flex items-center justify-center w-7 h-7 rounded-full text-xs ${
                             isTop1
@@ -229,10 +229,10 @@ export function MultiLeaderboard({ initialEntries }: MultiLeaderboardProps) {
                       </td>
 
                       {/* Athlete Profile */}
-                      <td className="py-4 px-4">
+                      <td className="py-4 px-2 sm:px-4">
                         <Link
                           href={`/dashboard?userId=${row.userId}`}
-                          className="flex items-center gap-3 group/link hover:opacity-90 transition-opacity"
+                          className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 group/link hover:opacity-90 transition-opacity"
                           title={`${row.name} im Dashboard ansehen`}
                         >
                           <div className="relative w-9 h-9 rounded-full overflow-hidden bg-zinc-800 shrink-0 border border-zinc-700">
@@ -251,39 +251,39 @@ export function MultiLeaderboard({ initialEntries }: MultiLeaderboardProps) {
                             )}
                           </div>
                           <div>
-                            <div className="font-bold text-white group-hover/link:text-orange-400 transition-colors">
+                            <div className="break-words font-bold text-white group-hover/link:text-orange-400 transition-colors">
                               {row.name}
                             </div>
                             <div className="text-[11px] text-zinc-500">
-                              Dorfdüse #{idx + 1}
+                              Dorfdüse #{idx + 1}<span className="block sm:hidden">{row.activityCount} Workouts</span>
                             </div>
                           </div>
                         </Link>
                       </td>
 
                       {/* Distance */}
-                      <td className="py-4 px-4 font-black text-white text-base">
+                      <td className="py-4 px-2 sm:px-4 font-black text-white text-base">
                         {row.totalDistanceKm.toFixed(1)}{' '}
                         <span className="text-xs text-orange-400 font-bold">km</span>
                       </td>
 
                       {/* Time */}
-                      <td className="py-4 px-4 text-zinc-300 hidden sm:table-cell">
+                      <td className="py-4 px-2 sm:px-4 text-zinc-300 hidden sm:table-cell">
                         {row.totalHours.toFixed(1)} Std
                       </td>
 
                       {/* Elevation */}
-                      <td className="py-4 px-4 text-zinc-400 hidden md:table-cell">
+                      <td className="py-4 px-2 sm:px-4 text-zinc-400 hidden md:table-cell">
                         +{Math.round(row.totalElevation)} m
                       </td>
 
                       {/* Average Pace */}
-                      <td className="py-4 px-4 text-zinc-400 hidden lg:table-cell font-mono text-xs">
+                      <td className="py-4 px-2 sm:px-4 text-zinc-400 hidden lg:table-cell font-mono text-xs">
                         {row.averagePace}
                       </td>
 
                       {/* Workouts count */}
-                      <td className="py-4 px-4 text-right pr-6 font-bold text-zinc-300">
+                      <td className="py-4 px-2 sm:px-4 text-right pr-6 font-bold hidden sm:table-cell text-zinc-300">
                         {row.activityCount}
                       </td>
                     </tr>

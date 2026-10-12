@@ -23,15 +23,15 @@ export function RecentActivities({ activities }: { activities: RecentArenaActivi
       ) : (
         <div className="rounded-3xl bg-zinc-900 border border-zinc-800 overflow-hidden shadow-2xl">
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse" aria-labelledby="recent-activities-title">
+            <table className="w-full table-fixed sm:table-auto text-left border-collapse" aria-labelledby="recent-activities-title">
               <thead>
                 <tr className="border-b border-zinc-800 text-[11px] font-black uppercase tracking-wider text-zinc-400 bg-zinc-950/40">
-                  <th scope="col" className="py-4 px-4">Athlet</th>
-                  <th scope="col" className="py-4 px-4 hidden md:table-cell">Aktivität</th>
-                  <th scope="col" className="py-4 px-4">Distanz</th>
-                  <th scope="col" className="py-4 px-4 hidden sm:table-cell">Zeit</th>
-                  <th scope="col" className="py-4 px-4 hidden lg:table-cell">Datum</th>
-                  <th scope="col" className="py-4 px-4 text-right pr-6">Strava</th>
+                  <th scope="col" className="py-4 px-2 sm:px-4">Athlet</th>
+                  <th scope="col" className="py-4 px-2 sm:px-4 hidden md:table-cell">Aktivität</th>
+                  <th scope="col" className="w-20 sm:w-auto py-4 px-2 sm:px-4">Distanz</th>
+                  <th scope="col" className="py-4 px-2 sm:px-4 hidden sm:table-cell">Zeit</th>
+                  <th scope="col" className="py-4 px-2 sm:px-4 hidden lg:table-cell">Datum</th>
+                  <th scope="col" className="w-14 sm:w-auto py-4 px-2 sm:px-4 text-right sm:pr-6">Strava</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-800/60 text-sm">
@@ -42,29 +42,29 @@ export function RecentActivities({ activities }: { activities: RecentArenaActivi
                   const date = new Date(activity.startDate).toLocaleString('de-DE', { timeZone: 'Europe/Berlin', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
                   return (
                     <tr key={activity.id} className="hover:bg-zinc-800/40 transition-colors group">
-                      <td className="py-4 px-4">
-                        <Link href={`/dashboard?userId=${activity.userId}`} className="flex items-center gap-3 group/link hover:opacity-90 transition-opacity rounded-lg focus-visible:outline-2 focus-visible:outline-orange-400" title={`${activity.userName} im Dashboard ansehen`}>
+                      <td className="py-4 px-2 sm:px-4">
+                        <Link href={`/dashboard?userId=${activity.userId}`} className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 group/link hover:opacity-90 transition-opacity rounded-lg focus-visible:outline-2 focus-visible:outline-orange-400" title={`${activity.userName} im Dashboard ansehen`}>
                           <div className="relative w-9 h-9 rounded-full overflow-hidden bg-zinc-800 shrink-0 border border-zinc-700">
                             {isValidAvatarUrl(activity.userProfile) ? (
                               <Image src={activity.userProfile!} alt="" fill sizes="36px" unoptimized className="object-cover" />
                             ) : <span className="w-full h-full flex items-center justify-center text-xs font-bold text-orange-400">{activity.userName.charAt(0)}</span>}
                           </div>
                           <div className="min-w-0">
-                            <div className="font-bold text-white group-hover/link:text-orange-400 transition-colors">{activity.userName}</div>
+                            <div className="break-words font-bold text-white group-hover/link:text-orange-400 transition-colors">{activity.userName}</div>
                             <div className="text-[11px] text-zinc-500">{sport}</div>
-                            <div className="text-[11px] text-zinc-400 md:hidden">{activity.name}</div>
+                            <div className="break-words text-[11px] text-zinc-400 md:hidden">{activity.name}</div>
                             <time dateTime={activity.startDate} className="block text-[11px] text-zinc-500 lg:hidden">{date}</time>
                           </div>
                         </Link>
                       </td>
-                      <td className="py-4 px-4 text-zinc-300 hidden md:table-cell">{activity.name}</td>
-                      <td className="py-4 px-4 font-black text-white text-base whitespace-nowrap">
+                      <td className="py-4 px-2 sm:px-4 text-zinc-300 hidden md:table-cell">{activity.name}</td>
+                      <td className="py-4 px-2 sm:px-4 font-black text-white text-base whitespace-nowrap">
                         {activity.distanceKm.toFixed(1)}{' '}<span className="text-xs text-orange-400 font-bold">km</span>
                         <div className="text-[11px] font-normal text-zinc-400 sm:hidden">{duration}</div>
                       </td>
-                      <td className="py-4 px-4 text-zinc-300 hidden sm:table-cell whitespace-nowrap">{duration}</td>
-                      <td className="py-4 px-4 text-zinc-400 hidden lg:table-cell whitespace-nowrap"><time dateTime={activity.startDate}>{date}</time></td>
-                      <td className="py-4 px-4 text-right pr-6">
+                      <td className="py-4 px-2 sm:px-4 text-zinc-300 hidden sm:table-cell whitespace-nowrap">{duration}</td>
+                      <td className="py-4 px-2 sm:px-4 text-zinc-400 hidden lg:table-cell whitespace-nowrap"><time dateTime={activity.startDate}>{date}</time></td>
+                      <td className="py-4 px-2 sm:px-4 text-right sm:pr-6">
                         <a href={`https://www.strava.com/activities/${activity.stravaId}`} target="_blank" rel="noopener noreferrer" aria-label={`${activity.name} auf Strava ansehen`} className="inline-flex p-2 rounded-lg text-zinc-400 hover:text-orange-400 hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-orange-400">
                           <ExternalLink className="w-4 h-4" aria-hidden="true" />
                         </a>

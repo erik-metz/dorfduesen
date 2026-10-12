@@ -23,12 +23,53 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  overflow-x: hidden;
-  selection-background-color: #fc5200;
-  selection-color: #ffffff;
 }
 
 ::selection {
   background-color: #fc5200;
   color: #ffffff;
+}
+
+/* Let content shrink inside every grid/flex layout instead of clipping it. */
+@layer base {
+  main, section, .grid > *, .flex > * {
+    min-width: 0;
+  }
+
+  h1, h2, h3, h4, p {
+    overflow-wrap: anywhere;
+  }
+
+  button, a, input, select, textarea {
+    touch-action: manipulation;
+  }
+
+  :focus-visible {
+    outline: 2px solid #fb923c;
+    outline-offset: 3px;
+  }
+
+  section[id] {
+    scroll-margin-top: 6rem;
+  }
+}
+
+@media (pointer: coarse) {
+  button, input, select, textarea {
+    min-height: 44px;
+  }
+
+  /* Avoid automatic input zoom on iOS. */
+  input, select, textarea {
+    font-size: 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
