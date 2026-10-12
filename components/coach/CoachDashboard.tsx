@@ -1104,6 +1104,10 @@ export function CoachDashboard() {
               </div>
               <div className="text-3xl font-black text-white">{profileData.calculatedVdot}</div>
               <p className="text-[11px] text-zinc-500">{profileData.profile?.vdotScore != null ? `Manuelle Vorgabe · automatisch: ${profileData.baseline.estimatedVdot}` : 'Automatisch aus Strava-Läufen'}</p>
+              <p className="text-xs leading-relaxed text-zinc-400 pt-2">
+                Dein geschätztes Leistungsniveau beim Laufen. Ein höherer Wert entspricht schnelleren Trainingspaces. Der Coach nutzt ihn für deine Tempobereiche, zum Beispiel für lockere Läufe und Intervalle.
+              </p>
+              <p className="text-[11px] leading-relaxed text-zinc-500 pt-1">Die automatische Schätzung nutzt Tempo, Höhenmeter und verfügbare Pulsdaten aus zwölf Wochen. VDOT ist keine gemessene VO₂max.</p>
             </div>
 
             <div className="bg-zinc-900 border border-zinc-800 p-5 rounded-2xl space-y-1">
@@ -1112,7 +1116,11 @@ export function CoachDashboard() {
                 <Heart className="w-4 h-4 text-rose-500" />
               </div>
               <div className="text-3xl font-black text-rose-400">{profileData.calculatedMaxHr} bpm</div>
-              <p className="text-[11px] text-zinc-500">Messung / Tanaka-Algorithmus</p>
+              <p className="text-[11px] text-zinc-500">{profileData.profile?.maxHeartrate != null ? 'Deine manuelle Vorgabe' : profileData.baseline.measuredMaxHr != null ? 'Höchster aufgezeichneter Laufpuls · letzte 12 Wochen' : 'Standard-Schätzung für 30 Jahre'}</p>
+              <p className="text-xs leading-relaxed text-zinc-400 pt-2">
+                Die höchste Herzfrequenz, die du bei maximaler Belastung erreichen kannst. „bpm“ bedeutet Herzschläge pro Minute. Dieser Wert bildet zusammen mit deinem Ruhepuls, falls vorhanden, die Grundlage deiner Pulszonen.
+              </p>
+              <p className="text-[11px] leading-relaxed text-zinc-500 pt-1">Der höchste aufgezeichnete Laufpuls kann unter deinem tatsächlichen Maximalpuls liegen. Einen bekannten Wert kannst du unten eintragen.</p>
             </div>
 
             <div className="bg-zinc-900 border border-zinc-800 p-5 rounded-2xl space-y-1">
@@ -1128,20 +1136,27 @@ export function CoachDashboard() {
 
             <div className="bg-zinc-900 border border-zinc-800 p-5 rounded-2xl space-y-1">
               <div className="flex items-center justify-between text-zinc-400 text-xs font-bold uppercase">
-                <span>ACWR Überlastungs-Index</span>
+                <span>ACWR Belastungsverhältnis</span>
                 <TrendingUp className="w-4 h-4 text-cyan-400" />
               </div>
               <div className="text-3xl font-black text-cyan-400">{profileData.baseline.acwr}</div>
               <p className="text-[11px] text-zinc-500">
-                {profileData.baseline.acwr >= 0.8 && profileData.baseline.acwr <= 1.3
-                  ? 'Optimaler Sweet Spot (0.8 - 1.3)'
-                  : 'Erhöhtes Ermüdungsrisiko'}
+                {profileData.baseline.acwr > 1
+                  ? 'Aktuell mehr Laufkilometer als im Wochenmittel'
+                  : profileData.baseline.acwr < 1
+                    ? 'Aktuell weniger Laufkilometer als im Wochenmittel'
+                    : 'Aktueller Umfang entspricht dem Wochenmittel'}
               </p>
+              <p className="text-xs leading-relaxed text-zinc-400 pt-2">
+                Vergleicht deine Laufkilometer der letzten sieben Tage mit dem wöchentlichen Durchschnitt der letzten vier Wochen. 1,0 bedeutet gleich viel, 1,5 bedeutet 50 % mehr.
+              </p>
+              <p className="text-[11px] leading-relaxed text-zinc-500 pt-1">Der Wert beschreibt deinen Laufumfang. Berücksichtige bei der Trainingsplanung auch Intensität, Erholung und dein Befinden.</p>
             </div>
           </div>
 
           <section className="bg-zinc-900 border border-cyan-500/20 rounded-3xl p-6 sm:p-8 space-y-3">
             <h3 className="text-xl font-black text-white">VO₂max · Schätzung</h3>
+            <p className="text-xs leading-relaxed text-zinc-400 max-w-3xl">Schätzt, wie viel Sauerstoff dein Körper bei maximaler Belastung pro Minute und Kilogramm Körpergewicht aufnehmen kann. Der Wert beschreibt deine aerobe Ausdauerleistungsfähigkeit; hier wird er aus Tempo und Puls geeigneter Läufe angenähert.</p>
             <div className="flex items-baseline gap-2">
               <span className="text-4xl font-black text-cyan-400">{profileData.vo2max.value ?? '—'}</span>
               <span className="text-sm text-zinc-400">ml/kg/min</span>
