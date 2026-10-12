@@ -354,7 +354,7 @@ export function DashboardView({
       {/* Team Member Switcher */}
       {allMembers && allMembers.length > 0 && (
         <div className="rounded-2xl bg-zinc-900/60 border border-zinc-800 p-4 space-y-3">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2 text-xs font-bold text-zinc-300 uppercase tracking-wider">
               <Users className="w-4 h-4 text-orange-400" />
               <span>Dorfdüsen Team ({allMembers.length} Athleten)</span>
@@ -363,7 +363,7 @@ export function DashboardView({
               Klicke auf einen Athleten, um dessen Aktivitäten im Nur-Lese-Modus anzusehen
             </span>
           </div>
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+          <div className="grid grid-cols-1 min-[360px]:grid-cols-2 sm:flex sm:flex-wrap items-start gap-2">
             {allMembers.map((member) => {
               const isSelected = member.id === user.id;
               const isMe = currentUser && member.id === currentUser.id;
@@ -372,12 +372,13 @@ export function DashboardView({
                 <Link
                   key={member.id}
                   href={href}
-                  className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 border ${
+                  className={`inline-flex min-w-0 min-h-11 items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-colors border ${
                     isSelected
                       ? 'bg-orange-600 text-white border-orange-500 shadow-md shadow-orange-600/20'
                       : 'bg-zinc-900 text-zinc-300 border-zinc-800 hover:border-zinc-700 hover:text-white'
                   }`}
                   title={`${member.name}${isMe ? ' (Du)' : ''}`}
+                  aria-current={isSelected ? 'page' : undefined}
                 >
                   <div className="relative w-5 h-5 rounded-full overflow-hidden bg-zinc-800 shrink-0 border border-zinc-700">
                     {isValidAvatarUrl(member.profile) ? (
@@ -388,9 +389,9 @@ export function DashboardView({
                       </div>
                     )}
                   </div>
-                  <span className="max-w-[120px] truncate">{member.name}</span>
+                  <span className="min-w-0 break-words">{member.name}</span>
                   {isMe && (
-                    <span className="text-[10px] px-1.5 py-0.2 rounded bg-black/30 text-zinc-300 font-normal">
+                    <span className="shrink-0 text-[10px] px-1.5 py-0.2 rounded bg-black/30 text-zinc-300 font-normal">
                       Du
                     </span>
                   )}
