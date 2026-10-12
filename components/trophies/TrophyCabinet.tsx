@@ -511,6 +511,16 @@ export function TrophyCabinet({ initialBadges, userId, isReadOnly = false }: Tro
               {selectedTrophy.description}
             </div>
 
+            {selectedTrophy.metadata && typeof selectedTrophy.metadata.activity === 'object' && selectedTrophy.metadata.activity !== null && (() => {
+              const source = selectedTrophy.metadata.activity as Record<string, unknown>;
+              return <div className="rounded-xl border border-zinc-800 p-3 text-xs text-zinc-300">
+                <div className="font-bold">Zugrunde liegende Aktivität</div>
+                <div>{String(source.name)} · {String(source.distanceKm)} km</div>
+                <div>{new Date(String(source.localDate)).toLocaleString('de-DE', { timeZone: 'UTC' })} Uhr Ortszeit</div>
+                {typeof source.stravaId === 'string' && /^\d+$/.test(source.stravaId) && <a className="text-orange-400 underline" href={`https://www.strava.com/activities/${source.stravaId}`} target="_blank" rel="noopener noreferrer">Auf Strava ansehen</a>}
+              </div>;
+            })()}
+
             {/* Status & Hints */}
             <div className="space-y-3 text-xs">
               {selectedTrophy.isUnlocked ? (
@@ -520,7 +530,8 @@ export function TrophyCabinet({ initialBadges, userId, isReadOnly = false }: Tro
                     <div className="font-bold">Erfolgreich freigeschaltet!</div>
                     {selectedTrophy.unlockedAt && (
                       <div className="text-[11px] text-emerald-400/80">
-                        Am {new Date(selectedTrophy.unlockedAt).toLocaleDateString('de-DE')}
+                        Vergeben am {new Date(selectedTrophy.unlockedAt).toLocaleDateString('de-DE', { timeZone: 'Europe/Berlin' })}
+                        <span className="block">Die zugrunde liegende Aktivität kann früher stattgefunden haben.</span>
                         {selectedTrophy.level > 1 && ` • Stufe ${selectedTrophy.level}`}
                       </div>
                     )}

@@ -1,3 +1,4 @@
+import { weekRange, monthRange, shiftDay, berlinMidnight } from '@/lib/time';
 import { db } from '@/lib/db';
 import type { Prisma } from '@prisma/client';
 import { BADGE_DEFINITIONS, ensureBadgesSeeded } from './badge-definitions';
@@ -61,6 +62,8 @@ export async function evaluateUserBadges(userId: string): Promise<UnlockedBadgeR
     where: { userId },
     select: {
       id: true,
+      name: true,
+      stravaId: true,
       distance: true,
       movingTime: true,
       totalElevationGain: true,
@@ -72,10 +75,6 @@ export async function evaluateUserBadges(userId: string): Promise<UnlockedBadgeR
     orderBy: { startDate: 'asc' },
   });
 
-  if (activities.length === 0) {
-    return [];
-  }
-
   // 2. Fetch existing badges for user
   const existingUserBadges = await db.userBadge.findMany({
     where: { userId },
@@ -85,7 +84,7 @@ export async function evaluateUserBadges(userId: string): Promise<UnlockedBadgeR
   const existingMap = new Map(existingUserBadges.map((ub) => [ub.badge.code, ub]));
 
   // 3. Aggregate statistics
-  const totalKm = activities.reduce((sum, a) => sum + a.distance, 0) / 1000;
+  let totalKm = 0;
   let maxRunDistance = 0;
   let maxRideDistance = 0;
   let maxElevation = 0;
@@ -97,14 +96,16 @@ export async function evaluateUserBadges(userId: string): Promise<UnlockedBadgeR
   // Monthly buckets: YYYY-MM -> totalKm
   const monthlyKm = new Map<string, number>();
   // Monthly activities per week: YYYY-MM -> Map<weekNum, count>
-  const monthlyWeekActivityCount = new Map<string, Map<number, number>>();
+  const monthlyWeekActivityCount = new Map<string, Map<string, number>>();
 
   for (const a of activities) {
-    const isRun = a.sportType.toLowerCase().includes('run');
-    const isRide = a.sportType.toLowerCase().includes('ride');
+    const isRun = ['Run', 'TrailRun', 'VirtualRun'].includes(a.sportType);
+    const isRide = ['Ride', 'MountainBikeRide', 'GravelRide', 'VirtualRide', 'Handcycle', 'Velomobile'].includes(a.sportType);
+    if (a.movingTime <= 0 || a.startDate > new Date()) continue;
     const localDate = new Date(a.startDateLocal || a.startDate);
 
     activityDates.push(localDate);
+    totalKm += Math.max(0, a.distance) / 1000;
 
     if (isRun && a.distance > maxRunDistance) {
       maxRunDistance = a.distance;
@@ -117,14 +118,14 @@ export async function evaluateUserBadges(userId: string): Promise<UnlockedBadgeR
     }
 
     // Sunday check
-    if (localDate.getUTCDay() === 0) {
-      const dayKey = `${localDate.getFullYear()}-${localDate.getMonth() + 1}-${localDate.getDate()}`;
+    if (isRun && localDate.getUTCDay() === 0) {
+      const dayKey = `${localDate.getUTCFullYear()}-${localDate.getUTCMonth() + 1}-${localDate.getUTCDate()}`;
       sundayDates.add(dayKey);
     }
 
     // Time of day checks
-    const hour = localDate.getHours();
-    if (hour < 7) {
+    const hour = localDate.getUTCHours();
+    if ((isRun || isRide) && hour < 7) {
       earlyMorningCount++;
     }
     if (hour >= 21) {
@@ -132,12 +133,13 @@ export async function evaluateUserBadges(userId: string): Promise<UnlockedBadgeR
     }
 
     // Monthly aggregation
-    const monthKey = `${localDate.getFullYear()}-${String(localDate.getMonth() + 1).padStart(2, '0')}`;
+    const monthKey = `${localDate.getUTCFullYear()}-${String(localDate.getUTCMonth() + 1).padStart(2, '0')}`;
     const currKm = monthlyKm.get(monthKey) || 0;
     monthlyKm.set(monthKey, currKm + a.distance / 1000);
 
     // Week in month approx
-    const weekOfMonth = Math.floor((localDate.getDate() - 1) / 7);
+    const localDay = localDate.toISOString().slice(0, 10);
+    const weekOfMonth = weekRange(berlinMidnight(localDay)).key;
     if (!monthlyWeekActivityCount.has(monthKey)) {
       monthlyWeekActivityCount.set(monthKey, new Map());
     }
@@ -151,14 +153,16 @@ export async function evaluateUserBadges(userId: string): Promise<UnlockedBadgeR
   const centuryMonths = Array.from(monthlyKm.entries()).filter(([, km]) => km >= 100);
   const doubleCenturyMonths = Array.from(monthlyKm.entries()).filter(([, km]) => km >= 200);
 
-  // Month streaker: at least 1 month where weeks 0, 1, 2, 3 each have >= 2 activities
+  // Every calendar week intersecting a completed month must qualify.
   let hasMonthStreak = false;
-  for (const [, weekMap] of monthlyWeekActivityCount.entries()) {
-    const weeksWithTwoPlus = Array.from(weekMap.values()).filter((c) => c >= 2).length;
-    if (weeksWithTwoPlus >= 4) {
-      hasMonthStreak = true;
-      break;
+  for (const [month, weekMap] of monthlyWeekActivityCount.entries()) {
+    const range = monthRange(berlinMidnight(`${month}-01`));
+    if (range.end > new Date()) continue;
+    let qualifies = true;
+    for (let key = weekRange(range.start).key; berlinMidnight(key) < range.end; key = shiftDay(key, 7)) {
+      if ((weekMap.get(key) ?? 0) < 2) { qualifies = false; break; }
     }
+    if (qualifies) { hasMonthStreak = true; break; }
   }
 
   // 4. Candidate evaluations
@@ -172,9 +176,9 @@ export async function evaluateUserBadges(userId: string): Promise<UnlockedBadgeR
   const candidates: Candidate[] = [
     {
       code: 'FIRST_DUESTE',
-      unlocked: activities.length >= 1,
+      unlocked: activityDates.length >= 1,
       level: 1,
-      metadata: { firstActivityDate: activities[0].startDate },
+      metadata: { firstActivityDate: activities[0]?.startDate },
     },
     {
       code: 'FIVE_K_BLAST',
@@ -274,15 +278,37 @@ export async function evaluateUserBadges(userId: string): Promise<UnlockedBadgeR
     },
   ];
 
+  // Keep a concrete source for the sport/time badges, including historical imports.
+  const evidenceRules: Record<string, (a: typeof activities[number]) => boolean> = {
+    CHAIN_RIGHT: a => ['Ride', 'MountainBikeRide', 'GravelRide', 'VirtualRide', 'Handcycle', 'Velomobile'].includes(a.sportType) && a.distance >= 50000,
+    NIGHT_OWL: a => new Date(a.startDateLocal || a.startDate).getUTCHours() >= 21,
+    DAWN_PATROL: a => ['Run', 'TrailRun', 'VirtualRun', 'Ride', 'MountainBikeRide', 'GravelRide', 'VirtualRide', 'Handcycle', 'Velomobile'].includes(a.sportType) && new Date(a.startDateLocal || a.startDate).getUTCHours() < 7,
+  };
+  for (const cand of candidates) {
+    const rule = evidenceRules[cand.code];
+    const source = rule && activities.find(a => a.movingTime > 0 && a.startDate <= new Date() && rule(a));
+    if (source) cand.metadata = { ...cand.metadata, activity: {
+      id: source.id, stravaId: source.stravaId, name: source.name,
+      sportType: source.sportType, distanceKm: Number((source.distance / 1000).toFixed(2)),
+      localDate: new Date(source.startDateLocal || source.startDate).toISOString(),
+    } };
+  }
+
   const results: UnlockedBadgeResult[] = [];
 
   for (const cand of candidates) {
-    if (!cand.unlocked) continue;
+    const existing = existingMap.get(cand.code);
+    if (!cand.unlocked) {
+      if (existing) {
+        await db.userBadge.deleteMany({ where: { id: existing.id, userId } });
+        await db.notification.deleteMany({ where: { userId, type: 'BADGE_UNLOCKED',
+          metadata: { path: ['code'], equals: cand.code } } });
+      }
+      continue;
+    }
 
     const def = BADGE_DEFINITIONS.find((d) => d.code === cand.code);
     if (!def) continue;
-
-    const existing = existingMap.get(cand.code);
 
     if (!existing) {
       // 1. First time unlocked!
@@ -323,7 +349,10 @@ export async function evaluateUserBadges(userId: string): Promise<UnlockedBadgeR
         isNew: true,
         level: cand.level,
       });
-    } else if (existing.level < cand.level) {
+    } else if (existing.level === cand.level) {
+      await db.userBadge.update({ where: { id: existing.id },
+        data: { metadata: cand.metadata as Prisma.InputJsonValue } });
+    } else {
       // 2. Leveled up! (e.g. Century Club count increased or Sunday Warrior level upgraded)
       await db.userBadge.update({
         where: { id: existing.id },
@@ -333,7 +362,7 @@ export async function evaluateUserBadges(userId: string): Promise<UnlockedBadgeR
         },
       });
 
-      await db.notification.create({
+      if (existing.level < cand.level) await db.notification.create({
         data: {
           userId,
           type: 'BADGE_UNLOCKED',
