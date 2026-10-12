@@ -355,7 +355,7 @@ export function TrophyCabinet({ initialBadges, userId, isReadOnly = false }: Tro
       </div>
 
       {/* Filter Tabs für alle Badges */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-zinc-800/80">
+      <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 pb-2 border-b border-zinc-800/80">
         {[
           { id: 'ALL', label: 'Alle Trophäen', count: badges.length },
           { id: 'UNLOCKED', label: 'Freigeschaltet', count: unlockedCount },
@@ -372,7 +372,8 @@ export function TrophyCabinet({ initialBadges, userId, isReadOnly = false }: Tro
           <button
             key={tab.id}
             onClick={() => setCategoryFilter(tab.id)}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
+            aria-pressed={categoryFilter === tab.id}
+            className={`min-h-11 px-2 sm:px-4 py-2 rounded-xl text-xs font-bold transition-colors whitespace-nowrap cursor-pointer flex items-center justify-center gap-1.5 shrink-0 ${
               categoryFilter === tab.id
                 ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20'
                 : 'text-zinc-400 hover:text-white bg-zinc-900/60 border border-zinc-800'
@@ -380,7 +381,7 @@ export function TrophyCabinet({ initialBadges, userId, isReadOnly = false }: Tro
           >
             <span>{tab.label}</span>
             <span
-              className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+              className={`shrink-0 text-[10px] px-1.5 py-0.2 rounded-full ${
                 categoryFilter === tab.id ? 'bg-black/20 text-white' : 'bg-zinc-800 text-zinc-400'
               }`}
             >
