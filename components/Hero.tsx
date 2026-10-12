@@ -121,9 +121,9 @@ export function Hero({ club }: HeroProps) {
                 </div>
               </div>
 
-              {/* Floating Badge */}
-              <div className="absolute -bottom-6 -left-6 sm:-bottom-8 sm:-left-8 bg-zinc-950 p-4 rounded-2xl border border-zinc-800 shadow-2xl flex items-center gap-3">
-                <div className="w-12 h-12 rounded-xl bg-orange-600/20 border border-orange-500/40 flex items-center justify-center text-orange-500 font-black text-xl">
+              {/* Beginner information stays below the image and its caption. */}
+              <div className="relative mt-4 w-full bg-zinc-950 p-4 rounded-2xl border border-zinc-800 shadow-2xl flex items-center gap-3">
+                <div className="shrink-0 w-12 h-12 rounded-xl bg-orange-600/20 border border-orange-500/40 flex items-center justify-center text-orange-500 font-black text-xl">
                   🚀
                 </div>
                 <div>
