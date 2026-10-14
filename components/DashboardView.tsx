@@ -134,7 +134,7 @@ export function DashboardView({
   const searchParams = useSearchParams();
   const pathname = usePathname();
 
-  type MainTab = 'activities' | 'trophies' | 'coach' | 'notifications';
+  type MainTab = 'activities' | 'trophies' | 'coach' | 'physiology' | 'notifications';
 
   const tabParam = searchParams.get('tab');
   const mainTab: MainTab =
@@ -142,6 +142,8 @@ export function DashboardView({
       ? 'coach'
       : tabParam === 'trophies'
       ? 'trophies'
+      : tabParam === 'physiology'
+      ? 'physiology'
       : tabParam === 'notifications' && !isReadOnly
       ? 'notifications'
       : 'activities';
@@ -446,7 +448,7 @@ export function DashboardView({
         </div>
       </div>
 
-      {/* Main Tabs (Aktivitäten vs. Trophäenschrank vs. Smart Coach vs. Benachrichtigungen) */}
+      {/* Profilbereiche */}
       <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 border-b border-zinc-800 pb-3">
         <button
           onClick={() => handleTabChange('activities')}
@@ -461,6 +463,18 @@ export function DashboardView({
           <span className="text-xs px-2 py-0.5 rounded-full bg-black/20 text-zinc-300">
             {stats.activityCount}
           </span>
+        </button>
+
+        <button
+          onClick={() => handleTabChange('physiology')}
+          className={`min-w-0 px-2 sm:px-5 py-3 rounded-2xl font-bold text-xs sm:text-sm transition-colors flex flex-wrap items-center justify-center gap-1.5 sm:gap-2.5 cursor-pointer ${
+            mainTab === 'physiology'
+              ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/20'
+              : 'text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800'
+          }`}
+        >
+          <Heart className="w-4 h-4 text-rose-400" />
+          <span>Physiologie &amp; Zonen</span>
         </button>
 
         <button
@@ -527,7 +541,23 @@ export function DashboardView({
         )}
       </div>
 
-      {mainTab === 'coach' ? (
+      {mainTab === 'physiology' ? (
+        isReadOnly ? (
+          <div className="rounded-3xl bg-zinc-900 border border-zinc-800 p-8 sm:p-12 text-center max-w-xl mx-auto space-y-4">
+            <div className="w-16 h-16 rounded-2xl bg-rose-600/15 border border-rose-500/30 text-rose-400 mx-auto flex items-center justify-center">
+              <Lock className="w-8 h-8" />
+            </div>
+            <h3 className="text-xl font-black text-white uppercase tracking-tight">Physiologie ist privat</h3>
+            <p className="text-sm text-zinc-400 leading-relaxed">Persönliche Gesundheitsmetriken und Trainingszonen sind geschützt und nur für den Athleten selbst einsehbar.</p>
+            <Link href="/dashboard?tab=physiology" className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white text-xs font-bold transition-all shadow-lg shadow-orange-600/20">
+              <ArrowLeft className="w-4 h-4" />
+              <span>Zu deiner Physiologie</span>
+            </Link>
+          </div>
+        ) : (
+          <CoachDashboard physiologyOnly />
+        )
+      ) : mainTab === 'coach' ? (
         isReadOnly ? (
           <div className="rounded-3xl bg-zinc-900 border border-zinc-800 p-8 sm:p-12 text-center max-w-xl mx-auto space-y-4">
             <div className="w-16 h-16 rounded-2xl bg-orange-600/15 border border-orange-500/30 text-orange-400 mx-auto flex items-center justify-center">

@@ -266,13 +266,13 @@ interface ProfileData {
   }>;
 }
 
-export function CoachDashboard() {
+export function CoachDashboard({ physiologyOnly = false }: { physiologyOnly?: boolean }) {
   const [plan, setPlan] = useState<Plan | null>(null);
   const [profileData, setProfileData] = useState<ProfileData | null>(null);
   const [metricsHistory, setMetricsHistory] = useState<HealthMetricItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
-  const [activeTab, setActiveTab] = useState<'plan' | 'metrics' | 'philosophy' | 'new-plan'>('plan');
+  const [activeTab, setActiveTab] = useState<'plan' | 'philosophy' | 'new-plan'>('plan');
 
   // Generator form state
   const [goalCategory, setGoalCategory] = useState<'FITNESS_BUILD' | 'SPEED_IMPROVE' | 'WEIGHT_LOSS' | 'ROUTINE' | 'DISTANCE'>('FITNESS_BUILD');
@@ -607,7 +607,7 @@ export function CoachDashboard() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-zinc-800 pb-6">
+      {!physiologyOnly && <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-zinc-800 pb-6">
         <div>
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-500/10 border border-orange-500/30 text-orange-400 text-xs font-bold uppercase tracking-wider mb-2">
             <Sparkles className="w-3.5 h-3.5" />
@@ -634,16 +634,6 @@ export function CoachDashboard() {
             Trainingsplan
           </button>
           <button
-            onClick={() => setActiveTab('metrics')}
-            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-              activeTab === 'metrics'
-                ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20'
-                : 'text-zinc-400 hover:text-white'
-            }`}
-          >
-            Physiologie &amp; Zonen
-          </button>
-          <button
             onClick={() => setActiveTab('philosophy')}
             className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
               activeTab === 'philosophy'
@@ -664,7 +654,7 @@ export function CoachDashboard() {
             + Neuer Plan
           </button>
         </div>
-      </div>
+      </div>}
 
       {generationError && (
         <div role="alert" className="p-4 rounded-2xl bg-rose-950/40 border border-rose-500/30 text-rose-300 text-sm">
@@ -689,7 +679,7 @@ export function CoachDashboard() {
       )}
 
       {/* TAB 1: ACTIVE PLAN */}
-      {activeTab === 'plan' && (
+      {!physiologyOnly && activeTab === 'plan' && (
         <div className="space-y-8">
           {/* Today's Workout Hero Card */}
           {todayWorkout ? (
@@ -1092,9 +1082,13 @@ export function CoachDashboard() {
         </div>
       )}
 
-      {/* TAB 2: PHYSIOLOGY & HEALTH METRICS */}
-      {activeTab === 'metrics' && profileData && (
+      {/* PHYSIOLOGY & HEALTH METRICS */}
+      {physiologyOnly && profileData && (
         <div className="space-y-8">
+          <div>
+            <h2 className="text-2xl sm:text-3xl font-black text-white">Physiologie &amp; Zonen</h2>
+            <p className="text-sm text-zinc-400 mt-1">Deine Leistungswerte, Gesundheitsmetriken und individuellen Trainingsbereiche.</p>
+          </div>
           {/* Key VDOT & Heartrate Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-zinc-900 border border-zinc-800 p-5 rounded-2xl space-y-1">
@@ -1459,7 +1453,7 @@ export function CoachDashboard() {
       )}
 
       {/* TAB 3: TRAINING PHILOSOPHY & SPORTS SCIENCE */}
-      {activeTab === 'philosophy' && (
+      {!physiologyOnly && activeTab === 'philosophy' && (
         <div className="space-y-8">
           {/* Hero Banner */}
           <div className="rounded-3xl bg-gradient-to-br from-zinc-900 via-zinc-900/95 to-zinc-950 border border-orange-500/30 p-6 sm:p-10 relative overflow-hidden shadow-2xl space-y-4">
@@ -1762,7 +1756,7 @@ export function CoachDashboard() {
       )}
 
       {/* TAB 4: GENERATE NEW PLAN WIZARD */}
-      {activeTab === 'new-plan' && (
+      {!physiologyOnly && activeTab === 'new-plan' && (
         <div className="max-w-2xl mx-auto bg-zinc-900 border border-zinc-800 rounded-3xl p-6 sm:p-10 shadow-2xl space-y-8">
           <div className="space-y-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
