@@ -26,6 +26,7 @@ type AuthContextValue = {
   error: string | null;
   login: () => Promise<void>;
   logout: () => Promise<void>;
+  apiFetch: (path: string, init?: RequestInit) => Promise<Response>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -195,8 +196,17 @@ export function AuthProvider({ children }: PropsWithChildren) {
     setStatus('anonymous');
   }, []);
 
+  const apiFetch = useCallback(async (path: string, init: RequestInit = {}) => {
+    if (!API_BASE_URL) throw new Error('EXPO_PUBLIC_API_URL ist nicht konfiguriert.');
+    const token = await SecureStore.getItemAsync(TOKEN_KEY);
+    if (!token) throw new Error('Deine Sitzung ist abgelaufen. Bitte melde dich erneut an.');
+    const headers = new Headers(init.headers);
+    headers.set('Authorization', `Bearer ${token}`);
+    return fetch(new URL(path, `${API_BASE_URL}/`).toString(), { ...init, headers });
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ status, user, error, login, logout }}>
+    <AuthContext.Provider value={{ status, user, error, login, logout, apiFetch }}>
       {children}
     </AuthContext.Provider>
   );

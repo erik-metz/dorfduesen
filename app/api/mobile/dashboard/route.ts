@@ -19,38 +19,47 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const page = searchParams.get('page') ?? undefined;
   const sport = searchParams.get('sport') ?? undefined;
+  const requestedUserId = searchParams.get('userId');
+  const targetUser = requestedUserId && requestedUserId !== user.id
+    ? await db.user.findUnique({ where: { id: requestedUserId }, select: { id: true, firstname: true, lastname: true, username: true, profile: true, city: true, country: true, _count: { select: { activities: true } } } })
+    : user;
+  if (!targetUser) return NextResponse.json({ error: 'Mitglied nicht gefunden.' }, { status: 404, headers });
+  const isReadOnly = targetUser.id !== user.id;
   const range = weekRange();
 
   try {
     const nextWeek = weekRange(range.end);
     const [activityData, healthMetrics, activePlan, unreadNotifications, arena, champions, goals, weekActivities] = await Promise.all([
-      getDashboardActivities(user.id, page, sport, '20'),
-      db.healthMetric.findMany({ where: { userId: user.id }, orderBy: { date: 'desc' }, take: 5 }),
-      db.trainingPlan.findFirst({
+      getDashboardActivities(targetUser.id, page, sport, '20'),
+      isReadOnly ? Promise.resolve([]) : db.healthMetric.findMany({ where: { userId: user.id }, orderBy: { date: 'desc' }, take: 5 }),
+      isReadOnly ? Promise.resolve(null) : db.trainingPlan.findFirst({
         where: { userId: user.id, status: 'ACTIVE' },
         orderBy: { createdAt: 'desc' },
         select: { id: true, title: true, status: true, currentWeek: true, totalWeeks: true, endDate: true },
       }),
-      db.notification.count({ where: { userId: user.id, isRead: false } }),
+      isReadOnly ? Promise.resolve(0) : db.notification.count({ where: { userId: user.id, isRead: false } }),
       getArenaData('week', 'all'),
-      getWeeklyChampions(undefined, user.id),
-      db.weeklyGoal.findMany({ where: { userId: user.id, weekKey: { in: [range.key, nextWeek.key] } } }),
+      getWeeklyChampions(undefined, targetUser.id),
+      db.weeklyGoal.findMany({ where: { userId: targetUser.id, weekKey: { in: [range.key, nextWeek.key] } } }),
       db.activity.findMany({
-        where: { userId: user.id, startDate: { gte: range.start, lt: range.end }, movingTime: { gt: 0 } },
+        where: { userId: targetUser.id, startDate: { gte: range.start, lt: range.end }, movingTime: { gt: 0 } },
         select: { startDateLocal: true },
       }),
     ]);
 
     return NextResponse.json({
       user: {
-        id: user.id,
-        firstname: user.firstname,
-        lastname: user.lastname,
-        username: user.username,
-        profile: sanitizeAvatarUrl(user.profile),
-        activityCount: user._count.activities,
-        lastSync: user.account?.updatedAt ?? null,
+        id: targetUser.id,
+        firstname: targetUser.firstname,
+        lastname: targetUser.lastname,
+        username: targetUser.username,
+        profile: sanitizeAvatarUrl(targetUser.profile),
+        city: 'city' in targetUser ? targetUser.city : null,
+        country: 'country' in targetUser ? targetUser.country : null,
+        activityCount: targetUser._count.activities,
+        lastSync: !isReadOnly && 'account' in targetUser ? targetUser.account?.updatedAt ?? null : null,
       },
+      isReadOnly,
       activities: activityData.activities,
       stats: activityData.stats,
       pagination: activityData.pagination,

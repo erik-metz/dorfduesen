@@ -57,13 +57,17 @@ Hinweis: Die Root-TypeScript-Konfiguration schließt `apps/mobile` aus, damit di
 
 **Umsetzungsstatus:** TypeScript-Prüfungen und API-Aufrufe gegen eine laufende Datenbank werden im Rahmen von Schritt 7 geprüft. Die Endpunkte verwenden vorhandene Datenfunktionen; es wurden keine Datenbankschemaänderungen vorgenommen.
 
-## Schritt 5: Mobiles Dashboard
+## Schritt 5: Mobiles Dashboard — umgesetzt
 
-- Dashboard-Übersicht und persönliche Kennzahlen bauen.
-- Aktivitätenliste, Filter/Pagination und Aktivitätsdetails implementieren.
-- Physiologie, Coach, Trophäen/Wochenziel sowie Benachrichtigungen nach dem in Schritt 1 definierten Umfang ergänzen.
-- Mitgliederwechsel und schreibgeschützte Fremdprofile entsprechend den bestehenden Zugriffsregeln umsetzen.
-- Arena-Kurzüberblick ins Dashboard integrieren.
+- [x] Dashboard-Übersicht mit persönlichen Kennzahlen, Wochenziel und Arena-Kurzansicht gebaut.
+- [x] Aktivitätenliste mit Lauf-/Radfiltern, Pagination, Aktivitätsdetails und Pull-to-refresh implementiert.
+- [x] Physiologie mit Trainingszonen, VO₂max/VDOT, Messwerthistorie und Erfassung von Gewicht/Ruhepuls ergänzt.
+- [x] Coach mit Trainingsprofil, editierbarer Verfügbarkeit/Terrain/Sonntagsrunde, Plananforderung und Anzeige der Trainingswochen/-einheiten ergänzt.
+- [x] Trophäen, Wochenzielbearbeitung sowie Benachrichtigungen mit „als gelesen markieren“ angebunden.
+- [x] Mitgliederauswahl und schreibgeschützte Profile/Aktivitäten eingebaut; private Physiologie-, Coach- und Benachrichtigungsbereiche bleiben auf das eigene Profil beschränkt.
+- [x] API-Aufrufe nutzen die mobile Bearer-Sitzung aus SecureStore; mobile API-Erweiterung liefert nur die minimalen Mitgliederdaten für die Auswahl.
+
+**Umsetzungsstatus:** TypeScript-Prüfungen für Web und Mobile sind erfolgreich. Prüfung auf iOS-/Android-Geräten und gegen echte API-/Datenbankdaten folgt in Schritt 7.
 
 ## Schritt 6: Mobile Düsen-Arena
 
