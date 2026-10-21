@@ -21,7 +21,7 @@ export async function GET(request: Request) {
   const sport = searchParams.get('sport') ?? undefined;
   const requestedUserId = searchParams.get('userId');
   const targetUser = requestedUserId && requestedUserId !== user.id
-    ? await db.user.findUnique({ where: { id: requestedUserId }, select: { id: true, firstname: true, lastname: true, username: true, profile: true, city: true, country: true, _count: { select: { activities: true } } } })
+    ? await db.user.findUnique({ where: { id: requestedUserId }, select: { id: true, firstname: true, lastname: true, username: true, profile: true, city: true, country: true, stravaAthleteId: true, _count: { select: { activities: true } } } })
     : user;
   if (!targetUser) return NextResponse.json({ error: 'Mitglied nicht gefunden.' }, { status: 404, headers });
   const isReadOnly = targetUser.id !== user.id;
@@ -29,7 +29,7 @@ export async function GET(request: Request) {
 
   try {
     const nextWeek = weekRange(range.end);
-    const [activityData, healthMetrics, activePlan, unreadNotifications, arena, champions, goals, weekActivities] = await Promise.all([
+    const [activityData, healthMetrics, activePlan, unreadNotifications, latestUnread, arena, champions, goals, weekActivities] = await Promise.all([
       getDashboardActivities(targetUser.id, page, sport, '20'),
       isReadOnly ? Promise.resolve([]) : db.healthMetric.findMany({ where: { userId: user.id }, orderBy: { date: 'desc' }, take: 5 }),
       isReadOnly ? Promise.resolve(null) : db.trainingPlan.findFirst({
@@ -38,6 +38,7 @@ export async function GET(request: Request) {
         select: { id: true, title: true, status: true, currentWeek: true, totalWeeks: true, endDate: true },
       }),
       isReadOnly ? Promise.resolve(0) : db.notification.count({ where: { userId: user.id, isRead: false } }),
+      isReadOnly ? Promise.resolve([]) : db.notification.findMany({ where: { userId: user.id, isRead: false }, orderBy: { createdAt: 'desc' }, take: 1, select: { title: true } }),
       getArenaData('week', 'all'),
       getWeeklyChampions(undefined, targetUser.id),
       db.weeklyGoal.findMany({ where: { userId: targetUser.id, weekKey: { in: [range.key, nextWeek.key] } } }),
@@ -54,6 +55,7 @@ export async function GET(request: Request) {
         lastname: targetUser.lastname,
         username: targetUser.username,
         profile: sanitizeAvatarUrl(targetUser.profile),
+        stravaAthleteId: targetUser.stravaAthleteId,
         city: 'city' in targetUser ? targetUser.city : null,
         country: 'country' in targetUser ? targetUser.country : null,
         activityCount: targetUser._count.activities,
@@ -65,7 +67,7 @@ export async function GET(request: Request) {
       pagination: activityData.pagination,
       physiology: { recentMetrics: healthMetrics },
       coach: { activePlan },
-      notifications: { unreadCount: unreadNotifications },
+      notifications: { unreadCount: unreadNotifications, latestUnread: latestUnread[0] ?? null },
       arena: {
         weekKm: arena.weekKm,
         weekActivitiesCount: arena.weekActivitiesCount,
