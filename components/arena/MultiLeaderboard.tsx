@@ -263,8 +263,8 @@ export function MultiLeaderboard({ initialEntries }: MultiLeaderboardProps) {
 
                       {/* Distance */}
                       <td className="py-4 px-2 sm:px-4 font-black text-white text-base">
-                        {row.totalDistanceKm.toFixed(1)}{' '}
-                        <span className="text-xs text-orange-400 font-bold">km</span>
+                        {row.totalDistanceKm > 0 ? <>{row.totalDistanceKm.toFixed(1)}{' '}
+                          <span className="text-xs text-orange-400 font-bold">km</span></> : '–'}
                       </td>
 
                       {/* Time */}

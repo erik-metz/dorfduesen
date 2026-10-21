@@ -843,7 +843,7 @@ export function DashboardView({
                     <div className="flex items-center justify-between sm:justify-end gap-5 border-t sm:border-t-0 border-zinc-800/80 pt-3 sm:pt-0">
                       <div className="text-left sm:text-right">
                         <div className="flex items-center gap-1 sm:justify-end">
-                          <span className="text-base sm:text-lg font-black text-white break-words">{distKm} km</span>
+                          <span className="text-base sm:text-lg font-black text-white break-words">{act.distance > 0 ? `${distKm} km` : '–'}</span>
                           {!isReadOnly && (isRun || isRide) && (
                             <button
                               type="button"

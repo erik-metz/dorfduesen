@@ -405,6 +405,20 @@ export async function getArenaLeaderboard(
     _sum: { distance: true, movingTime: true, totalElevationGain: true },
     _count: { _all: true },
   });
+  const correctedActivities = await db.activity.findMany({
+    where: {
+      ...(dateFilter ? { startDate: dateFilter } : {}),
+      ...(sportFilter ? { sportType: sportFilter } : {}),
+      OR: [{ extractedDistance: { not: null } }, { manualDistance: { not: null } }],
+    },
+    select: { userId: true, sportType: true, distance: true, extractedDistance: true, manualDistance: true },
+  });
+  const correctedDistanceByGroup = new Map<string, number>();
+  for (const activity of correctedActivities) {
+    const key = `${activity.userId}:${activity.sportType}`;
+    const delta = (activity.manualDistance ?? activity.extractedDistance ?? activity.distance) - activity.distance;
+    correctedDistanceByGroup.set(key, (correctedDistanceByGroup.get(key) ?? 0) + delta);
+  }
   const users = await db.user.findMany({
     where: { id: { in: [...new Set(groups.map(g => g.userId))] } },
     select: { id: true, firstname: true, lastname: true, username: true, profile: true,
@@ -413,7 +427,8 @@ export async function getArenaLeaderboard(
   const userMap = new Map(users.map(u => [u.id, u]));
   const filteredActivities = groups.flatMap(group => {
     const user = userMap.get(group.userId);
-    return user ? [{ user, sportType: group.sportType, distance: group._sum.distance || 0,
+    const key = `${group.userId}:${group.sportType}`;
+    return user ? [{ user, sportType: group.sportType, distance: (group._sum.distance || 0) + (correctedDistanceByGroup.get(key) ?? 0),
       movingTime: group._sum.movingTime || 0, totalElevationGain: group._sum.totalElevationGain || 0,
       activityCount: group._count._all }] : [];
   });

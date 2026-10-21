@@ -59,7 +59,7 @@ export function RecentActivities({ activities }: { activities: RecentArenaActivi
                       </td>
                       <td className="py-4 px-2 sm:px-4 text-zinc-300 hidden md:table-cell">{activity.name}</td>
                       <td className="py-4 px-2 sm:px-4 font-black text-white text-base whitespace-nowrap">
-                        {activity.distanceKm.toFixed(1)}{' '}<span className="text-xs text-orange-400 font-bold">km</span>
+                        {activity.distanceKm > 0 ? <>{activity.distanceKm.toFixed(1)}{' '}<span className="text-xs text-orange-400 font-bold">km</span></> : '–'}
                         <div className="text-[11px] font-normal text-zinc-400 sm:hidden">{duration}</div>
                       </td>
                       <td className="py-4 px-2 sm:px-4 text-zinc-300 hidden sm:table-cell whitespace-nowrap">{duration}</td>

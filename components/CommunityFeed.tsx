@@ -212,7 +212,7 @@ export async function CommunityFeed() {
 
                     <div className="flex items-center gap-4 shrink-0">
                       <div className="shrink-0 whitespace-nowrap text-right">
-                        <div className="text-sm font-black text-white">{(act.distance / 1000).toFixed(2)} km</div>
+                        <div className="text-sm font-black text-white">{act.distance > 0 ? `${(act.distance / 1000).toFixed(2)} km` : '–'}</div>
                         <div className="text-[10px] text-zinc-500">
                           {new Date(act.startDate).toLocaleDateString('de-DE')}
                         </div>
