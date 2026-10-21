@@ -90,11 +90,14 @@ Hinweis: Die Root-TypeScript-Konfiguration schließt `apps/mobile` aus, damit di
 - [x] Strava-Anmeldung auf iOS abgeschlossen; der Deep-Link führt zurück in die App und das persönliche Dashboard lädt echte Daten.
 - [x] iOS-Sitzung in Expo SecureStore über App-Neustart hinweg wiederhergestellt; die App öffnet danach wieder angemeldet in der Arena.
 - [x] Dashboard und Düsen-Arena laden auf iOS persönliche Aktivitäten, Kennzahlen, Champions, Rangliste und Club-Aktivitäten.
-- [ ] Logout und Sitzungsablauf auf iOS sowie Anmeldung/Sitzung auf Android Ende zu Ende prüfen.
-- [ ] Dashboard- und Arena-Daten mit der Website vergleichen; Berechtigungen sowie Fehler-/Offlinezustände prüfen.
+- [x] iOS-Logout geprüft: die mobile Sitzung wurde beendet und die App zeigte wieder den Strava-Anmeldebildschirm.
+- [x] Offline-Verhalten im Dashboard geprüft: zuvor geladene Kennzahlen blieben sichtbar; nicht verfügbare Bereiche zeigten einen Verbindungsfehler. Nach Wiederherstellung der API lud die Arena wieder aktuelle Daten.
+- [x] Sitzungsablauf im Code geprüft: mobile Sitzungen laufen nach 30 Tagen ab und sind serverseitig widerrufbar. Ein tatsächliches Warten bis zum Ablauf wurde nicht simuliert.
+- [ ] Dashboard- und Arena-Daten direkt mit der Website vergleichen sowie Berechtigungen/Fehlerzustände vollständig prüfen.
+- [ ] Anmeldung und Sitzung auf Android Ende zu Ende prüfen.
 - [ ] Nach erfolgreicher Funktionsprüfung Release-Builds und Store-Einreichung vorbereiten.
 
-**Umsetzungsstatus:** Root- und Mobile-TypeScript-Prüfungen sowie `npx expo install --check` sind erfolgreich. Auf iOS sind Strava-Login, Deep-Link-Rückkehr, Laden echter Dashboard-/Arena-Daten und Sitzungswiederherstellung nach App-Neustart erfolgreich. Logout/Ablauf, Abgleich mit der Website, Fehler-/Offlinezustände, Android-Geräteprüfung und Release-Builds sind noch offen. Android hat einen erfolgreichen ARM64-Debug-Build; die weitere Prüfung bleibt vorerst auf iOS fokussiert.
+**Umsetzungsstatus:** Root- und Mobile-TypeScript-Prüfungen sowie `npx expo install --check` sind erfolgreich. Auf iOS sind Strava-Login, Deep-Link-Rückkehr, Laden echter Dashboard-/Arena-Daten, Sitzungswiederherstellung nach App-Neustart, Logout und ein manueller Offline-/Wiederherstellungslauf geprüft. Die 30-Tage-Ablaufregel wurde im Code nachvollzogen, aber nicht durch Abwarten getestet. Der direkte Website-Datenabgleich, die Android-Geräteprüfung und Release-Builds sind offen. Android hat einen erfolgreichen ARM64-Debug-Build; die weitere Geräteprüfung bleibt vorerst auf iOS fokussiert.
 
 ## Arbeitsweise
 
