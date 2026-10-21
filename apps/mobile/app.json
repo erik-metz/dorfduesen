@@ -1,0 +1,27 @@
+{
+  "expo": {
+    "name": "Dorfdüsen",
+    "slug": "dorfduesen",
+    "version": "0.1.0",
+    "scheme": "dorfduesen",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "de.dorfduesen.app"
+    },
+    "android": {
+      "package": "de.dorfduesen.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#09090b"
+      }
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
