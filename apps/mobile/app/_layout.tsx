@@ -8,6 +8,7 @@ export default function RootLayout() {
       <StatusBar style="light" />
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#09090b' } }}>
         <Stack.Screen name="index" />
+        <Stack.Screen name="auth/callback" />
         <Stack.Screen name="(tabs)" />
       </Stack>
     </AuthProvider>

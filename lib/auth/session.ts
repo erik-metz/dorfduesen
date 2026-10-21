@@ -1,6 +1,7 @@
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { db } from '@/lib/db';
 import { requireSecret } from '@/lib/config';
+import { getMobileSessionUserId } from '@/lib/auth/mobile-session';
 
 const SESSION_COOKIE_NAME = 'dorfduesen_session';
 function getSecretKey(): string {
@@ -92,35 +93,46 @@ export async function clearSessionCookie() {
 }
 
 export async function getCurrentUser() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
-  if (!token) return null;
-
   try {
+    const requestHeaders = await headers();
+    const authorization = requestHeaders.get('authorization');
+    if (authorization) {
+      const bearerToken = authorization.match(/^Bearer\s+([A-Za-z0-9_-]{43})$/i)?.[1];
+      if (!bearerToken) return null;
+      const mobileUserId = await getMobileSessionUserId(bearerToken);
+      return mobileUserId ? await findSessionUser(mobileUserId) : null;
+    }
+
+    const cookieStore = await cookies();
+    const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
+    if (!token) return null;
+
     const session = await verifySessionToken(token);
     if (!session) return null;
 
-    const user = await db.user.findUnique({
-      where: { id: session.userId },
-      include: {
-        account: {
-          select: {
-            scope: true,
-            expiresAt: true,
-            updatedAt: true,
-          },
-        },
-        _count: {
-          select: {
-            activities: true,
-          },
-        },
-      },
-    });
-
-    return user;
+    return await findSessionUser(session.userId);
   } catch (error) {
     console.error('Error fetching current user:', error);
     return null;
   }
+}
+
+async function findSessionUser(userId: string) {
+  return await db.user.findUnique({
+    where: { id: userId },
+    include: {
+      account: {
+        select: {
+          scope: true,
+          expiresAt: true,
+          updatedAt: true,
+        },
+      },
+      _count: {
+        select: {
+          activities: true,
+        },
+      },
+    },
+  });
 }

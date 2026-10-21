@@ -23,6 +23,8 @@ model User {
   generationAttempts PlanGenerationAttempt[]
   syncState SyncState?
   account         Account?
+  mobileAuthCodes MobileAuthCode[]
+  mobileSessions  MobileSession[]
   activities      Activity[]
   syncLogs        SyncLog[]
   userBadges      UserBadge[]
@@ -45,6 +47,43 @@ model Account {
   scope        String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+}
+
+model MobileOAuthState {
+  id            String   @id @default(cuid())
+  stateHash     String   @unique
+  codeChallenge String
+  redirectUri   String
+  expiresAt     DateTime
+  createdAt     DateTime @default(now())
+
+  @@index([expiresAt])
+}
+
+model MobileAuthCode {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  codeHash      String   @unique
+  codeChallenge String
+  expiresAt     DateTime
+  createdAt     DateTime @default(now())
+
+  @@index([expiresAt])
+  @@index([userId])
+}
+
+model MobileSession {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId, revokedAt])
+  @@index([expiresAt])
 }
 
 model Activity {

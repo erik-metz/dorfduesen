@@ -33,13 +33,17 @@ Hinweis: Die Root-TypeScript-Konfiguration schließt `apps/mobile` aus, damit di
 
 ## Schritt 3: Native Strava-Anmeldung und App-Sitzung
 
-- Bestehenden serverseitigen Strava OAuth-Flow um einen mobilen Einstieg ergänzen.
-- OAuth im Systembrowser ausführen und `state` gegen CSRF absichern.
-- Nach Stravas Callback einen kurzlebigen, einmalig einlösbaren Code an einen App-Link übergeben; keine dauerhaften Tokens in Deep-Link-URLs übertragen.
-- App tauscht diesen Code über einen Backend-Endpunkt gegen eine mobile Sitzung.
-- Mobile Sitzungen widerrufbar und mit Ablaufzeit versehen; App speichert sie ausschließlich im nativen Secure Storage.
-- Backend-Authentifizierung so erweitern, dass bestehende Web-Cookies und mobile Sitzungstokens sicher unterstützt werden.
-- Ablauf für abgelehnte Freigabe, ungültigen/abgelaufenen Code, abgelaufene Sitzung und Logout abdecken.
+- [x] Bestehenden serverseitigen Strava OAuth-Flow um einen mobilen Einstieg ergänzen; Web-Login bleibt cookie-basiert.
+- [x] OAuth im Systembrowser ausführen. Der mobile Flow speichert gehashten `state` plus PKCE-Challenge serverseitig und prüft den `state` beim Callback.
+- [x] Strava-Callback übergibt nur einen zwei Minuten gültigen, einmalig einlösbaren Code an `dorfduesen://auth/callback`; der Code ist an den PKCE-Verifier gebunden.
+- [x] App tauscht den Code unter `/api/auth/mobile/exchange` gegen ein zufälliges Bearer-Token; nur dessen SHA-256-Hash wird gespeichert.
+- [x] Mobile Sitzungen sind nach 30 Tagen ungültig und über `/api/auth/logout` widerrufbar. App-Sitzung und ausstehender PKCE-Verifier liegen in Expo SecureStore.
+- [x] `getCurrentUser` akzeptiert mobile Bearer-Sitzungen und bestehende Web-Cookies; `/api/auth/me` dient zur Sitzungswiederherstellung.
+- [x] Abbruch, ungültiger State/Code, abgelaufener Code und Logout werden behandelt.
+- [x] Server-Callback `MOBILE_APP_REDIRECT_URI` und mobile `EXPO_PUBLIC_API_URL` dokumentiert.
+- [x] Prisma-Schema und Migration für OAuth-State, Einmalcodes und widerrufbare Sitzungen angelegt.
+
+**Umsetzungsstatus:** TypeScript-Prüfungen für Web und Mobile sind erfolgreich. Die Datenbankmigration wurde nicht auf eine Datenbank angewendet; OAuth-Ende-zu-Ende-Prüfung mit Strava und nativen Geräten ist für Schritt 7 vorgesehen. npm meldet weiterhin 21 Audit-Hinweise (3 moderat, 18 hoch); Pakete wurden nicht automatisch aktualisiert.
 
 ## Schritt 4: Mobile API-Verträge
 

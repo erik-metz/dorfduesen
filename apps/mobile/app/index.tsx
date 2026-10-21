@@ -3,7 +3,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 import { useAuth } from '../src/auth/AuthProvider';
 
 export default function IndexScreen() {
-  const { status } = useAuth();
+  const { status, error, login } = useAuth();
 
   if (status === 'loading') {
     return (
@@ -22,10 +22,11 @@ export default function IndexScreen() {
       <Text style={styles.eyebrow}>RUNCLUB NORDHEIM</Text>
       <Text style={styles.title}>Dorfdüsen</Text>
       <Text style={styles.copy}>Melde dich mit Strava an, um dein Dashboard und die Düsen-Arena zu öffnen.</Text>
-      <Pressable accessibilityRole="button" disabled style={({ pressed }) => [styles.button, pressed && styles.pressed]}>
+      {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
+      <Pressable accessibilityRole="button" onPress={() => void login()} style={({ pressed }) => [styles.button, pressed && styles.pressed]}>
         <Text style={styles.buttonText}>Mit Strava anmelden</Text>
       </Pressable>
-      <Text style={styles.hint}>Die sichere Anmeldung wird im nächsten Umsetzungsschritt eingerichtet.</Text>
+      <Text style={styles.hint}>Die Anmeldung erfolgt sicher über Strava. Deine Strava-Zugangsdaten werden nicht von der App gespeichert.</Text>
     </View>
   );
 }
@@ -41,6 +42,7 @@ const styles = StyleSheet.create({
   button: { alignItems: 'center', paddingVertical: 16, borderRadius: 14, backgroundColor: '#fc5200', opacity: 0.75 },
   pressed: { opacity: 0.9 },
   buttonText: { color: '#fff', fontWeight: '800', fontSize: 15 },
+  error: { color: '#fca5a5', fontSize: 13, lineHeight: 19, marginBottom: 12, textAlign: 'center' },
   hint: { color: '#71717a', fontSize: 12, lineHeight: 18, marginTop: 14, textAlign: 'center' },
   muted: { color: '#a1a1aa', fontSize: 14 },
 });
