@@ -5,6 +5,7 @@ import { inngest } from '@/lib/inngest/client';
 export interface StravaRawActivity {
   id: number;
   name: string;
+  description?: string | null;
   distance: number;
   moving_time: number;
   elapsed_time: number;
@@ -24,6 +25,16 @@ export interface StravaRawActivity {
   map?: {
     summary_polyline?: string;
   };
+}
+
+const DISTANCE_SPORTS = new Set(['run', 'virtualrun', 'trailrun', 'ride', 'virtualride', 'ebikeride', 'mountainbikeride', 'gravelride']);
+
+export function extractDistanceMeters(text: string | null | undefined): number | null {
+  if (!text) return null;
+  const match = text.match(/(?:^|[^\d.,])(\d{1,4}(?:[.,]\d{1,2})?)\s*(?:km|kilometer(?:n)?|kilometre(?:s)?)(?![a-z])/i);
+  if (!match) return null;
+  const km = Number(match[1].replace(',', '.'));
+  return Number.isFinite(km) && km > 0 && km <= 1000 ? km * 1000 : null;
 }
 
 
@@ -65,11 +76,26 @@ export async function syncUserActivities(userId: string, perPage = 100, options:
     for (const act of activities) {
       const stravaId = String(act.id);
       const sportType = act.sport_type || act.type || 'Workout';
+      let extractedDistance: number | null = null;
+      if (act.distance <= 0 && DISTANCE_SPORTS.has(sportType.toLowerCase())) {
+        let description = act.description;
+        extractedDistance = extractDistanceMeters(act.name);
+        if (extractedDistance === null && description === undefined) {
+          try {
+            const detailResponse = await fetch(`https://www.strava.com/api/v3/activities/${stravaId}`, {
+              headers: { Authorization: `Bearer ${accessToken}` }, signal: AbortSignal.timeout(10000),
+            });
+            if (detailResponse.ok) description = (await detailResponse.json()).description;
+          } catch { /* Keep syncing; title parsing still works if detail lookup fails. */ }
+        }
+        if (extractedDistance === null) extractedDistance = extractDistanceMeters(description);
+      }
       const record = await db.activity.upsert({
         where: { stravaId },
         update: {
           name: act.name,
           distance: act.distance,
+          extractedDistance,
           movingTime: act.moving_time,
           elapsedTime: act.elapsed_time,
           totalElevationGain: act.total_elevation_gain,
@@ -92,6 +118,7 @@ export async function syncUserActivities(userId: string, perPage = 100, options:
           stravaId,
           name: act.name,
           distance: act.distance,
+          extractedDistance,
           movingTime: act.moving_time,
           elapsedTime: act.elapsed_time,
           totalElevationGain: act.total_elevation_gain,

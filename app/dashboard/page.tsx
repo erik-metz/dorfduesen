@@ -186,6 +186,7 @@ async function DashboardContent({
     stravaId: act.stravaId,
     name: act.name,
     distance: act.distance,
+    manualDistance: act.manualDistance,
     movingTime: act.movingTime,
     totalElevationGain: act.totalElevationGain,
     sportType: act.sportType,

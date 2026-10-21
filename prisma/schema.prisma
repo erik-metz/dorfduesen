@@ -54,6 +54,8 @@ model Activity {
   stravaId           String   @unique
   name               String
   distance           Float    // Distance in meters
+  extractedDistance  Float?   // Distance recovered from a zero-distance activity title/description, in meters
+  manualDistance     Float?   // User correction in meters
   movingTime         Int      // Moving time in seconds
   elapsedTime        Int      // Elapsed time in seconds
   totalElevationGain Float    // Meters

@@ -28,6 +28,7 @@ import {
   Eye,
   Users,
   Lock,
+  Pencil,
 } from 'lucide-react';
 import { StravaIcon } from '@/components/icons/BrandIcons';
 import { polylineToSvgPath } from '@/lib/strava/polyline';
@@ -45,6 +46,7 @@ export interface ActivityItem {
   stravaId: string;
   name: string;
   distance: number;
+  manualDistance: number | null;
   movingTime: number;
   totalElevationGain: number;
   sportType: string;
@@ -203,6 +205,7 @@ export function DashboardView({
   const [errorIds, setErrorIds] = useState<Record<string, string>>({});
   const [modalDetail, setModalDetail] = useState<ActivityDetailData | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [distanceSaving, setDistanceSaving] = useState<string | null>(null);
 
   // Close modal on ESC key
   useEffect(() => {
@@ -839,7 +842,43 @@ export function DashboardView({
 
                     <div className="flex items-center justify-between sm:justify-end gap-5 border-t sm:border-t-0 border-zinc-800/80 pt-3 sm:pt-0">
                       <div className="text-left sm:text-right">
-                        <div className="text-base sm:text-lg font-black text-white break-words">{distKm} km</div>
+                        <div className="flex items-center gap-1 sm:justify-end">
+                          <span className="text-base sm:text-lg font-black text-white break-words">{distKm} km</span>
+                          {!isReadOnly && (isRun || isRide) && (
+                            <button
+                              type="button"
+                              title="Distanz korrigieren"
+                              aria-label={`Distanz für ${act.name} korrigieren`}
+                              disabled={distanceSaving === act.stravaId}
+                              onClick={async (event) => {
+                                event.stopPropagation();
+                                const value = window.prompt('Distanz in Kilometern eingeben (0 setzt auf Strava-Wert zurück):', distKm);
+                                if (value === null) return;
+                                const km = Number(value.replace(',', '.'));
+                                if (!Number.isFinite(km) || km < 0 || km > 1000) {
+                                  window.alert('Bitte eine Distanz zwischen 0 und 1000 km eingeben.');
+                                  return;
+                                }
+                                setDistanceSaving(act.stravaId);
+                                try {
+                                  const response = await fetch(`/api/strava/activities/${encodeURIComponent(act.stravaId)}/distance`, {
+                                    method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ distanceKm: km }),
+                                  });
+                                  if (!response.ok) throw new Error('Distanz konnte nicht gespeichert werden.');
+                                  router.refresh();
+                                } catch (error) {
+                                  window.alert(error instanceof Error ? error.message : 'Fehler beim Speichern.');
+                                } finally {
+                                  setDistanceSaving(null);
+                                }
+                              }}
+                              className="rounded p-1 text-zinc-500 hover:text-orange-400 disabled:opacity-50"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
+                        {act.manualDistance !== null && <div className="text-[10px] text-orange-400">Manuell korrigiert</div>}
                         <div className="text-xs text-zinc-400">{durationStr}</div>
                       </div>
 
