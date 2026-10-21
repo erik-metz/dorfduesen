@@ -216,6 +216,17 @@ export default function DashboardScreen() {
     finally { setSectionLoading(false); }
   }
 
+  async function savePhysiologyProfile(values: { vdotScore: number | null; maxHeartrate: number | null }) {
+    setSectionLoading(true); setActionMessage(null);
+    try {
+      await responseJson(await apiFetch('/api/coach/profile', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(values) }));
+      const profile = await responseJson<Record<string, unknown>>(await apiFetch('/api/coach/profile'));
+      setSectionData(current => ({ ...(current ?? {}), ...profile }));
+      setActionMessage('Leistungsdaten und Pulszonen aktualisiert.');
+    } catch (saveError) { setActionMessage(saveError instanceof Error ? saveError.message : 'Leistungsdaten konnten nicht gespeichert werden.'); }
+    finally { setSectionLoading(false); }
+  }
+
   async function markNotification(notificationId?: string) {
     try {
       await responseJson(await apiFetch('/api/notifications', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(notificationId ? { notificationId } : { all: true }) }));
@@ -285,7 +296,7 @@ export default function DashboardScreen() {
               <View style={styles.inlineRow}>{[1, 2, 3, 4, 5, 6, 7].map(day => <Pressable key={day} accessibilityRole="button" accessibilityState={{ selected: goalDays === day }} style={[styles.dayOption, goalDays === day && styles.dayOptionActive]} onPress={() => setGoalDays(day)}><Text style={styles.dayText}>{day}</Text></Pressable>)}</View>
               <Pressable style={styles.primaryButton} onPress={() => void saveGoal()} disabled={sectionLoading}><Text style={styles.primaryButtonText}>Ziel für nächste Woche speichern</Text></Pressable>
             </View> : null}
-            {sectionData ? <SectionContent tab={tab} sectionData={sectionData} weight={weight} setWeight={setWeight} restingHr={restingHr} setRestingHr={setRestingHr} goalType={goalType} setGoalType={setGoalType} addMetric={() => void addMetric()} requestPlan={() => void requestPlan()} saveCoachProfile={values => void saveCoachProfile(values)} markNotification={(id) => void markNotification(id)} /> : !sectionLoading ? <Text style={styles.copy}>{actionMessage ?? 'Keine Daten vorhanden.'}</Text> : null}
+            {sectionData ? <SectionContent tab={tab} sectionData={sectionData} weight={weight} setWeight={setWeight} restingHr={restingHr} setRestingHr={setRestingHr} goalType={goalType} setGoalType={setGoalType} addMetric={() => void addMetric()} requestPlan={() => void requestPlan()} savePhysiologyProfile={values => void savePhysiologyProfile(values)} saveCoachProfile={values => void saveCoachProfile(values)} markNotification={(id) => void markNotification(id)} /> : !sectionLoading ? <Text style={styles.copy}>{actionMessage ?? 'Keine Daten vorhanden.'}</Text> : null}
           </>}
         </View> : null}
       </> : null}
@@ -297,30 +308,46 @@ function StatCard({ label, value, sub }: { label: string; value: string; sub: st
   return <View style={styles.statCard}><Text style={styles.small}>{label}</Text><Text style={styles.statValue}>{value}</Text><Text style={styles.tiny}>{sub}</Text></View>;
 }
 
-function SectionContent({ tab, sectionData, weight, setWeight, restingHr, setRestingHr, goalType, setGoalType, addMetric, requestPlan, saveCoachProfile, markNotification }: {
+function SectionContent({ tab, sectionData, weight, setWeight, restingHr, setRestingHr, goalType, setGoalType, addMetric, requestPlan, savePhysiologyProfile, saveCoachProfile, markNotification }: {
   tab: DashboardTab; sectionData: Record<string, unknown>; weight: string; setWeight: (v: string) => void;
   restingHr: string; setRestingHr: (v: string) => void; goalType: string; setGoalType: (v: string) => void;
   addMetric: () => void; requestPlan: () => void;
+  savePhysiologyProfile: (values: { vdotScore: number | null; maxHeartrate: number | null }) => void;
   saveCoachProfile: (values: { weeklyAvailability: number; preferredTerrain: string; includeSundayRun: boolean }) => void;
   markNotification: (id?: string) => void;
 }) {
   const profile = sectionData.profile as Record<string, unknown> | null;
+  const [vdotInput, setVdotInput] = useState(String(profile?.vdotScore ?? ''));
+  const [maxHrInput, setMaxHrInput] = useState(String(profile?.maxHeartrate ?? ''));
   const [availability, setAvailability] = useState(Number(profile?.weeklyAvailability ?? 3));
   const [terrain, setTerrain] = useState(String(profile?.preferredTerrain ?? 'ROAD'));
   const [includeSundayRun, setIncludeSundayRun] = useState(Boolean(profile?.includeSundayRun ?? true));
   if (tab === 'Physiologie') {
     const metrics = (sectionData.metrics ?? []) as DashboardData['physiology']['recentMetrics'];
     const profile = sectionData.profile as Record<string, unknown> | null;
-      const zones = sectionData.zones as Array<{ name?: string; minHr?: number; maxHr?: number }> | undefined;
+    const baseline = sectionData.baseline as Record<string, any> | undefined;
+    const vo2 = sectionData.vo2max as Record<string, any> | undefined;
+    const paces = sectionData.paces as Record<string, string> | undefined;
+    const zones = sectionData.zones as Array<{ zone?: number; name?: string; description?: string; minHr?: number; maxHr?: number }> | undefined;
+    const history = sectionData.history as Array<Record<string, any>> | undefined;
+    const metricCard = { width: '47%' as const, flexGrow: 1 as const, backgroundColor: '#18181b', borderColor: '#27272a', borderWidth: 1, borderRadius: 14, padding: 13, gap: 4 };
+    const metricLabel = { color: '#a1a1aa', fontSize: 10, fontWeight: '800' as const, textTransform: 'uppercase' as const };
     return <View style={styles.stack}>
-      <Text style={styles.copy}>VO₂max: {String((sectionData.vo2max as { value?: number } | undefined)?.value ?? 'noch nicht berechnet')} · VDOT: {String(sectionData.calculatedVdot ?? profile?.vdotScore ?? '–')}</Text>
-      <Text style={styles.copy}>Maximalpuls: {String(sectionData.calculatedMaxHr ?? profile?.maxHeartrate ?? '–')} bpm · Ruhepuls: {String(profile?.restingHeartrate ?? '–')} bpm</Text>
-      {zones?.length ? <View>{zones.map((zone, index) => <Text key={index} style={styles.small}>{zone.name ?? `Zone ${index + 1}`}: {zone.minHr ?? '–'}–{zone.maxHr ?? '–'} bpm</Text>)}</View> : null}
-      <Text style={styles.subheading}>Messwerte eintragen</Text>
-      <View style={styles.inlineRow}><TextInput style={styles.input} value={weight} onChangeText={setWeight} placeholder="Gewicht kg" placeholderTextColor="#71717a" keyboardType="decimal-pad" /><TextInput style={styles.input} value={restingHr} onChangeText={setRestingHr} placeholder="Ruhepuls bpm" placeholderTextColor="#71717a" keyboardType="number-pad" /></View>
-      <Pressable style={styles.primaryButton} onPress={addMetric}><Text style={styles.primaryButtonText}>Messwert speichern</Text></Pressable>
-      <Text style={styles.subheading}>Letzte Einträge</Text>
-      {metrics.length ? metrics.map(metric => <Text key={metric.id} style={styles.small}>{new Date(metric.date).toLocaleDateString('de-DE')}: {metric.weightKg ? `${metric.weightKg} kg` : ''}{metric.weightKg && metric.restingHeartrate ? ' · ' : ''}{metric.restingHeartrate ? `${metric.restingHeartrate} bpm Ruhepuls` : ''}</Text>) : <Text style={styles.copy}>Noch keine Physiologie-Messwerte.</Text>}
+      <Text style={styles.copy}>Deine Leistungswerte, Gesundheitsmetriken und individuellen Trainingsbereiche.</Text>
+      <View style={styles.inlineRow}>
+        {[
+          ['VDOT Fitnesswert', String(sectionData.calculatedVdot ?? '–'), profile?.vdotScore != null ? `Manuell · automatisch ${baseline?.estimatedVdot ?? '–'}` : 'Automatisch aus Strava-Läufen'],
+          ['Maximalpuls (HRmax)', `${sectionData.calculatedMaxHr ?? '–'} bpm`, profile?.maxHeartrate != null ? 'Manuelle Vorgabe' : baseline?.measuredMaxHr != null ? 'Höchster aufgezeichneter Laufpuls · 12 Wochen' : 'Standard-Schätzung'],
+          ['Wochen-Ø Volumen', `${baseline?.averageWeeklyKm ?? '–'} km`, 'Basis der letzten 8 Wochen'],
+          ['ACWR Belastungsverhältnis', String(baseline?.acwr ?? '–'), 'Laufumfang letzte 7 Tage vs. 4-Wochenmittel'],
+        ].map(([label, value, hint]) => <View key={label} style={metricCard}><Text style={metricLabel}>{label}</Text><Text style={{ color: '#f4f4f5', fontSize: 22, fontWeight: '900' }}>{value}</Text><Text style={styles.tiny}>{hint}</Text></View>)}
+      </View>
+      <View style={styles.weekCard}><Text style={styles.subheading}>VO₂max · Schätzung</Text><Text style={{ color: '#22d3ee', fontSize: 32, fontWeight: '900' }}>{vo2?.value ?? '—'} <Text style={{ fontSize: 13, color: '#a1a1aa' }}>ml/kg/min</Text></Text><Text style={styles.copy}>Datenqualität: {vo2?.quality === 'moderate' ? 'Mittel' : vo2?.quality === 'limited' ? 'Begrenzt' : 'Unzureichend'} · {vo2?.sampleCount ?? 0} geeignete Läufe / 6 Wochen</Text><Text style={styles.small}>{vo2?.reason ?? 'Der Wert wird aus geeigneten Lauf- und Pulsdaten geschätzt.'}</Text><Text style={styles.small}>Verwendeter Maximalpuls: {vo2?.maxHr ?? sectionData.calculatedMaxHr ?? '–'} bpm · {vo2?.method === 'oxygen-reserve' ? 'mit Ruhepuls / Sauerstoffreserve' : 'ohne Ruhepuls / Anteil am Maximalpuls'}</Text>{vo2?.latestSampleDate ? <Text style={styles.tiny}>Letzter geeigneter Lauf: {new Date(vo2.latestSampleDate).toLocaleDateString('de-DE')}</Text> : null}<Text style={styles.tiny}>VO₂max ist eine Modellschätzung und keine Messung. Sie verändert weder VDOT noch Trainings-Paces.</Text></View>
+      {history?.length ? <View style={styles.weekCard}><Text style={styles.subheading}>Deine Entwicklung · 26 Wochen</Text><Text style={styles.tiny}>Rekonstruierte Wochenwerte für VDOT, VO₂max, Laufumfang, Pulszonen und Vitaldaten.</Text><ScrollView horizontal><View><View style={styles.inlineRow}>{['Datum', 'VDOT', 'VO₂max', 'km/Woche', 'Ruhepuls', 'Gewicht'].map(title => <Text key={title} style={[styles.tiny, { width: 78, fontWeight: '800' }]}>{title}</Text>)}</View>{history.map((point, index) => <View key={point.date ?? index} style={[styles.inlineRow, { borderTopWidth: 1, borderColor: '#27272a', paddingVertical: 7 }]}><Text style={[styles.small, { width: 78 }]}>{new Date(point.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })}</Text><Text style={[styles.small, { width: 78 }]}>{point.vdot ?? '–'}</Text><Text style={[styles.small, { width: 78 }]}>{point.vo2max?.value ?? '–'}</Text><Text style={[styles.small, { width: 78 }]}>{point.baseline?.averageWeeklyKm ?? '–'}</Text><Text style={[styles.small, { width: 78 }]}>{point.restingHeartrate ?? '–'}</Text><Text style={[styles.small, { width: 78 }]}>{point.weightKg ?? '–'}</Text></View>)}</View></ScrollView><Text style={styles.tiny}>Historische manuelle VDOT- und Maximalpuls-Vorgaben sind nicht gespeichert; frühere Zonen und Paces sind rekonstruiert.</Text></View> : null}
+      <View style={styles.weekCard}><Text style={styles.subheading}>Leistungsniveau & VDOT-Feinabstimmung</Text><Text style={styles.small}>VDOT wird aus Pace, Steigung und verfügbaren Pulsdaten geschätzt. Ein bekannter VDOT oder Maximalpuls kann manuell gesetzt werden.</Text><View style={styles.inlineRow}><TextInput style={styles.input} value={vdotInput} onChangeText={setVdotInput} placeholder="VDOT, z. B. 45" placeholderTextColor="#71717a" keyboardType="decimal-pad" /><TextInput style={styles.input} value={maxHrInput} onChangeText={setMaxHrInput} placeholder="Maximalpuls bpm" placeholderTextColor="#71717a" keyboardType="number-pad" /></View><Pressable style={styles.primaryButton} onPress={() => savePhysiologyProfile({ vdotScore: vdotInput.trim() ? Number(vdotInput.replace(',', '.')) : null, maxHeartrate: maxHrInput.trim() ? Number(maxHrInput) : null })}><Text style={styles.primaryButtonText}>Paces & Zonen aktualisieren</Text></Pressable><Text style={styles.tiny}>Aktuell verwendet: VDOT {String(sectionData.calculatedVdot ?? '–')} · HRmax {String(sectionData.calculatedMaxHr ?? '–')} bpm</Text><View style={styles.inlineRow}>{[['Easy / Grundlage', 'easy'], ['Marathon / zügig', 'marathon'], ['Threshold / Schwelle', 'threshold'], ['Intervall / VO₂max', 'interval']].map(([label, key]) => <View key={key} style={metricCard}><Text style={metricLabel}>{label}</Text><Text style={{ color: '#f4f4f5', fontSize: 16, fontWeight: '800' }}>{paces?.[`${key}Min`] ?? '–'} – {paces?.[`${key}Max`] ?? '–'}</Text><Text style={styles.tiny}>min/km</Text></View>)}</View></View>
+      <View style={styles.weekCard}><Text style={styles.subheading}>Deine 5 Herzfrequenz-Zonen</Text><Text style={styles.tiny}>Pulsbereiche für gezielte aerobe und anaerobe Anpassung.</Text>{zones?.map((zone, index) => <View key={zone.zone ?? index} style={[styles.workout, { flexDirection: 'row', alignItems: 'center', gap: 10 }]}><Text style={styles.tabBadge}>Z{zone.zone ?? index + 1}</Text><View style={{ flex: 1 }}><Text style={styles.activityName}>{zone.name}</Text><Text style={styles.tiny}>{zone.description}</Text></View><Text style={styles.small}>{zone.minHr}–{zone.maxHr} bpm</Text></View>)}</View>
+      <View style={styles.weekCard}><Text style={styles.subheading}>Körperdaten & Vital-Tracking</Text><Text style={styles.small}>Gewicht und Ruhepuls historisch erfassen. Die Werte fließen in Verlauf und Pulszonen ein.</Text><View style={styles.inlineRow}><TextInput style={styles.input} value={weight} onChangeText={setWeight} placeholder="Gewicht kg" placeholderTextColor="#71717a" keyboardType="decimal-pad" /><TextInput style={styles.input} value={restingHr} onChangeText={setRestingHr} placeholder="Ruhepuls bpm" placeholderTextColor="#71717a" keyboardType="number-pad" /></View><Pressable style={styles.primaryButton} onPress={addMetric}><Text style={styles.primaryButtonText}>Messwert speichern</Text></Pressable><Text style={styles.tiny}>Ruhepuls aktuell: {String(profile?.restingHeartrate ?? '–')} bpm · Maximalpuls: {String(sectionData.calculatedMaxHr ?? '–')} bpm</Text>
+        {metrics.length ? <><Text style={styles.subheading}>Messhistorie · {metrics.length} Einträge</Text>{metrics.slice(0, 15).map(metric => <View key={metric.id} style={styles.spaceBetween}><Text style={styles.small}>{new Date(metric.date).toLocaleDateString('de-DE')}</Text><Text style={styles.small}>{metric.weightKg ? `${metric.weightKg} kg` : '–'} · {metric.restingHeartrate ? `${metric.restingHeartrate} bpm` : '–'}{metric.notes ? ` · ${metric.notes}` : ''}</Text></View>)}</> : <Text style={styles.small}>Noch keine manuellen Messwerte eingetragen.</Text>}</View>
     </View>;
   }
   if (tab === 'Coach') {
