@@ -81,10 +81,16 @@ Hinweis: Die Root-TypeScript-Konfiguration schließt `apps/mobile` aus, damit di
 
 ## Schritt 7: Plattformprüfung und Release-Vorbereitung
 
-- iOS und Android auf Anmeldung, App-Link-Rückkehr, Sitzungsspeicherung/-ablauf und Logout prüfen.
-- Dashboard- und Arena-Daten mit der Website vergleichen; Berechtigungen und Fehler-/Offlinezustände prüfen.
-- App-Konfiguration, Strava-Callback/Deep Links, Build-Konfiguration und notwendige Umgebungsvariablen dokumentieren.
-- Erst nach erfolgreicher Prüfung Release-Builds bzw. Store-Einreichung vorbereiten.
+- [x] Expo-Konfiguration geprüft (SDK 57, Scheme `dorfduesen`, Bundle-/Package-ID `de.dorfduesen.app`); Abhängigkeiten stimmen mit SDK 57 überein.
+- [x] Native Projekte mit Expo Prebuild generiert. iOS-Debug-Build erfolgreich erstellt und App im iPhone-17-Pro-Simulator bis zum Login-Bildschirm gestartet.
+- [x] Android-Debug-APK für `arm64-v8a` erfolgreich mit Gradle erstellt (`:app:assembleDebug`). Ein Android-Emulator konnte auf diesem Rechner nicht gestartet werden; die App wurde dort deshalb noch nicht geöffnet.
+- [x] Setup-Anleitung um lokale API-Adressen für iOS-Simulator, Android-Emulator und physische Geräte sowie Strava-Callback, App-Scheme und regenerierte native Projekte ergänzt.
+- [ ] Native Anmeldung inklusive Deep-Link-Rückkehr, Sitzungsspeicherung/-ablauf und Logout auf iOS und Android Ende zu Ende prüfen.
+- [ ] Dashboard- und Arena-Daten mit der Website vergleichen; Berechtigungen sowie Fehler-/Offlinezustände prüfen.
+- [ ] Vor dem Ende-zu-Ende-Lauf Server-URL konfigurieren und Prisma-Migration gezielt auf der gewünschten Datenbank anwenden.
+- [ ] Nach erfolgreicher Funktionsprüfung Release-Builds und Store-Einreichung vorbereiten.
+
+**Umsetzungsstatus:** Root- und Mobile-TypeScript-Prüfungen sowie `npx expo install --check` sind erfolgreich. Der iOS-Simulator wurde bis zum Login-Bildschirm geprüft und Android hat einen erfolgreichen ARM64-Debug-Build. OAuth/API-Ende zu Ende, Datenbankmigration und echte Dashboard-/Arena-Daten sind noch offen: Für die mobile App ist keine API-URL konfiguriert und die Prisma-Migration wurde nicht angewendet. Die Migration muss vor dem nächsten Integrationslauf auf der vorgesehenen Datenbank ausgeführt werden.
 
 ## Arbeitsweise
 
