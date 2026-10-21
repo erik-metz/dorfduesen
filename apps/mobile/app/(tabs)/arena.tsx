@@ -9,6 +9,7 @@ type LeaderboardEntry = {
 };
 type Champion = {
   id: string; title: string; subtitle: string; icon: string;
+  kind?: 'recognition';
   winner: null | { userId: string; name: string; profile: string | null; value: number; formattedValue: string };
   recipients?: Array<{ userId: string; name: string; profile: string | null; value: number; formattedValue: string }>;
 };
@@ -64,6 +65,17 @@ export default function ArenaScreen() {
     if (sortBy === 'activities') return b.activityCount - a.activityCount;
     return b.totalDistanceKm - a.totalDistanceKm;
   }), [data?.leaderboard, sortBy]);
+  const featuredChampions = useMemo(() => {
+    const shown = new Set<string>();
+    return (data?.champions ?? []).map(champion => {
+      const recipients = champion.recipients ?? (champion.winner ? [champion.winner] : []);
+      const featured = champion.kind === 'recognition'
+        ? recipients.find(recipient => !shown.has(recipient.userId)) ?? recipients[0]
+        : champion.winner ?? recipients[0];
+      if (featured) shown.add(featured.userId);
+      return { champion, featured, recipientCount: recipients.length };
+    });
+  }, [data?.champions]);
 
   const openMember = (userId: string) => router.push({ pathname: '/(tabs)/dashboard', params: { userId } });
   const formatDuration = (seconds: number) => {
@@ -95,11 +107,11 @@ export default function ArenaScreen() {
 
       <View style={styles.sectionHead}><Text style={styles.sectionTitle}>Champions der Woche</Text><Text style={styles.small}>Montag bis Sonntag</Text></View>
       <View style={styles.championList}>
-        {data.champions.map(champion => <View key={champion.id} style={styles.championCard}>
+        {featuredChampions.map(({ champion, featured, recipientCount }) => <View key={champion.id} style={styles.championCard}>
           <Text style={styles.championIcon}>{champion.icon}</Text><View style={{ flex: 1, gap: 3 }}>
             <Text style={styles.cardTitle}>{champion.title}</Text><Text style={styles.small}>{champion.subtitle}</Text>
-            {champion.winner ? <Pressable onPress={() => openMember(champion.winner!.userId)}><Text style={styles.championWinner}>{champion.winner.name} · {champion.winner.formattedValue}</Text></Pressable> : <Text style={styles.small}>Noch niemand an der Spitze</Text>}
-            {(champion.recipients ?? []).length > 1 ? <Text style={styles.tiny}>{champion.recipients!.length} Mitglieder ausgezeichnet</Text> : null}
+            {featured ? <Pressable onPress={() => openMember(featured.userId)}><Text style={styles.championWinner}>{featured.name} · {featured.formattedValue}</Text></Pressable> : <Text style={styles.small}>Noch niemand an der Spitze</Text>}
+            {recipientCount > 1 ? <Text style={styles.tiny}>{recipientCount} Mitglieder ausgezeichnet</Text> : null}
           </View>
         </View>)}
       </View>
