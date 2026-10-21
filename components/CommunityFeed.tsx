@@ -33,7 +33,8 @@ export async function CommunityFeed() {
   try {
     const rawActivities = await db.activity.findMany({
       select: {
-        id: true, stravaId: true, userId: true, name: true, distance: true, sportType: true, startDate: true,
+        id: true, stravaId: true, userId: true, name: true, distance: true,
+        extractedDistance: true, manualDistance: true, sportType: true, startDate: true,
         user: {
           select: {
             firstname: true,
@@ -52,7 +53,7 @@ export async function CommunityFeed() {
       stravaId: act.stravaId,
       userId: act.userId,
       name: act.name,
-      distance: act.distance,
+      distance: act.manualDistance ?? act.extractedDistance ?? act.distance,
       sportType: act.sportType,
       startDate: act.startDate.toISOString(),
       userName: [act.user.firstname, act.user.lastname].filter(Boolean).join(' ') || act.user.username || 'Dorfdüse',
