@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useLocalSearchParams } from 'expo-router';
 import { useAuth } from '../../src/auth/AuthProvider';
 
 type Activity = {
@@ -36,6 +37,7 @@ function displayName(user: { firstname: string | null; lastname: string | null; 
 
 export default function DashboardScreen() {
   const { user, logout, apiFetch } = useAuth();
+  const params = useLocalSearchParams<{ userId?: string }>();
   const [tab, setTab] = useState<DashboardTab>('Aktivitäten');
   const [data, setData] = useState<DashboardData | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
@@ -53,6 +55,10 @@ export default function DashboardScreen() {
   const [restingHr, setRestingHr] = useState('');
   const [goalDays, setGoalDays] = useState(2);
   const [goalType, setGoalType] = useState('GENERAL_FITNESS');
+
+  useEffect(() => {
+    if (params.userId) setSelectedUserId(params.userId);
+  }, [params.userId]);
 
   const loadDashboard = useCallback(async (showLoading = true) => {
     if (showLoading) setLoading(true);

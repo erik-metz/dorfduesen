@@ -2,6 +2,7 @@ import { NextResponse, connection } from 'next/server';
 import { getCurrentUser } from '@/lib/auth/session';
 import { getArenaData } from '@/lib/arena/stats';
 import { getRecentArenaActivities } from '@/lib/arena/recent-activities';
+import { sanitizeAvatarUrl } from '@/lib/utils/avatar';
 
 const headers = { 'Cache-Control': 'private, no-store, max-age=0' };
 
@@ -31,9 +32,13 @@ export async function GET(request: Request) {
         activeAthletesCount: arena.activeAthletesCount,
       },
       challenge: arena.challenge,
-      champions: arena.champions,
-      leaderboard: arena.leaderboard,
-      recentActivities,
+      champions: arena.champions.map(champion => ({
+        ...champion,
+        winner: champion.winner ? { ...champion.winner, profile: sanitizeAvatarUrl(champion.winner.profile) } : null,
+        recipients: champion.recipients?.map(recipient => ({ ...recipient, profile: sanitizeAvatarUrl(recipient.profile) })),
+      })),
+      leaderboard: arena.leaderboard.map(entry => ({ ...entry, profile: sanitizeAvatarUrl(entry.profile) })),
+      recentActivities: recentActivities.map(activity => ({ ...activity, userProfile: sanitizeAvatarUrl(activity.userProfile) })),
       badges: arena.availableBadges,
     }, { headers });
   } catch (error) {

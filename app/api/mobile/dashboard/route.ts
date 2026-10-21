@@ -57,7 +57,7 @@ export async function GET(request: Request) {
         city: 'city' in targetUser ? targetUser.city : null,
         country: 'country' in targetUser ? targetUser.country : null,
         activityCount: targetUser._count.activities,
-        lastSync: !isReadOnly && 'account' in targetUser ? targetUser.account?.updatedAt ?? null : null,
+        lastSync: isReadOnly ? null : user.account?.updatedAt ?? null,
       },
       isReadOnly,
       activities: activityData.activities,

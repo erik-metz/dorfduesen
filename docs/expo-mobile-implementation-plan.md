@@ -69,12 +69,15 @@ Hinweis: Die Root-TypeScript-Konfiguration schließt `apps/mobile` aus, damit di
 
 **Umsetzungsstatus:** TypeScript-Prüfungen für Web und Mobile sind erfolgreich. Prüfung auf iOS-/Android-Geräten und gegen echte API-/Datenbankdaten folgt in Schritt 7.
 
-## Schritt 6: Mobile Düsen-Arena
+## Schritt 6: Mobile Düsen-Arena — umgesetzt
 
-- Arena als eigenen Navigationsbereich mit Team-Kennzahlen, Challenge und Wochen-Champions umsetzen.
-- Bestenliste mit Zeitraum- und Sportartauswahl bauen.
-- Letzte Aktivitäten und Badges für kleine Bildschirme gestalten.
-- Links zwischen Arena-Mitgliedern und deren schreibgeschützten Dashboards abbilden.
+- [x] Eigenen Arena-Tab mit Team-Kennzahlen, Challenge-Fortschritt und Wochen-Champions umgesetzt.
+- [x] Bestenliste mit Wochen-/Monats-/Gesamtzeitraum, Sportartfilter und Sortierung nach Distanz, Zeit, Höhenmetern oder Einheiten gebaut.
+- [x] Community-Aktivitäten und Badge-Katalog in kompakten Karten für kleine Displays umgesetzt.
+- [x] Mitglieder aus Champions, Bestenliste und Aktivitätsfeed öffnen deren schreibgeschütztes Dashboard.
+- [x] Profilbilder in den mobilen Arena-Antworten auf sichere absolute URLs begrenzt.
+
+**Umsetzungsstatus:** TypeScript-Prüfungen für Web und Mobile sind erfolgreich. Abgleich mit echten Daten und Geräteprüfung folgt in Schritt 7.
 
 ## Schritt 7: Plattformprüfung und Release-Vorbereitung
 
