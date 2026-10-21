@@ -86,13 +86,14 @@ Hinweis: Die Root-TypeScript-Konfiguration schließt `apps/mobile` aus, damit di
 - [x] Android-Debug-APK für `arm64-v8a` erfolgreich mit Gradle erstellt (`:app:assembleDebug`). Ein Android-Emulator konnte auf diesem Rechner nicht gestartet werden; die App wurde dort deshalb noch nicht geöffnet.
 - [x] Setup-Anleitung um lokale API-Adressen für iOS-Simulator, Android-Emulator und physische Geräte sowie Strava-Callback, App-Scheme und regenerierte native Projekte ergänzt.
 - [x] iOS-Simulator lokal mit `EXPO_PUBLIC_API_URL=http://localhost:3000` gestartet; der geschützte Dashboard-Endpunkt antwortet ohne Sitzung erwartungsgemäß mit `401`.
-- [x] Strava-Login-Aufruf erreicht den Next.js-Server. Ende-zu-Ende-Anmeldung stoppt derzeit mit `500`, weil die mobile OAuth-Migration noch nicht auf der konfigurierten Datenbank liegt.
+- [x] Prisma-Migration `20261021130000_mobile_auth` auf der konfigurierten Neon-Datenbank angewendet.
+- [x] Strava-Login-Aufruf erreicht den Next.js-Server und öffnet im iOS-Simulator die Strava-Anmeldeseite.
 - [ ] Native Anmeldung inklusive Deep-Link-Rückkehr, Sitzungsspeicherung/-ablauf und Logout auf iOS und Android Ende zu Ende prüfen.
 - [ ] Dashboard- und Arena-Daten mit der Website vergleichen; Berechtigungen sowie Fehler-/Offlinezustände prüfen.
-- [ ] Prisma-Migration `20261021130000_mobile_auth` nach ausdrücklicher Freigabe auf der vorgesehenen Datenbank anwenden; danach iOS-Login erneut prüfen.
+- [ ] Strava-Anmeldung im Simulator abschließen und OAuth-Rückkehr, Sitzung sowie Dashboard/Arena mit echten Daten prüfen.
 - [ ] Nach erfolgreicher Funktionsprüfung Release-Builds und Store-Einreichung vorbereiten.
 
-**Umsetzungsstatus:** Root- und Mobile-TypeScript-Prüfungen sowie `npx expo install --check` sind erfolgreich. iOS zeigt den Login-Bildschirm; der lokale API-Endpunkt ist erreichbar und der Strava-Login erreicht den Server. Der End-to-End-Flow kann erst fortgesetzt werden, wenn die ausstehende Prisma-Migration freigegeben und angewendet wurde. Android hat einen erfolgreichen ARM64-Debug-Build, wird aber vorerst nicht weiter geprüft. Echte Dashboard-/Arena-Daten, OAuth-Rückkehr und Release-Builds sind noch offen.
+**Umsetzungsstatus:** Root- und Mobile-TypeScript-Prüfungen sowie `npx expo install --check` sind erfolgreich. Die mobile Auth-Migration ist angewendet, der lokale API-Endpunkt ist erreichbar und der Strava-Login öffnet im iOS-Simulator die Strava-Anmeldeseite. OAuth-Rückkehr, Sitzung, echte Dashboard-/Arena-Daten und Release-Builds sind noch zu prüfen. Android hat einen erfolgreichen ARM64-Debug-Build, wird aber vorerst nicht weiter geprüft.
 
 ## Arbeitsweise
 
