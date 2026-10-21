@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Image, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Image, Linking, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { useAuth } from '../../src/auth/AuthProvider';
 import { ActivityDetail } from '../../src/components/ActivityDetail';
@@ -106,7 +106,7 @@ export default function DashboardScreen() {
   }, [apiFetch]);
 
   useEffect(() => {
-    if (tab === 'Aktivitäten' || !data || data.isReadOnly && ['Physiologie', 'Coach', 'Trophäen', 'Hinweise'].includes(tab)) {
+    if (tab === 'Aktivitäten' || !data || data.isReadOnly && ['Physiologie', 'Coach', 'Hinweise'].includes(tab)) {
       setSectionData(null);
       return;
     }
@@ -236,6 +236,17 @@ export default function DashboardScreen() {
     } catch (markError) { setActionMessage(markError instanceof Error ? markError.message : 'Benachrichtigungen konnten nicht aktualisiert werden.'); }
   }
 
+  async function refreshTrophies() {
+    setSectionLoading(true); setActionMessage(null);
+    try {
+      await responseJson(await apiFetch('/api/trophies/evaluate', { method: 'POST' }));
+      const trophies = await responseJson<Record<string, unknown>>(await apiFetch('/api/trophies'));
+      setSectionData(trophies);
+      setActionMessage('Erfolge neu abgeglichen.');
+    } catch (refreshError) { setActionMessage(refreshError instanceof Error ? refreshError.message : 'Trophäen konnten nicht abgeglichen werden.'); }
+    finally { setSectionLoading(false); }
+  }
+
   return (
     <ScrollView style={styles.page} contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor="#fc7a3d" />}>
       {members.length > 1 ? <View style={styles.memberPanel}>
@@ -266,12 +277,12 @@ export default function DashboardScreen() {
         {tab === 'Aktivitäten' && data.notifications.unreadCount > 0 && !data.isReadOnly ? <View style={styles.notificationBanner}>
           <Text style={styles.notificationBell}>♧</Text><View style={styles.notificationCopy}><Text style={styles.notificationTitle}>{data.notifications.unreadCount} NEUE {data.notifications.unreadCount === 1 ? 'BENACHRICHTIGUNG' : 'BENACHRICHTIGUNGEN'}</Text><Text numberOfLines={1} style={styles.copy}>{data.notifications.latestUnread?.title ?? 'Neue Updates in der Arena oder bei deinen Badges.'}</Text></View><Pressable accessibilityRole="button" onPress={() => setTab('Hinweise')} style={styles.notificationButton}><Text style={styles.notificationButtonText}>Anzeigen ›</Text></Pressable>
         </View> : null}
-        <View style={styles.statsGrid}>
+        {tab === 'Aktivitäten' ? <View style={styles.statsGrid}>
           <StatCard label="Gesamtdistanz" value={`${data.stats.totalDistanceKm.toFixed(1)} km`} sub="In der Datenbank synchronisiert" />
           <StatCard label="Bewegungszeit" value={`${data.stats.totalHours.toFixed(1)} Std`} sub="Aktiv auf der Strecke" />
           <StatCard label="Höhenmeter" value={`${Math.round(data.stats.totalElevation)} m`} sub="Überwundene Steigung" />
           <StatCard label="Aktivitäten" value={`${data.stats.activityCount} Workouts`} sub="Läufe, Fahrten & mehr" />
-        </View>
+        </View> : null}
         {actionMessage ? <Text style={styles.statusMessage}>{actionMessage}</Text> : null}
         {tab === 'Aktivitäten' ? <View style={styles.section}>
           <View style={styles.spaceBetween}><Text style={styles.cardTitle}>Aktivitäten</Text><Text style={styles.small}>{data.pagination.filteredCount} insgesamt</Text></View>
@@ -292,11 +303,11 @@ export default function DashboardScreen() {
           <View style={styles.spaceBetween}><Text style={styles.cardTitle}>{tab}</Text>{sectionLoading ? <ActivityIndicator color="#fc7a3d" /> : null}</View>
           {data.isReadOnly && ['Physiologie', 'Coach', 'Hinweise'].includes(tab) ? <Text style={styles.copy}>Dieser Bereich ist nur für dein eigenes Profil verfügbar.</Text> : <>
             {tab === 'Trophäen' && !data.isReadOnly ? <View style={styles.weekCard}>
-              <Text style={styles.cardTitle}>🎯 Wochenziel</Text><Text style={styles.copy}>Diese Woche: {data.arena.weeklyGoal.activeDays} aktive {data.arena.weeklyGoal.activeDays === 1 ? 'Tag' : 'Tage'}{data.arena.weeklyGoal.targetActiveDays ? ` von ${data.arena.weeklyGoal.targetActiveDays}` : ''}. Nächste Woche legst du dein Ziel fest.</Text>
+              <Text style={styles.cardTitle}>🎯 Vorgenommen. Durchgezogen.</Text><Text style={styles.copy}>Deine Woche. Dein Ziel. Wie oft willst du raus?</Text><Text style={styles.copy}>{data.arena.weeklyGoal.targetActiveDays ? `Diese Woche: ${data.arena.weeklyGoal.activeDays} von ${data.arena.weeklyGoal.targetActiveDays} aktiven Tagen geschafft.` : 'Diese Woche zählt jeder aktive Tag. Dein eigenes Ziel startet nächste Woche.'}</Text><Text style={styles.small}>Ab {data.arena.weeklyGoal.nextWeekKey.split('-').reverse().join('.')}:</Text>
               <View style={styles.inlineRow}>{[1, 2, 3, 4, 5, 6, 7].map(day => <Pressable key={day} accessibilityRole="button" accessibilityState={{ selected: goalDays === day }} style={[styles.dayOption, goalDays === day && styles.dayOptionActive]} onPress={() => setGoalDays(day)}><Text style={styles.dayText}>{day}</Text></Pressable>)}</View>
-              <Pressable style={styles.primaryButton} onPress={() => void saveGoal()} disabled={sectionLoading}><Text style={styles.primaryButtonText}>Ziel für nächste Woche speichern</Text></Pressable>
+              <Pressable style={styles.primaryButton} onPress={() => void saveGoal()} disabled={sectionLoading}><Text style={styles.primaryButtonText}>{sectionLoading ? 'Speichert …' : 'Ziel festmachen'}</Text></Pressable><Text style={styles.tiny}>Bis Montag kannst du’s ändern. Danach steht’s. Ruhetage gehören dazu.</Text>
             </View> : null}
-            {sectionData ? <SectionContent tab={tab} sectionData={sectionData} weight={weight} setWeight={setWeight} restingHr={restingHr} setRestingHr={setRestingHr} goalType={goalType} setGoalType={setGoalType} addMetric={() => void addMetric()} requestPlan={() => void requestPlan()} savePhysiologyProfile={values => void savePhysiologyProfile(values)} saveCoachProfile={values => void saveCoachProfile(values)} markNotification={(id) => void markNotification(id)} /> : !sectionLoading ? <Text style={styles.copy}>{actionMessage ?? 'Keine Daten vorhanden.'}</Text> : null}
+            {sectionData ? <SectionContent tab={tab} sectionData={sectionData} arena={data.arena} isReadOnly={data.isReadOnly} sectionLoading={sectionLoading} goalDays={goalDays} setGoalDays={setGoalDays} weight={weight} setWeight={setWeight} restingHr={restingHr} setRestingHr={setRestingHr} goalType={goalType} setGoalType={setGoalType} addMetric={() => void addMetric()} requestPlan={() => void requestPlan()} refreshTrophies={() => void refreshTrophies()} savePhysiologyProfile={values => void savePhysiologyProfile(values)} saveCoachProfile={values => void saveCoachProfile(values)} markNotification={(id) => void markNotification(id)} /> : !sectionLoading ? <Text style={styles.copy}>{actionMessage ?? 'Keine Daten vorhanden.'}</Text> : null}
           </>}
         </View> : null}
       </> : null}
@@ -308,10 +319,12 @@ function StatCard({ label, value, sub }: { label: string; value: string; sub: st
   return <View style={styles.statCard}><Text style={styles.small}>{label}</Text><Text style={styles.statValue}>{value}</Text><Text style={styles.tiny}>{sub}</Text></View>;
 }
 
-function SectionContent({ tab, sectionData, weight, setWeight, restingHr, setRestingHr, goalType, setGoalType, addMetric, requestPlan, savePhysiologyProfile, saveCoachProfile, markNotification }: {
+function SectionContent({ tab, sectionData, arena, isReadOnly, sectionLoading, goalDays, setGoalDays, weight, setWeight, restingHr, setRestingHr, goalType, setGoalType, addMetric, requestPlan, refreshTrophies, savePhysiologyProfile, saveCoachProfile, markNotification }: {
   tab: DashboardTab; sectionData: Record<string, unknown>; weight: string; setWeight: (v: string) => void;
+  isReadOnly: boolean; sectionLoading: boolean;
+  arena: DashboardData['arena']; goalDays: number; setGoalDays: (v: number) => void;
   restingHr: string; setRestingHr: (v: string) => void; goalType: string; setGoalType: (v: string) => void;
-  addMetric: () => void; requestPlan: () => void;
+  addMetric: () => void; requestPlan: () => void; refreshTrophies: () => void;
   savePhysiologyProfile: (values: { vdotScore: number | null; maxHeartrate: number | null }) => void;
   saveCoachProfile: (values: { weeklyAvailability: number; preferredTerrain: string; includeSundayRun: boolean }) => void;
   markNotification: (id?: string) => void;
@@ -324,6 +337,8 @@ function SectionContent({ tab, sectionData, weight, setWeight, restingHr, setRes
   const [includeSundayRun, setIncludeSundayRun] = useState(Boolean(profile?.includeSundayRun ?? true));
   const [historyMetric, setHistoryMetric] = useState('vdot');
   const [historyIndex, setHistoryIndex] = useState(25);
+  const [trophyFilter, setTrophyFilter] = useState('ALL');
+  const [selectedTrophy, setSelectedTrophy] = useState<Record<string, any> | null>(null);
   if (tab === 'Physiologie') {
     const metrics = (sectionData.metrics ?? []) as DashboardData['physiology']['recentMetrics'];
     const profile = sectionData.profile as Record<string, unknown> | null;
@@ -378,11 +393,17 @@ function SectionContent({ tab, sectionData, weight, setWeight, restingHr, setRes
     </View>;
   }
   if (tab === 'Trophäen') {
-    const badges = (sectionData.badges ?? []) as Array<{ code: string; name: string; description: string; icon: string; isUnlocked: boolean; level: number }>;
-    const stats = sectionData.stats as { unlockedCount?: number; totalCount?: number } | undefined;
+    const badges = (sectionData.badges ?? []) as Array<Record<string, any>>;
+    const stats = sectionData.stats as { unlockedCount?: number; totalCount?: number; weeklyCrownsCount?: number; monthlyAwardsCount?: number } | undefined;
+    const unlocked = badges.filter(badge => badge.isUnlocked).length;
+    const weeklyTitles = ['WEEKLY_RUN_DISTANCE', 'WEEKLY_RIDE_DISTANCE', 'WEEKLY_STAYED_ACTIVE', 'WEEKLY_ROUTINE', 'WEEKLY_GOAL', 'WEEKLY_PROGRESS'];
+    const filteredBadges = badges.filter(badge => trophyFilter === 'ALL' || trophyFilter === 'UNLOCKED' && badge.isUnlocked || trophyFilter === 'LOCKED' && !badge.isUnlocked || trophyFilter === 'WEEKLY' && badge.category === 'WEEKLY' || trophyFilter === 'MONTHLY' && badge.category === 'MONTHLY' || trophyFilter === 'DISTANCE' && badge.category === 'DISTANCE' || trophyFilter === 'COMMUNITY' && ['COMMUNITY', 'STREAK'].includes(badge.category));
     return <View style={styles.stack}>
-      <Text style={styles.copy}>{stats?.unlockedCount ?? 0} von {stats?.totalCount ?? badges.length} Trophäen freigeschaltet</Text>
-      {badges.map(badge => <View key={badge.code} style={[styles.badgeRow, !badge.isUnlocked && styles.badgeLocked]}><Text style={styles.badgeIcon}>{badge.icon}</Text><View style={{ flex: 1 }}><Text style={styles.activityName}>{badge.name}{badge.level > 1 ? ` · Stufe ${badge.level}` : ''}</Text><Text style={styles.small}>{badge.description}</Text></View><Text style={styles.orange}>{badge.isUnlocked ? '✓' : '·'}</Text></View>)}
+      <View style={styles.weekCard}><View style={{ gap: 8 }}><Text style={styles.orange}>🏆 DORFDÜSEN VITRINE & TROPHÄENSCHRANK</Text><Text style={styles.cardTitle}>Deine Erfolge & Trophäen</Text></View><Text style={styles.copy}>Hier stehen deine errungenen Wochentitel, Monatskronen und persönlichen Meilensteine. Jeder Kilometer bringt dich der nächsten Auszeichnung näher.</Text>{!isReadOnly ? <Pressable style={styles.secondaryButton} onPress={refreshTrophies} disabled={sectionLoading}><Text style={styles.secondaryButtonText}>{sectionLoading ? 'Prüfe …' : 'Erfolge neu abgleichen'}</Text></Pressable> : null}<View style={styles.inlineRow}>{[['FREIGESCHALTET', `${unlocked} / ${stats?.totalCount ?? badges.length}`], ['WOCHENKRONEN', `${stats?.weeklyCrownsCount ?? 0} Siege`], ['MONATS-POKALE', `${stats?.monthlyAwardsCount ?? 0} Pokale`], ['CLUB-ABSCHLUSS', `${Math.round(unlocked / Math.max(1, badges.length) * 100)}%`]].map(([label, value]) => <View key={label} style={{ ...styles.statCard, flex: 1, minWidth: '45%' }}><Text style={styles.tiny}>{label}</Text><Text style={styles.statValue}>{value}</Text></View>)}</View></View>
+      <View style={styles.weekCard}><Text style={styles.cardTitle}>👑 Die Ehrentafel · Deine Wochen-Erfolge</Text><Text style={styles.small}>Jeden Montag nach Wochenabschluss werden Erfolge ausgezeichnet. Bisherige Trophäen bleiben erhalten. Die Regeln gelten bereits für die laufende Woche.</Text>{badges.filter(badge => weeklyTitles.includes(badge.code)).map(badge => { const leaderCode: Record<string, string> = { WEEKLY_RUN_DISTANCE: 'run_distance', WEEKLY_RIDE_DISTANCE: 'ride_distance', WEEKLY_STAYED_ACTIVE: 'stayed_active', WEEKLY_ROUTINE: 'routine', WEEKLY_GOAL: 'goal', WEEKLY_PROGRESS: 'progress' }; const live = ((sectionData.currentWeekLeaderTitles as string[] | undefined) ?? []).includes(leaderCode[badge.code]); return <Pressable key={badge.code} onPress={() => setSelectedTrophy(badge)} style={[styles.badgeRow, (badge.level > 0 || live) && styles.weeklyBadgeActive]}><Text style={styles.badgeIcon}>{badge.icon}</Text><View style={{ flex: 1 }}><Text style={styles.tiny}>{live ? 'DIESE WOCHE ERREICHT! · ' : ''}WOCHENTITEL {badge.level ? `· ${badge.level}× erreicht` : ''}</Text><Text style={styles.activityName}>{badge.name}</Text><Text style={styles.small}>{badge.description}</Text><Text style={styles.tiny}>{badge.level ? `Zuletzt erreicht: ${badge.metadata?.history?.at(-1)?.weekKey ?? 'Titelhistorie'}` : 'Noch nicht erreicht'}</Text></View></Pressable>; })}</View>
+      <View style={styles.inlineRow}>{[['ALL', 'Alle Trophäen', badges.length], ['UNLOCKED', 'Freigeschaltet', unlocked], ['WEEKLY', 'Wochenkronen', badges.filter(b => b.category === 'WEEKLY').length], ['MONTHLY', 'Monatspokale', badges.filter(b => b.category === 'MONTHLY').length], ['DISTANCE', 'Meilensteine', badges.filter(b => b.category === 'DISTANCE').length], ['COMMUNITY', 'Dorfdüsen Kult', badges.filter(b => ['COMMUNITY', 'STREAK'].includes(b.category)).length], ['LOCKED', 'Noch gesperrt', badges.length - unlocked]].map(([key, label, count]) => <Pressable key={key} onPress={() => setTrophyFilter(String(key))} style={[styles.filter, trophyFilter === key && styles.filterActive]}><Text style={[styles.filterText, trophyFilter === key && styles.filterTextActive]}>{label} ({count})</Text></Pressable>)}</View>
+      {filteredBadges.map(badge => <Pressable key={badge.code} onPress={() => setSelectedTrophy(badge)} style={[styles.badgeRow, !badge.isUnlocked && styles.badgeLocked]}><Text style={styles.badgeIcon}>{badge.icon}</Text><View style={{ flex: 1 }}><Text style={styles.tiny}>{String(badge.rarity ?? '').toUpperCase()} {badge.level > 1 ? `· Stufe ${badge.level}` : ''}</Text><Text style={styles.activityName}>{badge.name}</Text><Text style={styles.small}>{badge.description}</Text><Text style={styles.tiny}>{badge.isUnlocked ? '✓ Freigeschaltet' : '🔒 Gesperrt'} · Details →</Text></View></Pressable>)}
+      <Modal transparent visible={Boolean(selectedTrophy)} animationType="fade" onRequestClose={() => setSelectedTrophy(null)}><View style={styles.modalBackdrop}><View style={styles.trophyModal}><View style={{ alignItems: 'center', gap: 8 }}><Text style={{ fontSize: 46 }}>{selectedTrophy?.icon}</Text><Text style={styles.cardTitle}>{selectedTrophy?.name}</Text><Text style={styles.tiny}>{selectedTrophy?.category} · {selectedTrophy?.rarity}</Text></View><Text style={[styles.copy, { textAlign: 'center', backgroundColor: '#09090b', padding: 13, borderRadius: 12 }]}>{selectedTrophy?.description}</Text>{selectedTrophy?.isUnlocked ? <Text style={styles.statusMessage}>✓ Erfolgreich freigeschaltet{selectedTrophy.unlockedAt ? ` am ${new Date(selectedTrophy.unlockedAt).toLocaleDateString('de-DE')}` : ''}{selectedTrophy.level > 1 ? ` · Stufe ${selectedTrophy.level}` : ''}</Text> : <View style={styles.workout}><Text style={styles.activityName}>Wie schalte ich das frei?</Text><Text style={styles.small}>{selectedTrophy?.hint || selectedTrophy?.description}</Text></View>}{selectedTrophy?.metadata?.activity ? <View style={styles.workout}><Text style={styles.activityName}>Zugrunde liegende Aktivität</Text><Text style={styles.small}>{String(selectedTrophy.metadata.activity.name)} · {String(selectedTrophy.metadata.activity.distanceKm)} km</Text><Pressable onPress={() => { const stravaId = selectedTrophy.metadata.activity.stravaId; if (typeof stravaId === 'string') void Linking.openURL(`https://www.strava.com/activities/${stravaId}`); }}><Text style={styles.actionLink}>Auf Strava ansehen ↗</Text></Pressable></View> : null}{Array.isArray(selectedTrophy?.metadata?.history) ? <View style={{ maxHeight: 120 }}><Text style={styles.activityName}>Historie der Titelgewinne</Text><ScrollView>{(selectedTrophy.metadata.history as Array<Record<string, unknown>>).map((item, index) => <Text key={index} style={styles.tiny}>{String(item.weekKey ?? item.monthKey ?? 'Erfolg')} · {String(item.formattedValue ?? item.distanceKm ?? 'Gewonnen')}</Text>)}</ScrollView></View> : null}<Pressable onPress={() => setSelectedTrophy(null)} style={styles.primaryButton}><Text style={styles.primaryButtonText}>Schließen</Text></Pressable></View></View></Modal>
     </View>;
   }
   const notifications = (sectionData.notifications ?? []) as Array<{ id: string; title: string; message: string; createdAt: string; isRead: boolean }>;
@@ -406,5 +427,5 @@ const styles = StyleSheet.create({
   inlineRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 7 }, spaceBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 }, dayOption: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#3f3f46' }, dayOptionActive: { backgroundColor: '#ea580c', borderColor: '#fb923c' }, dayText: { color: '#fafafa', fontWeight: '800' }, primaryButton: { padding: 12, alignItems: 'center', borderRadius: 12, backgroundColor: '#ea580c' }, primaryButtonText: { color: '#fff', fontSize: 13, fontWeight: '800' },
   section: { ...panel, gap: 13 }, stack: { gap: 12 }, planWeek: { borderTopWidth: 1, borderTopColor: '#3f3f46', paddingTop: 10, gap: 8 }, workout: { backgroundColor: '#09090b', borderRadius: 10, padding: 10, gap: 4 },
   filter: { paddingVertical: 7, paddingHorizontal: 13, borderRadius: 18, backgroundColor: '#27272a' }, filterActive: { backgroundColor: '#ea580c' }, filterText: { color: '#a1a1aa', fontSize: 12, fontWeight: '700' }, filterTextActive: { color: '#fff' }, activityCard: { padding: 14, borderWidth: 1, borderColor: '#27272a', borderRadius: 16, backgroundColor: '#121214', gap: 6 }, activityName: { flex: 1, color: '#f4f4f5', fontSize: 13, fontWeight: '800' }, detailBlock: { marginTop: 8, padding: 12, gap: 6, borderRadius: 12, backgroundColor: '#09090b' }, secondaryButton: { borderRadius: 12, borderWidth: 1, borderColor: '#3f3f46', padding: 11, alignItems: 'center' }, secondaryButtonText: { color: '#e4e4e7', fontSize: 12, fontWeight: '800' },
-  subheading: { color: '#e4e4e7', fontWeight: '800', fontSize: 14, marginTop: 5 }, input: { flex: 1, minWidth: 120, color: '#fafafa', borderWidth: 1, borderColor: '#3f3f46', borderRadius: 10, padding: 11, fontSize: 13 }, badgeRow: { flexDirection: 'row', gap: 10, alignItems: 'center', paddingVertical: 10, borderTopWidth: 1, borderTopColor: '#27272a' }, badgeLocked: { opacity: 0.55 }, badgeIcon: { fontSize: 23 }, notification: { padding: 12, borderRadius: 12, backgroundColor: '#09090b', gap: 6 }, notificationUnread: { borderWidth: 1, borderColor: '#7c2d12' }, statusMessage: { color: '#fdba74', fontSize: 12 }, errorBox: { ...panel, gap: 8 }, errorText: { color: '#fca5a5' }, actionLink: { color: '#fb923c', fontWeight: '800' }, footer: { color: '#52525b', fontSize: 10, textAlign: 'center' },
+  subheading: { color: '#e4e4e7', fontWeight: '800', fontSize: 14, marginTop: 5 }, input: { flex: 1, minWidth: 120, color: '#fafafa', borderWidth: 1, borderColor: '#3f3f46', borderRadius: 10, padding: 11, fontSize: 13 }, badgeRow: { flexDirection: 'row', gap: 10, alignItems: 'center', paddingVertical: 10, borderTopWidth: 1, borderTopColor: '#27272a' }, badgeLocked: { opacity: 0.55 }, weeklyBadgeActive: { backgroundColor: '#29200f', borderRadius: 12, borderColor: '#78350f', borderWidth: 1, paddingHorizontal: 10 }, badgeIcon: { fontSize: 23 }, modalBackdrop: { flex: 1, backgroundColor: '#000000cc', justifyContent: 'center', padding: 20 }, trophyModal: { maxHeight: '88%', backgroundColor: '#18181b', borderWidth: 1, borderColor: '#3f3f46', borderRadius: 24, padding: 20, gap: 14 }, notification: { padding: 12, borderRadius: 12, backgroundColor: '#09090b', gap: 6 }, notificationUnread: { borderWidth: 1, borderColor: '#7c2d12' }, statusMessage: { color: '#fdba74', fontSize: 12 }, errorBox: { ...panel, gap: 8 }, errorText: { color: '#fca5a5' }, actionLink: { color: '#fb923c', fontWeight: '800' }, footer: { color: '#52525b', fontSize: 10, textAlign: 'center' },
 });
