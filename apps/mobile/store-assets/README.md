@@ -1,24 +1,30 @@
 # Store-Vorbereitung – Dorfdüsen
 
-Status: **Arbeitsentwurf, noch nicht einreichungsfertig**. Dieses Paket sammelt Store-Texte, Grafikdateien und offene Freigabepunkte für iOS und Android.
+Status: **Arbeitsentwurf**. Dieses Paket sammelt Store-Texte, Grafiken und echte Emulatoraufnahmen für iOS und Android.
 
 ## Dateien
 
 - `icons/`: App-Icon für iOS, Android Adaptive Icon Vordergrund/Hintergrund und monochromes Symbol.
-- `google-play-feature-graphic-1024x500.png`: Entwurf des Google-Play-Feature-Bildes.
-- `screenshots/ios-6.7/`: fünf Entwurfsbilder im Format 1290 × 2796.
-- `screenshots/google-play/`: dieselben fünf Motive im Format 1080 × 1920.
+- `google-play-feature-graphic-1024x500.png`: Google-Play-Feature-Bild.
+- `screenshots/google-play/`: fünf echte Aufnahmen der Android-App aus dem Emulator, 1080 × 2160.
+- `screenshots/ios-6.9/`: sechs echte Aufnahmen der App aus dem iPhone-17-Pro-Max-Simulator, 1320 × 2868 (Dashboard, Aktivitäten, Physiologie, Trophäen, Arena und Login).
 - `store-listing-de.md`: Texte für die deutsche Store-Seite.
 - `privacy-policy-draft-de.md`: Datenschutztext als auszufüllender Entwurf.
 - `reviewer-notes-de.md`: Hinweise und Zugangsdaten, die für die Store-Prüfung vorzubereiten sind.
 - `release-checklist.md`: vor Einreichung zu erledigende Punkte.
-- `generate-assets.mjs`: Skript zur erneuten Erzeugung der PNG-Dateien.
+- `generate-assets.mjs`: Skript zur Erzeugung von Icons und Feature-Grafik.
 
-## Grafiken und Screenshots
+## Emulator-Screenshots und Anonymisierung
 
-Die Icons und das Feature-Bild sind eigens für Dorfdüsen gestaltet. Die Screenshots sind **Layout-Mockups** und enthalten ausschließlich erfundene Beispieldaten und Namen. Sie zeigen nicht die App im tatsächlichen Laufzustand. Vor Einreichung müssen sie durch unveränderte Aufnahmen der freizugebenden App-Version ersetzt werden. Insbesondere muss die Arena-Darstellung samt Clubdaten und Rangliste vor Nutzung in öffentlichen Store-Grafiken anhand der aktuellen Strava API-Vereinbarung und der für das Projekt geltenden Freigabe geprüft werden. Bis dahin Arena-Motiv nicht veröffentlichen.
+Die fünf Google-Play-Screenshots stammen aus der echten, angemeldeten Android-App. Die sechs iOS-Screenshots stammen aus der echten App im iPhone-17-Pro-Max-Simulator. Sichtbare Team- und Profilnamen, Profilfotos, die Strava-Athleten-ID sowie der sichtbare Arena-Champion-Name wurden lokal weichgezeichnet. Die übrigen angezeigten Lauf-, Physiologie-, Trophäen- und Arena-Daten sind unverändert. Die Android-Screenshots haben das Format 1080 × 2160, die iOS-Screenshots 1320 × 2868.
 
-Die generierten Trophäen-Emojis und die simplifizierten Mockup-Karten sind Teil des Entwurfs. Für finale Screenshots bitte die echte App mit genehmigten, anonymisierten/Testdaten verwenden; keine privaten Strava-Daten anderer Personen in Store-Material übernehmen.
+Die Anonymisierung erfolgte als lokale Weichzeichnung der Identitätsbereiche, damit die übrigen Originalpixel und Daten erhalten bleiben. Die frühere iOS-Mockup-Galerie wurde entfernt, damit sie nicht mit echten Geräteaufnahmen verwechselt wird.
+
+Die Arena-Aufnahme zeigt aggregierte Clubwerte; der sichtbare Champion-Name wurde weichgezeichnet. Vor der Veröffentlichung der Arena-Ansicht müssen die für das Projekt geltenden Strava-Vorgaben und Freigaben zu Clubdaten bestätigt sein.
+
+## Grafiken und Branding
+
+Die Icons und das Feature-Bild sind eigens für Dorfdüsen gestaltet. Es werden keine Strava-Markenlogos oder Strava-App-Screens als eigene Markenbestandteile verwendet. Eine Strava-Integration ist sachlich zu benennen und darf nicht den Eindruck einer offiziellen Strava-App oder Empfehlung erwecken.
 
 ## Erneut generieren
 
@@ -28,8 +34,10 @@ Vom Repository-Root aus:
 node apps/mobile/store-assets/generate-assets.mjs
 ```
 
-Das Skript verwendet das bereits im Repository installierte `sharp`-Paket. Die Bilddateien können neu erzeugt werden, ohne manuelle Bearbeitung.
+Das Skript erzeugt Icons und das Feature-Bild. Es überschreibt keine echten Store-Screenshots. Nur wenn du ausdrücklich die alten Platzhalter-Screenshots zur Designprüfung brauchst, kannst du sie separat erzeugen:
 
-## Branding
+```sh
+node apps/mobile/store-assets/generate-assets.mjs --draft-screenshots
+```
 
-Die Entwürfe nutzen Dorfdüsen-Farben und ein eigenes Pfeilzeichen. Es werden keine Strava-Markenlogos oder Strava-App-Screens als eigene Markenbestandteile verwendet. Eine Strava-Integration ist im Text sachlich zu benennen und darf nicht den Eindruck einer offiziellen Strava-App oder Empfehlung erwecken.
+Diese Platzhalter werden unter `screenshots/drafts/` abgelegt und nicht als Store-Material verwenden.

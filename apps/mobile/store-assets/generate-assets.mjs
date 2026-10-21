@@ -4,9 +4,9 @@ import sharp from 'sharp';
 
 const root = path.dirname(new URL(import.meta.url).pathname);
 const iconDir = path.join(root, 'icons');
-const iosDir = path.join(root, 'screenshots', 'ios-6.7');
-const playDir = path.join(root, 'screenshots', 'google-play');
-await Promise.all([iconDir, iosDir, playDir].map((dir) => fs.mkdir(dir, { recursive: true })));
+const draftIosDir = path.join(root, 'screenshots', 'drafts', 'ios');
+const draftPlayDir = path.join(root, 'screenshots', 'drafts', 'google-play');
+await fs.mkdir(iconDir, { recursive: true });
 
 const orange = '#fc5200';
 const bg = '#09090b';
@@ -169,9 +169,12 @@ function screenshotSvg(screen, width, height) {
   return svg;
 }
 
-for (const screen of screens) {
-  await png(screenshotSvg(screen, 1290, 2796), path.join(iosDir, `${screen.slug}.png`), 1290, 2796);
-  await png(screenshotSvg(screen, 1080, 1920), path.join(playDir, `${screen.slug}.png`), 1080, 1920);
+if (process.argv.includes('--draft-screenshots')) {
+  await Promise.all([draftIosDir, draftPlayDir].map((dir) => fs.mkdir(dir, { recursive: true })));
+  for (const screen of screens) {
+    await png(screenshotSvg(screen, 1290, 2796), path.join(draftIosDir, `${screen.slug}.png`), 1290, 2796);
+    await png(screenshotSvg(screen, 1080, 1920), path.join(draftPlayDir, `${screen.slug}.png`), 1080, 1920);
+  }
 }
 
 const feature = `<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="500" viewBox="0 0 1024 500">

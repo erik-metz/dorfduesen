@@ -19,7 +19,8 @@
 
 ## Store-Material
 
-- [ ] Entwurfs-Screenshots durch echte Aufnahmen aus dem finalen Build ersetzen.
+- [x] Android: fünf echte Emulatoraufnahmen erstellt; sichtbare Profilnamen, Profilbilder und Strava-Athleten-ID unkenntlich gemacht.
+- [x] iOS: fünf echte Inhaltsansichten plus Anmeldeseite im iPhone-17-Pro-Max-Simulator aufgenommen; sichtbare Team-/Profilnamen, Profilbilder, Strava-Athleten-ID und Arena-Champion-Name unkenntlich gemacht.
 - [ ] Alle Screenshots mit genehmigten Testdaten erstellen; keine fremden privaten Strava-Daten zeigen.
 - [ ] Arena-/Ranglistenmaterial erst nach bestätigter Strava-API-Freigabe verwenden.
 - [ ] Texte gegen ausgelieferte Funktionen abgleichen und Zeichenlimits im Portal prüfen.
