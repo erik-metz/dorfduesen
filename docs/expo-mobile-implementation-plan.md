@@ -45,13 +45,17 @@ Hinweis: Die Root-TypeScript-Konfiguration schließt `apps/mobile` aus, damit di
 
 **Umsetzungsstatus:** TypeScript-Prüfungen für Web und Mobile sind erfolgreich. Die Datenbankmigration wurde nicht auf eine Datenbank angewendet; OAuth-Ende-zu-Ende-Prüfung mit Strava und nativen Geräten ist für Schritt 7 vorgesehen. npm meldet weiterhin 21 Audit-Hinweise (3 moderat, 18 hoch); Pakete wurden nicht automatisch aktualisiert.
 
-## Schritt 4: Mobile API-Verträge
+## Schritt 4: Mobile API-Verträge — umgesetzt
 
-- Authentifizierte JSON-Endpunkte für die Daten des persönlichen Dashboards bereitstellen.
-- Arena-Zusammenfassung, Champions, Bestenlisten, letzte Aktivitäten und Badges über mobile-freundliche Antworten bereitstellen.
-- Benötigte Aktionen (Sync, Wochenziel, Benachrichtigungen, Coach/Plan) anhand des festgelegten Umfangs absichern und verfügbar machen.
-- Bestehende Daten- und Berechtigungslogik nach Möglichkeit in `lib/` wiederverwenden, statt sie in der App zu duplizieren.
-- Pagination, Filter, Datums-/Zeitzonenformat, Cache-Verhalten und Fehlerantworten explizit festlegen.
+- [x] `GET /api/mobile/dashboard?page=1&sport=all|run|ride` liefert eine authentifizierte Dashboard-Übersicht mit Nutzer, paginierten Aktivitäten, Statistiken, den letzten fünf Physiologie-Messwerten, aktivem Trainingsplan, ungelesenen Benachrichtigungen und kompaktem Arena-/Wochenziel-Fortschritt.
+- [x] `GET /api/mobile/arena?period=week|month|all&sport=all|run|ride` liefert Team-KPIs, Challenge, Wochen-Champions, Bestenliste, letzte Aktivitäten und Badge-Definitionen.
+- [x] Beide neuen Endpunkte verlangen die bestehende Sitzung (mobil: `Authorization: Bearer …`), liefern bei fehlender Sitzung `401` und setzen `Cache-Control: private, no-store`.
+- [x] Filterwerte sind begrenzt; ungültige Dashboard-Sportwerte fallen auf `all`, ungültige Arena-Filter auf `week`/`all` zurück. Aktivitäten nutzen dieselbe stabile Sortierung, korrigierte Distanzen und Pagination wie die Website. Datumswerte werden als ISO-8601-JSON-Strings serialisiert; Wochenlogik nutzt die bestehende Berlin-Zeitzonenlogik.
+- [x] Bestehende nutzergebundene Aktions-/Detailrouten bleiben der gemeinsame Vertrag: `/api/strava/sync`, `/api/strava/activities/[stravaId]`, `/api/coach/metrics`, `/api/coach/profile`, `/api/coach/plan`, `/api/trophies`, `/api/arena/goals` sowie `/api/notifications` (inklusive PATCH zum Lesen markieren). Sie nutzen `getCurrentUser()` und akzeptieren damit auch mobile Bearer-Sitzungen.
+- [x] Die mobile Arena-Route schützt auch ihre Bestenlisten-Daten hinter der Sitzung; die bestehende öffentliche Website-Route bleibt kompatibel.
+- [x] Antworten der mobilen Übersichts-Endpunkte werden nicht zwischengespeichert; bestehende wiederverwendete Arena-Datenfunktionen behalten ihren Server-Cache.
+
+**Umsetzungsstatus:** TypeScript-Prüfungen und API-Aufrufe gegen eine laufende Datenbank werden im Rahmen von Schritt 7 geprüft. Die Endpunkte verwenden vorhandene Datenfunktionen; es wurden keine Datenbankschemaänderungen vorgenommen.
 
 ## Schritt 5: Mobiles Dashboard
 
