@@ -137,7 +137,7 @@ export function NotificationBell() {
       {/* Bell Trigger Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`relative min-h-11 min-w-11 p-2 rounded-full border transition-all cursor-pointer ${
+        className={`relative inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border p-0 transition-all cursor-pointer ${
           unreadCount > 0
             ? 'bg-orange-950/40 border-orange-500/50 text-orange-400 hover:bg-orange-900/50 hover:border-orange-500'
             : 'bg-zinc-900 border-zinc-800 text-zinc-300 hover:text-white hover:bg-zinc-800'
@@ -145,7 +145,7 @@ export function NotificationBell() {
         aria-label="Benachrichtigungen"
         title="Benachrichtigungen"
       >
-        <Bell className="w-4 h-4" />
+        <Bell className="h-4 w-4" />
         {unreadCount > 0 && (
           <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-600 text-[10px] font-black text-white ring-2 ring-zinc-950 animate-pulse">
             {unreadCount > 9 ? '9+' : unreadCount}
