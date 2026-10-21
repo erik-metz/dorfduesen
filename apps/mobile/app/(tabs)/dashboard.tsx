@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Image, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { useAuth } from '../../src/auth/AuthProvider';
+import { ActivityDetail } from '../../src/components/ActivityDetail';
 
 type Activity = {
   id: string; stravaId: string; name: string; sportType: string; distance: number;
@@ -271,7 +272,7 @@ export default function DashboardScreen() {
             {activity.manualDistance !== null ? <Text style={styles.tiny}>Manuell korrigiert</Text> : null}
             {activity.averageHeartrate ? <Text style={styles.small}>Ø Puls {Math.round(activity.averageHeartrate)} bpm</Text> : null}
             {expandedActivity === activity.stravaId ? <View style={styles.detailBlock}>
-              {activityDetail[activity.stravaId] ? <><Text style={styles.copy}>{String(activityDetail[activity.stravaId].description || 'Aktivitätsdetails')}</Text><Text style={styles.copy}>Zeit: {formatDuration(Number(activityDetail[activity.stravaId].elapsedTime ?? activity.movingTime))} · Höhenmeter: {Math.round(Number(activityDetail[activity.stravaId].totalElevationGain ?? activity.totalElevationGain))} m</Text></> : <ActivityIndicator color="#fc7a3d" />}
+              {activityDetail[activity.stravaId] ? <ActivityDetail detail={activityDetail[activity.stravaId]} /> : <ActivityIndicator color="#fc7a3d" />}
             </View> : null}
           </Pressable>) : <Text style={styles.copy}>Noch keine Aktivitäten für diesen Filter.</Text>}
           {data.pagination.page < data.pagination.pageCount ? <Pressable style={styles.secondaryButton} onPress={() => void loadMore()}><Text style={styles.secondaryButtonText}>Weitere Aktivitäten laden</Text></Pressable> : null}
