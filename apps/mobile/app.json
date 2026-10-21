@@ -3,6 +3,7 @@
     "name": "Dorfdüsen",
     "slug": "dorfduesen",
     "version": "0.1.0",
+    "icon": "./store-assets/icons/app-icon-1024.png",
     "scheme": "dorfduesen",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
@@ -13,7 +14,9 @@
     "android": {
       "package": "de.dorfduesen.app",
       "adaptiveIcon": {
-        "backgroundColor": "#09090b"
+        "backgroundColor": "#09090b",
+        "foregroundImage": "./store-assets/icons/android-adaptive-foreground-432.png",
+        "monochromeImage": "./store-assets/icons/android-adaptive-monochrome-432.png"
       }
     },
     "plugins": [
