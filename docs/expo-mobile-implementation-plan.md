@@ -19,16 +19,17 @@ Für die mobile Umsetzung gilt daher folgender Umfang:
 
 Dieser Umfang bildet die derzeitigen angemeldeten Dashboard- und Arena-Funktionen ab. Die App erhält eine mobile Navigation mit Dashboard und Arena als Hauptbereichen; weitere Dashboard-Funktionen liegen als Unterbereiche bzw. Tabs im Dashboard.
 
-## Schritt 2: Expo-Grundgerüst und Repository-Struktur — umgesetzt, Installation offen
+## Schritt 2: Expo-Grundgerüst und Repository-Struktur — abgeschlossen
 
 - [x] Expo-App mit TypeScript unter `apps/mobile` anlegen; bestehende Next.js-App bleibt unter der Repository-Wurzel.
 - [x] App-Manifeste, an SDK 57 ausgerichtete Abhängigkeiten und Startskripte für iOS und Android anlegen; Root-Kommandos `npm run mobile`, `npm run mobile:ios` und `npm run mobile:android` ergänzen.
 - [x] Expo Router mit Dashboard-/Arena-Tabs, Login-Einstieg, Ladezustand und minimalem dunklem Basisdesign anlegen. Echte Sitzungswiederherstellung und Login-Aktion folgen in Schritt 3.
 - [x] App-Scheme `dorfduesen` für den späteren OAuth-Rücksprung konfigurieren. Universal Links müssen später mit der echten Domain verknüpft werden.
 - [x] Die relevanten installierten Next.js-Guides zu Projektstruktur, Route Handlers und Authentifizierung gelesen; in diesem Schritt waren keine Änderungen an Next.js-Routen erforderlich.
-- [ ] Expo-Abhängigkeiten installieren, Lockfile erzeugen und Start auf Simulator/Device verifizieren. Der Paketabruf war in der aktuellen Umgebung nicht erreichbar; dieser Teil bleibt offen.
+- [x] Expo-Abhängigkeiten installieren und `apps/mobile/package-lock.json` erzeugen.
+- [ ] Start auf iOS-/Android-Simulator bzw. Gerät im Rahmen von Schritt 7 verifizieren.
 
-Hinweis: Die Root-TypeScript-Konfiguration schließt `apps/mobile` aus, damit die beiden Projekte getrennt typisiert werden. Expo-Befehle und Voraussetzungen sind in `apps/mobile/README.md` dokumentiert.
+Hinweis: Die Root-TypeScript-Konfiguration schließt `apps/mobile` aus, damit die beiden Projekte getrennt typisiert werden. Expo-Befehle und Voraussetzungen sind in `apps/mobile/README.md` dokumentiert. `npm install --prefix apps/mobile` meldete 21 Audit-Hinweise (3 moderat, 18 hoch); vor einem Update werden die betroffenen Pakete gezielt geprüft.
 
 ## Schritt 3: Native Strava-Anmeldung und App-Sitzung
 

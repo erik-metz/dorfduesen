@@ -17,6 +17,7 @@
 /.next/
 /out/
 /apps/mobile/.expo/
+/apps/mobile/node_modules/
 
 # production
 /build
