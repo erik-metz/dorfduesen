@@ -31,6 +31,8 @@ model User {
   profileData     UserProfile?
   trainingPlans   TrainingPlan[]
   healthMetrics   HealthMetric[]
+  healthConnections MobileHealthConnection[]
+  healthRecords   MobileHealthRecord[]
   notifications   Notification[]
   weeklyGoals WeeklyGoal[]
   weeklyTitleHolders  WeeklyTitleHolder[]
@@ -266,6 +268,45 @@ model HealthMetric {
 
   @@index([userId])
   @@index([userId, date])
+}
+
+model MobileHealthConnection {
+  id               String   @id @default(cuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider         String   // APPLE_HEALTH | HEALTH_CONNECT
+  consentedTypes   String[] @default([])
+  consentVersion   String?
+  consentedAt      DateTime?
+  revokedAt        DateTime?
+  lastSyncedAt     DateTime?
+  syncCursor       Json?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([userId, provider])
+  @@index([userId, revokedAt])
+}
+
+model MobileHealthRecord {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider     String   // APPLE_HEALTH | HEALTH_CONNECT
+  recordId     String   // Stable source identifier, used for idempotent updates
+  recordType   String   // e.g. workout, heart_rate, sleep, weight
+  startAt      DateTime
+  endAt        DateTime?
+  value        Json     // Normalized summary and supported metadata, never access tokens
+  sourceName   String?
+  sourceId     String?
+  recordedAt   DateTime?
+  importedAt   DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([userId, provider, recordId])
+  @@index([userId, recordType, startAt])
+  @@index([userId, provider, startAt])
 }
 
 model Notification {

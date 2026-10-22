@@ -19,6 +19,8 @@ Bei der Anmeldung und Nutzung können insbesondere folgende Daten verarbeitet we
 - Von Strava bereitgestellte Laufaktivitäten und dazugehörige Details, soweit verfügbar und von dir freigegeben. Dazu können Trainingszeit, Strecke, Tempo, Höhenmeter, Herzfrequenz, GPS-Streckendaten, Fotos und Segmentinformationen gehören.
 - Von dir angegebene Trainingsprofilwerte, soweit du diese Funktionen nutzt, zum Beispiel Geburtsdatum, Körpergröße, Gewicht sowie Ruhe- und Maximalpuls.
 - Daten zu Trainingsplänen, Zielen, Trophäen, Clubmitgliedschaft und App-Mitteilungen, soweit diese Funktionen aktiviert oder verwendet werden.
+- Gesundheits- und Fitnessdaten aus Apple HealthKit bzw. Android Health Connect, ausschließlich nach gesonderter Auswahl und Zustimmung in der App und der jeweiligen Systemfreigabe. Unterstützte Arten umfassen Trainingseinheiten, Schritte, Distanzen, Energieverbrauch, Herzfrequenz, Ruhepuls, Herzratenvariabilität, Schlaf, Körpermesswerte, Vitalwerte, Ernährung, Flüssigkeitsaufnahme, Achtsamkeit und Zyklusdaten, soweit Betriebssystem und Datenquelle sie bereitstellen.
+- Gesundheitsdaten, die du zur Speicherung freigibst, werden deinem Dorfdüsen-Konto auf dem Server zugeordnet. Sie werden nicht mit Clubmitgliedern geteilt und nicht in Arena-Ranglisten oder Trophäen eingerechnet. Die mobile App synchronisiert derzeit nur, wenn du den Import aktiv startest. [VERHALTEN UND SPEICHERFRIST VOR VERÖFFENTLICHUNG BESTÄTIGEN.]
 - Technische Daten, die für Betrieb, Sicherheit, Fehleranalyse und Anmeldung erforderlich sind. [KONKRETE LOGS/ANALYTIK BESTÄTIGEN ODER STREICHEN.]
 
 ## Strava-Verbindung
@@ -26,6 +28,12 @@ Bei der Anmeldung und Nutzung können insbesondere folgende Daten verarbeitet we
 Die Anmeldung erfolgt über Strava OAuth. Das Strava-Passwort wird nicht von Dorfdüsen abgefragt. Die App erhält nach erfolgreicher Verbindung die für ihre Funktionen notwendigen Berechtigungen. [TATSÄCHLICHE OAUTH-SCOPES UND TOKEN-SPEICHERUNG SERVERSEITIG BESTÄTIGEN.] Die mobile App speichert eine App-Sitzung geschützt auf dem Gerät. [SPEICHERDAUER, WIDERRUF UND SERVERSEITIGE LÖSCHUNG ERGÄNZEN.]
 
 Du kannst die Strava-Verbindung in den Kontoeinstellungen von Strava widerrufen. Das beendet nicht notwendigerweise ein Dorfdüsen-Konto oder löscht bereits gespeicherte Dorfdüsen-Daten; dafür ist der unten beschriebene Löschweg zu verwenden. [VERHALTEN TECHNISCH BESTÄTIGEN.]
+
+## Apple Health und Health Connect
+
+Die Verbindung ist optional. Vor dem Systemdialog zeigt die App die unterstützten Datenarten an; du kannst die Arten auswählen und musst zusätzlich der Übertragung und Speicherung auf dem Dorfdüsen-Server ausdrücklich zustimmen. Anschließend fragt iOS bzw. Android die jeweiligen Leseberechtigungen ab. Du kannst die Geräterechtigung jederzeit in Apple Health/iOS-Einstellungen oder Health Connect widerrufen. In der App kannst du die weitere Synchronisierung stoppen und bereits importierte Gesundheitsdaten löschen. Die Verbindung wird manuell gestartet; Hintergrundzugriff ist nicht aktiviert.
+
+Apple Health und Android Health Connect erlauben nur den jeweiligen Systemen, die tatsächliche Lesefreigabe zu bestimmen. Bei Health Connect kann der verfügbare Rückblick ohne zusätzliche Historienberechtigung begrenzt sein. Daten, die der App nicht zugänglich sind, werden nicht importiert. [DATENFLUSS, AUFBEWAHRUNG UND LÖSCHFRISTEN RECHTLICH PRÜFEN UND VERVOLLSTÄNDIGEN.]
 
 ## Clubfunktionen und Daten anderer Mitglieder
 

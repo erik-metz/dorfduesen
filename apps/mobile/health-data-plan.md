@@ -1,5 +1,12 @@
 # Mobile Health-Daten – Implementierungsplan
 
+## Umsetzungsstand (22.10.2026)
+
+- Fertig: breite, vom Nutzer auswählbare Datentypen; HealthKit/Health Connect-Anbindung; Zustimmung in der App; getrennte Prisma-Tabellen; authentifizierte Status-, Einwilligungs-, Import-, Abruf- und Lösch-API; Datenbankmigration angewendet.
+- Synchronisierung startet aktuell nur auf Knopfdruck. iOS liest bis zu 365 Tage, Health Connect bis zu 30 Tage (Systemgrenze ohne zusätzliche Historienberechtigung). Die Imports werden idempotent gespeichert und beeinflussen keine Strava-Arena-Wertungen.
+- Noch offen: importierte Messwerte im Dashboard darstellen; vollständige inkrementelle Synchronisierung mit Provider-Cursorn und HealthKit-Löschmeldungen; Laufzeitprüfung mit echten Health-Daten auf Geräten; Datenschutz-/Store-Deklarationen finalisieren.
+- Android Debug-Build ist erfolgreich. iOS-Prebuild ist erfolgreich, der CocoaPods-/iOS-Build konnte in der aktuellen Umgebung wegen fehlendem CMake und nicht erreichbarem GitHub-Hermes-Quellcode nicht abgeschlossen werden.
+
 ## Ziel
 
 Die iOS- und Android-App sollen nach ausdrücklicher Zustimmung ausgewählte Gesundheits- und Fitnessdaten aus Apple HealthKit bzw. Android Health Connect lesen und sicher dem angemeldeten Dorfdüsen-Konto zuordnen. Relevante Daten werden über die bestehende Next.js-API in der PostgreSQL-Datenbank gespeichert und im Dashboard bzw. in der Physiologieansicht nutzbar gemacht.
@@ -40,7 +47,7 @@ Gesundheitsdaten werden niemals anhand einer vom Client gesendeten `userId` eine
 
 ## Schritte
 
-### 1. Datentypen und Produktregeln festlegen
+### 1. Datentypen und Produktregeln festlegen — umgesetzt
 
 - Bestätigen, dass der erste Release genau die drei oben genannten Datengruppen umfasst.
 - Definieren, ob Workouts aus Apple Health/Health Connect nur angezeigt werden oder auch in Trainingspläne eingehen dürfen.
@@ -50,7 +57,7 @@ Gesundheitsdaten werden niemals anhand einer vom Client gesendeten `userId` eine
 
 **Ergebnis:** freigegebene Datenarten, Verwendungszweck und Anzeigeverhalten sind klar.
 
-### 2. Datenmodell und Migration
+### 2. Datenmodell und Migration — umgesetzt
 
 - `HealthMetric` um Quellenangaben erweitern oder eine separate `ImportedHealthSample`-Tabelle ergänzen. Empfehlung: separate Tabelle, damit manuelle und importierte Werte nicht verwechselt werden.
 - Eigene Tabellen für importierte Samples und Workouts mit mindestens: `userId`, `source` (`APPLE_HEALTH` / `HEALTH_CONNECT`), `sourceRecordId`, `recordType`, `startAt`, `endAt`, kanonischen Messwerten, `unit`, `metadata` nur falls erforderlich und `importedAt`.
@@ -60,7 +67,7 @@ Gesundheitsdaten werden niemals anhand einer vom Client gesendeten `userId` eine
 
 **Ergebnis:** Prisma-Schema und geprüfte Migration für reproduzierbare Imports.
 
-### 3. Native Expo-Integration vorbereiten
+### 3. Native Expo-Integration vorbereiten — konfiguriert
 
 - Eine passende native Expo-Integration auswählen oder ein lokales Expo-Modul mit iOS- und Android-Implementierung bauen. Vor einer Paketwahl SDK-57-Kompatibilität, Wartung, Lizenz und Health-API-Abdeckung verifizieren.
 - Config Plugin/Expo-Modul so einrichten, dass `prebuild` HealthKit-Entitlements und erforderliche Android-Berechtigungen reproduzierbar generiert.
@@ -69,7 +76,7 @@ Gesundheitsdaten werden niemals anhand einer vom Client gesendeten `userId` eine
 
 **Ergebnis:** beide Plattformen bauen reproduzierbar mit Health-API-Zugriff.
 
-### 4. Einwilligung und Verbindungsverwaltung
+### 4. Einwilligung und Verbindungsverwaltung — umgesetzt
 
 - In der App eine verständliche Vorschaltseite zeigen: welche Daten gelesen, wofür sie genutzt, an den Server übertragen und wie lange sie gespeichert werden.
 - Getrennte, optionale Schalter für Workouts, Gewicht und Ruhepuls anbieten. Keine Berechtigung beim App-Start erzwingen.
@@ -80,7 +87,7 @@ Gesundheitsdaten werden niemals anhand einer vom Client gesendeten `userId` eine
 
 **Ergebnis:** transparente, optionale Zustimmung und verwaltbarer Widerruf.
 
-### 5. Synchronisations-API absichern und bauen
+### 5. Synchronisations-API absichern und bauen — umgesetzt
 
 Vorgeschlagene Endpunkte unter `/api/mobile/health/`:
 
@@ -100,7 +107,7 @@ API-Anforderungen:
 
 **Ergebnis:** sicherer, nachvollziehbarer Import und Abruf für das eigene Konto.
 
-### 6. Lokale Synchronisierung implementieren
+### 6. Lokale Synchronisierung implementieren — erste Version umgesetzt
 
 - Beim bewussten Verbinden einen initialen, begrenzten Rückblick synchronisieren; Zeitraum vorab festlegen und in der App anzeigen.
 - Weitere Imports nur bei App-Nutzung bzw. manueller Aktualisierung starten. Hintergrundimport ist eine separate spätere Freigabe und braucht zusätzliche OS-Berechtigungen sowie zuverlässiges Verhalten auf iOS und Android.
@@ -111,7 +118,7 @@ API-Anforderungen:
 
 **Ergebnis:** wiederholbare, inkrementelle und begrenzte Synchronisierung.
 
-### 7. Physiologie und Dashboard verbinden
+### 7. Physiologie und Dashboard verbinden — Verbindungssteuerung umgesetzt
 
 - Importquelle und Zeitpunkt sichtbar kennzeichnen, z. B. „Apple Health · 07:30“.
 - Manuelle `HealthMetric`-Werte behalten und neben importierten Werten unterscheidbar darstellen.
@@ -121,7 +128,7 @@ API-Anforderungen:
 
 **Ergebnis:** Nutzer verstehen Quelle und Verwendung ihrer Werte.
 
-### 8. Datenschutz, Store-Angaben und Betrieb
+### 8. Datenschutz, Store-Angaben und Betrieb — Entwürfe aktualisiert
 
 - Datenschutzerklärung, In-App-Hinweise, Apple App Privacy und Google Play Data Safety um Datentypen, Zweck, Weitergabe, Speicherdauer, Löschung und Backend-Verarbeitung ergänzen.
 - HealthKit-Zwecktexte in iOS und Android-Berechtigungsdeklarationen exakt auf die implementierten Datentypen beschränken.

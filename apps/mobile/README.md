@@ -37,3 +37,15 @@ npm run mobile:android
 Die nativen Projektordner `apps/mobile/ios` und `apps/mobile/android` werden mit Expo Prebuild generiert und sind im Git ignoriert. Die App verwendet Expo SDK 57; passende native Abhängigkeiten lassen sich mit `npx expo install --check` prüfen. `npx expo prebuild --no-install --platform all` generiert die nativen Projekte erneut.
 
 Die App verwendet OAuth Authorization Code mit PKCE: Strava-Tokens bleiben auf dem Server, die App erhält einen kurzlebigen Einmal-Code und tauscht ihn in eine widerrufbare Sitzung. Das App-Scheme für den Rücksprung lautet `dorfduesen`.
+
+## HealthKit und Health Connect
+
+Die mobile App kann nach gesonderter In-App-Einwilligung und Betriebssystemfreigabe unterstützte Trainings-, Bewegungs-, Herz-, Körper-, Schlaf-, Vital-, Ernährungs-, Achtsamkeits- und Zyklusdaten lesen und in der Dorfdüsen-Datenbank speichern. Die Auswahl und Synchronisierung befinden sich unter **Dashboard → Physiologie & Zonen → Health-Daten synchronisieren**. Es findet kein Hintergrundimport statt. In der App lassen sich die Synchronisierung trennen und gespeicherte Health-Imports löschen; die Betriebssystemfreigabe kann zusätzlich in den iOS-/Health-Connect-Einstellungen widerrufen werden.
+
+Health-Daten landen in separaten, quellmarkierten Tabellen und werden nicht als Strava-Aktivitäten gewertet. Health-Connect-Daten sind ohne gesonderte Historienberechtigung auf den vom System bereitgestellten Rückblick begrenzt. Auf iOS legt der Nutzer den verfügbaren Zeitraum in HealthKit fest. Native Health-Module funktionieren nur mit einem neu gebauten Development-/Store-Build, nicht in Expo Go. Nach Änderungen an `app.json` die nativen Projekte neu erzeugen und neu bauen:
+
+```sh
+npx expo prebuild --no-install --platform all
+```
+
+Die Migration `20261022120000_mobile_health_data` legt die Datenbanktabellen an und wird wie andere Prisma-Migrationen mit `npx prisma migrate deploy` ausgerollt. Google Play verlangt vor Veröffentlichung eine Health-Apps-Deklaration, die zu den tatsächlich beantragten Health-Connect-Berechtigungen passt. Datenschutztext und Store-Datenangaben müssen vor Einreichung final abgestimmt werden.

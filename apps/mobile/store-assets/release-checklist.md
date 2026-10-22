@@ -26,6 +26,8 @@
 - [ ] Texte gegen ausgelieferte Funktionen abgleichen und Zeichenlimits im Portal prüfen.
 - [ ] App-Icon und Google-Play-Feature-Grafik auf Lesbarkeit in kleinen Größen prüfen.
 - [ ] Datenschutzrichtlinie vervollständigen und vom Verantwortlichen freigeben lassen.
+- [ ] HealthKit-/Health-Connect-Datenarten und Serverübertragung in Apple App Privacy und Google Play Data Safety korrekt deklarieren; Google Play Health-Apps-Erklärung und Datentyp-Freigabe ausfüllen.
+- [ ] HealthKit-Zwecktexte und Health-Connect-Manifestberechtigungen gegen die endgültig verwendeten Datentypen und Store-Freigaben abgleichen.
 
 ## Store-Prüfung und Veröffentlichung
 
