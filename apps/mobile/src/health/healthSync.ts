@@ -17,25 +17,12 @@ export type HealthImportRecord = {
   sourceId?: string | null;
 };
 
-export const HEALTH_TYPE_LABELS: Record<HealthRecordType, string> = {
-  workout: 'Trainings und Sporteinheiten', step_count: 'Schritte', distance: 'Distanz (quellabhängig)', walking_running_distance: 'Geh- und Laufdistanz',
-  cycling_distance: 'Radfahrdistanz', swimming_distance: 'Schwimmdistanz', floors_climbed: 'Stockwerke', active_energy: 'Aktive Energie',
-  basal_energy: 'Grundumsatz', total_energy: 'Gesamtenergie', exercise_time: 'Trainingszeit', stand_time: 'Stehzeit', heart_rate: 'Herzfrequenz',
-  resting_heart_rate: 'Ruhepuls', walking_heart_rate_average: 'Geh-Herzfrequenz', heart_rate_variability: 'Herzratenvariabilität',
-  oxygen_saturation: 'Sauerstoffsättigung', respiratory_rate: 'Atemfrequenz', body_temperature: 'Körpertemperatur',
-  blood_pressure: 'Blutdruck', body_mass: 'Körpergewicht', body_fat_percentage: 'Körperfettanteil',
-  lean_body_mass: 'Magere Körpermasse', height: 'Körpergröße', body_water_mass: 'Körperwasser', bone_mass: 'Knochenmasse',
-  vo2_max: 'VO₂max', blood_glucose: 'Blutzucker', sleep: 'Schlaf', mindful_session: 'Achtsamkeit',
-  nutrition: 'Ernährung', hydration: 'Flüssigkeitsaufnahme', menstrual_flow: 'Menstruationszyklus',
-};
-
-export const HEALTH_TYPE_GROUPS: Array<{ label: string; types: HealthRecordType[] }> = [
-  { label: 'Training & Bewegung', types: ['workout', 'step_count', 'distance', 'walking_running_distance', 'cycling_distance', 'swimming_distance', 'floors_climbed', 'active_energy', 'basal_energy', 'total_energy', 'exercise_time', 'stand_time'] },
-  { label: 'Herz & Leistung', types: ['heart_rate', 'resting_heart_rate', 'walking_heart_rate_average', 'heart_rate_variability', 'vo2_max'] },
-  { label: 'Körperwerte', types: ['body_mass', 'body_fat_percentage', 'lean_body_mass', 'height', 'body_water_mass', 'bone_mass', 'body_temperature'] },
-  { label: 'Schlaf & Achtsamkeit', types: ['sleep', 'mindful_session'] },
-  { label: 'Weitere Vitalwerte', types: ['oxygen_saturation', 'respiratory_rate', 'blood_pressure'] },
-  { label: 'Ernährung & Zyklus', types: ['nutrition', 'hydration', 'blood_glucose', 'menstrual_flow'] },
+/** Initial sport and recovery scope; the OS presents and manages read permissions. */
+export const DEFAULT_HEALTH_TYPES: HealthRecordType[] = [
+  'workout', 'step_count', 'distance', 'walking_running_distance', 'cycling_distance', 'swimming_distance',
+  'active_energy', 'exercise_time', 'heart_rate', 'resting_heart_rate', 'walking_heart_rate_average',
+  'heart_rate_variability', 'oxygen_saturation', 'respiratory_rate', 'body_mass', 'body_fat_percentage',
+  'lean_body_mass', 'vo2_max', 'sleep',
 ];
 
 const iosQuantityTypes: Array<[string, HealthRecordType]> = [
