@@ -7,7 +7,7 @@ import { calculateFitnessHistory } from "@/lib/training/history";
 import { estimateVo2max } from "@/lib/training/vo2max";
 import { getTrainingPaces } from "@/lib/training/vdot";
 import { calculateHeartRateZones, estimateMaxHeartRate } from "@/lib/training/zones";
-import { buildHealthOverview } from "@/lib/mobile/health-overview";
+import { buildCanonicalActivities, buildHealthOverview, healthMetricHistory } from "@/lib/mobile/health-overview";
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -17,7 +17,7 @@ export async function GET() {
 
   const now = new Date();
   const healthFrom = new Date(now.getTime() - 182 * 86400000);
-  const [profile, activities, metrics, healthRecords] = await Promise.all([
+  const [profile, activities, metrics, healthWorkouts, healthSignals, healthDailyRecords, healthHeartRate] = await Promise.all([
     db.userProfile.findUnique({ where: { userId: user.id } }),
     db.activity.findMany({ where: { userId: user.id, startDate: { gte: new Date(now.getTime() - 38 * 7 * 86400000), lte: now } } }),
     db.healthMetric.findMany({ where: { userId: user.id, date: { lte: now } }, orderBy: { date: 'desc' } }),
@@ -25,27 +25,48 @@ export async function GET() {
       where: {
         userId: user.id,
         startAt: { gte: healthFrom, lte: now },
-        recordType: { in: ['workout', 'vo2_max', 'resting_heart_rate', 'heart_rate_variability', 'body_mass', 'body_fat_percentage', 'oxygen_saturation', 'respiratory_rate', 'sleep', 'step_count', 'heart_rate'] },
+        recordType: { in: ['workout', 'distance', 'walking_running_distance', 'cycling_distance', 'swimming_distance'] },
       },
       select: { id: true, provider: true, recordId: true, recordType: true, startAt: true, endAt: true, value: true, sourceName: true, sourceId: true },
       orderBy: { startAt: 'desc' },
-      take: 5000,
+      take: 2500,
+    }),
+    db.mobileHealthRecord.findMany({
+      where: { userId: user.id, startAt: { gte: healthFrom, lte: now }, recordType: { in: ['vo2_max', 'resting_heart_rate', 'heart_rate_variability', 'body_mass', 'body_fat_percentage', 'oxygen_saturation', 'respiratory_rate'] } },
+      select: { id: true, provider: true, recordId: true, recordType: true, startAt: true, endAt: true, value: true, sourceName: true, sourceId: true },
+      orderBy: { startAt: 'desc' }, take: 1500,
+    }),
+    db.mobileHealthRecord.findMany({
+      where: { userId: user.id, startAt: { gte: healthFrom, lte: now }, recordType: { in: ['sleep', 'step_count'] } },
+      select: { id: true, provider: true, recordId: true, recordType: true, startAt: true, endAt: true, value: true, sourceName: true, sourceId: true },
+      orderBy: { startAt: 'desc' }, take: 4000,
+    }),
+    db.mobileHealthRecord.findMany({
+      where: { userId: user.id, startAt: { gte: new Date(now.getTime() - 84 * 86400000), lte: now }, recordType: 'heart_rate' },
+      select: { id: true, provider: true, recordId: true, recordType: true, startAt: true, endAt: true, value: true, sourceName: true, sourceId: true },
+      orderBy: { startAt: 'desc' }, take: 5000,
     }),
   ]);
-  const baseline = baselineFromActivities(user.id, activities, profile, now);
-  const history = calculateFitnessHistory(user.id, activities, metrics, now);
+  const healthRecords = [...healthWorkouts, ...healthSignals, ...healthDailyRecords, ...healthHeartRate];
+  const canonicalActivities = buildCanonicalActivities(user.id, healthRecords, activities, now);
+  const healthMetrics = healthMetricHistory(healthRecords, user.id);
+  const historicalMetrics = [...metrics, ...healthMetrics].sort((a, b) => b.date.getTime() - a.date.getTime());
+  const latestHealthRestingHr = healthMetrics.filter(metric => metric.restingHeartrate !== null).sort((a, b) => b.date.getTime() - a.date.getTime())[0]?.restingHeartrate ?? null;
+  const calculationProfile = { maxHeartrate: profile?.maxHeartrate ?? null, restingHeartrate: profile?.restingHeartrate ?? latestHealthRestingHr };
+  const baseline = baselineFromActivities(user.id, canonicalActivities, calculationProfile, now);
+  const history = calculateFitnessHistory(user.id, canonicalActivities, historicalMetrics, now);
 
-  const effectiveMaxHr =
-    profile?.maxHeartrate || baseline.measuredMaxHr || estimateMaxHeartRate(30);
+  const effectiveMaxHr = profile?.maxHeartrate || baseline.measuredMaxHr || estimateMaxHeartRate(30);
   const birthDate = profile?.birthDate;
   const age = birthDate ? now.getUTCFullYear() - birthDate.getUTCFullYear() - (now.getUTCMonth() < birthDate.getUTCMonth() || (now.getUTCMonth() === birthDate.getUTCMonth() && now.getUTCDate() < birthDate.getUTCDate()) ? 1 : 0) : null;
   const validAge = age !== null && age >= 18 && age <= 100;
-  const vo2maxHr = profile?.maxHeartrate ?? (validAge ? estimateMaxHeartRate(age) : 185);
-  const vo2max = estimateVo2max(activities, now, vo2maxHr, profile?.maxHeartrate ? 'profile' : validAge ? 'age' : 'default', profile?.restingHeartrate);
+  const vo2maxHr = profile?.maxHeartrate ?? baseline.measuredMaxHr ?? (validAge ? estimateMaxHeartRate(age) : 185);
+  const vo2maxSource = profile?.maxHeartrate ? 'profile' : baseline.measuredMaxHr ? 'recorded' : validAge ? 'age' : 'default';
+  const vo2max = estimateVo2max(canonicalActivities, now, vo2maxHr, vo2maxSource, calculationProfile.restingHeartrate);
   const effectiveVdot = profile?.vdotScore ?? baseline.estimatedVdot;
 
   const paces = getTrainingPaces(effectiveVdot);
-  const zones = calculateHeartRateZones(effectiveMaxHr, profile?.restingHeartrate ?? undefined);
+  const zones = calculateHeartRateZones(effectiveMaxHr, calculationProfile.restingHeartrate ?? undefined);
   const healthOverview = buildHealthOverview(healthRecords, activities, now);
 
   return NextResponse.json({
@@ -57,6 +78,7 @@ export async function GET() {
     zones,
     calculatedVdot: effectiveVdot,
     calculatedMaxHr: effectiveMaxHr,
+    calculatedRestingHeartrate: calculationProfile.restingHeartrate,
     healthOverview,
   });
 }

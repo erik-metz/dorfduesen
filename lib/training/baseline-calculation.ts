@@ -92,12 +92,15 @@ export function baselineFromActivities(
     }
 
     // Estimate VDOT if run is >= 3km and moving time > 0
-    if (run.distance >= 3000 && run.movingTime > 0) {
+    const isHealthOnlyRun = run.stravaId.startsWith("health:");
+    if (run.distance >= 3000 && run.movingTime > 0 && (!isHealthOnlyRun || Boolean(run.averageHeartrate))) {
       fitnessSampleCount++;
-      // 1. Race VDOT (assumes maximal effort, adjusted for elevation / GAP)
-      const raceV = calculateVDOT(run.distance, run.movingTime, run.totalElevationGain || 0);
-      if (raceV > bestRaceVdot && raceV < 85) {
-        bestRaceVdot = raceV;
+      // Health-only sessions contribute as HR-adjusted aerobic samples, never as maximal race efforts.
+      if (!isHealthOnlyRun) {
+        const raceV = calculateVDOT(run.distance, run.movingTime, run.totalElevationGain || 0);
+        if (raceV > bestRaceVdot && raceV < 85) {
+          bestRaceVdot = raceV;
+        }
       }
 
       // 2. Submaximal HR-adjusted VDOT (considers heart rate reserve vs running speed & elevation)

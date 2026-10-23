@@ -16,6 +16,15 @@ export type HealthOverviewData = {
     respiratoryRate: HealthSignal;
   };
   recordCounts: { workouts: number; sleep: number; steps: number; heartRateSamples: number };
+  weeklyTrends: Array<{
+    weekStart: string;
+    deviceVo2max: number | null;
+    restingHeartRate: number | null;
+    heartRateVariability: number | null;
+    weight: number | null;
+    stepsPerDay: number | null;
+    sleepHours: number | null;
+  }>;
   activityMatches: Array<{
     healthRecordId: string;
     provider: string;
@@ -30,6 +39,22 @@ export type HealthOverviewData = {
 };
 
 const providerName = (provider: string) => provider === 'APPLE_HEALTH' ? 'Apple Health' : provider === 'HEALTH_CONNECT' ? 'Health Connect' : provider;
+
+function TrendCard({ title, unit, values, color }: { title: string; unit: string; values: Array<{ weekStart: string; value: number | null }>; color: string }) {
+  const finiteValues = values.flatMap(item => item.value === null || !Number.isFinite(item.value) ? [] : [item.value]);
+  const min = finiteValues.length ? Math.min(...finiteValues) : 0;
+  const max = finiteValues.length ? Math.max(...finiteValues) : 1;
+  const latest = [...values].reverse().find(item => item.value !== null && Number.isFinite(item.value))?.value;
+  return <View style={{ flexBasis: '47%', flexGrow: 1, minWidth: 145, padding: 12, gap: 8, borderRadius: 13, backgroundColor: '#09090b', borderWidth: 1, borderColor: '#27272a' }}>
+    <View style={{ gap: 2 }}><Text style={{ color: '#a1a1aa', fontSize: 10, fontWeight: '800', textTransform: 'uppercase' }}>{title} · 12 Wochen</Text><Text style={{ color: latest == null ? '#71717a' : '#f4f4f5', fontSize: 17, fontWeight: '900' }}>{latest == null ? 'Noch keine Daten' : `${Number(latest.toFixed(1))} ${unit}`}</Text></View>
+    <View accessibilityRole="image" accessibilityLabel={`${title}, Wochenwerte: ${values.map(item => `${new Date(`${item.weekStart}T00:00:00.000Z`).toLocaleDateString('de-DE')}: ${item.value === null ? 'keine Daten' : `${item.value.toFixed(1)} ${unit}`}`).join(', ')}`} style={{ height: 42, flexDirection: 'row', alignItems: 'flex-end', gap: 3 }}>
+      {values.map(item => {
+        const height = item.value === null ? 4 : max === min ? 24 : 8 + ((item.value - min) / (max - min)) * 34;
+        return <View key={item.weekStart} accessibilityLabel={`${item.weekStart}: ${item.value ?? 'keine Daten'}`} style={{ flex: 1, height, borderRadius: 3, backgroundColor: item.value === null ? '#27272a' : color }} />;
+      })}
+    </View>
+  </View>;
+}
 
 function SignalCard({ title, signal }: { title: string; signal: HealthSignal }) {
   return <View style={{ flexBasis: '47%', flexGrow: 1, minWidth: 135, padding: 12, gap: 4, borderRadius: 13, backgroundColor: '#09090b', borderWidth: 1, borderColor: '#27272a' }}>
@@ -57,6 +82,18 @@ export function HealthOverviewPanel({ data }: { data: HealthOverviewData }) {
       <SignalCard title="Atemfrequenz" signal={data.signals.respiratoryRate} />
       <SignalCard title="Sauerstoffsättigung" signal={data.signals.oxygenSaturation} />
     </View>
+    <View style={{ paddingTop: 10, borderTopWidth: 1, borderTopColor: '#27272a', gap: 8 }}>
+      <Text style={{ color: '#e4e4e7', fontSize: 13, fontWeight: '800' }}>Health-Trends · 12 Wochen</Text>
+      <Text style={{ color: '#71717a', fontSize: 10, lineHeight: 15 }}>Wochenmediane bzw. Tagesmittel aus vorhandenen Gerätedaten (nach UTC-Datum gruppiert). Die Trends sind beschreibend und keine medizinische Bewertung.</Text>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+        <TrendCard title="Geräte-VO₂max" unit="ml/kg/min" color="#22d3ee" values={data.weeklyTrends.map(point => ({ weekStart: point.weekStart, value: point.deviceVo2max }))} />
+        <TrendCard title="Ruhepuls" unit="bpm" color="#fb923c" values={data.weeklyTrends.map(point => ({ weekStart: point.weekStart, value: point.restingHeartRate }))} />
+        <TrendCard title="HRV" unit="ms" color="#a78bfa" values={data.weeklyTrends.map(point => ({ weekStart: point.weekStart, value: point.heartRateVariability }))} />
+        <TrendCard title="Schlaf" unit="h/Nacht" color="#60a5fa" values={data.weeklyTrends.map(point => ({ weekStart: point.weekStart, value: point.sleepHours }))} />
+        <TrendCard title="Schritte" unit="/Tag" color="#4ade80" values={data.weeklyTrends.map(point => ({ weekStart: point.weekStart, value: point.stepsPerDay }))} />
+        <TrendCard title="Gewicht" unit="kg" color="#f472b6" values={data.weeklyTrends.map(point => ({ weekStart: point.weekStart, value: point.weight }))} />
+      </View>
+    </View>
     <View style={{ paddingTop: 10, borderTopWidth: 1, borderTopColor: '#27272a', gap: 6 }}>
       <Text style={{ color: '#e4e4e7', fontSize: 13, fontWeight: '800' }}>Gemeinsame Aktivitätsbasis · letzte 26 Wochen</Text>
       <Text style={{ color: '#a1a1aa', fontSize: 12, lineHeight: 18 }}>
@@ -75,7 +112,7 @@ export function HealthOverviewPanel({ data }: { data: HealthOverviewData }) {
       <Text style={{ color: '#a1a1aa', fontSize: 10 }}>Zusätzlich importiert: {data.recordCounts.sleep} Schlaf-, {data.recordCounts.steps} Schritt- und {data.recordCounts.heartRateSamples} Pulsdatensätze.</Text>
     </View>
     <Text style={{ color: '#71717a', fontSize: 10 }}>
-      {data.recordCount} importierte Health-Datensätze · {data.providers.map(providerName).join(' + ') || 'keine Health-Quelle'} · Daten seit {new Date(data.from).toLocaleDateString('de-DE')}
+      {data.recordCount} für diese Ansicht berücksichtigte Health-Datensätze · {data.providers.map(providerName).join(' + ') || 'keine Health-Quelle'} · Betrachtungsfenster ab {new Date(data.from).toLocaleDateString('de-DE')}
     </Text>
   </View>;
 }
