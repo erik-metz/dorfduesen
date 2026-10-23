@@ -4,6 +4,11 @@ import * as SecureStore from 'expo-secure-store';
 import { useAuth } from '../auth/AuthProvider';
 import { DEFAULT_HEALTH_TYPES, importHealthData } from '../health/healthSync';
 
+function promptChoiceKey(userId: string) {
+  const safeUserId = userId.replace(/[^A-Za-z0-9._-]/g, '_') || 'user';
+  return `dorfduesen_health_prompt_v1_${safeUserId}`;
+}
+
 export function HealthConnectPrompt() {
   const { apiFetch, user } = useAuth();
   const [visible, setVisible] = useState(false);
@@ -14,9 +19,9 @@ export function HealthConnectPrompt() {
     if (!user) return;
     let cancelled = false;
     void (async () => {
-      const choiceKey = `dorfduesen_health_prompt_v1:${user.id}`;
-      if (await SecureStore.getItemAsync(choiceKey)) return;
       try {
+        const choiceKey = promptChoiceKey(user.id);
+        if (await SecureStore.getItemAsync(choiceKey)) return;
         const response = await apiFetch('/api/mobile/health/status');
         if (!response.ok) return;
         const payload = await response.json() as { connections?: Array<{ consentedTypes: string[]; revokedAt: string | null }> };
@@ -31,7 +36,9 @@ export function HealthConnectPrompt() {
   }, [apiFetch, user]);
 
   async function defer() {
-    if (user) await SecureStore.setItemAsync(`dorfduesen_health_prompt_v1:${user.id}`, 'deferred');
+    if (user) {
+      try { await SecureStore.setItemAsync(promptChoiceKey(user.id), 'deferred'); } catch { /* Dismissing the optional prompt must not block the app. */ }
+    }
     setVisible(false);
   }
 
@@ -40,7 +47,7 @@ export function HealthConnectPrompt() {
     setBusy(true); setError(null);
     try {
       await importHealthData(apiFetch, DEFAULT_HEALTH_TYPES);
-      await SecureStore.setItemAsync(`dorfduesen_health_prompt_v1:${user.id}`, 'connected');
+      try { await SecureStore.setItemAsync(promptChoiceKey(user.id), 'connected'); } catch { /* A storage failure must not undo a successful Health import. */ }
       setVisible(false);
     } catch (connectError) {
       setError(connectError instanceof Error ? connectError.message : 'Die Verbindung konnte nicht eingerichtet werden.');
