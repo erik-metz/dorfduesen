@@ -44,8 +44,8 @@ Dieses Dokument beschreibt, welche Kennzahlen Dorfdüsen bereits berechnet, welc
 
 1. **Bestand und Quellen dokumentieren** — abgeschlossen mit diesem Dokument.
 2. **Health-Verbindung vereinfachen** — Betriebssystemberechtigungen statt App-Checkboxliste; einmaliger, überspringbarer Verbindungshinweis nach erster Strava-Anmeldung; klare Speicherzustimmung sowie Aktionen zum Trennen/Löschen — in diesem Arbeitspaket umgesetzt.
-3. **Gemeinsame Health-Ansicht gestalten** — bestehende Physiologie-Kennzahlen und neue Health-Trends in klare Bereiche aufteilen; Messung, Schätzung, Quelle, Einheit und Datenabdeckung zeigen.
-4. **Gemeinsame Datenbasis schaffen** — Health-Rohdaten normalisieren und Strava-/Health-Aktivitäten deduplizieren/verknüpfen, ohne Herkunft oder Rohdaten zu verlieren.
+3. **Gemeinsame Health-Ansicht gestalten** — bestehende Physiologie-Kennzahlen und neue Health-Trends in klare Bereiche aufteilen; Messung, Schätzung, Quelle, Einheit und Datenabdeckung zeigen — abgeschlossen: die mobile Physiologie zeigt nun getrennte Gerätemessungen sowie Aktivitätsabdeckung und Quellen.
+4. **Gemeinsame Datenbasis schaffen** — Health-Rohdaten normalisieren und Strava-/Health-Aktivitäten deduplizieren/verknüpfen, ohne Herkunft oder Rohdaten zu verlieren — abgeschlossen als serverseitiges Read-Model: direkte Messwerte werden in einheitlichen Einheiten abgebildet und bekannte Workout-Sportarten über Startzeit und optionale Dauer zugeordnet. Rohdatensätze bleiben unverändert.
 5. **Bestehende Trainingskennzahlen integrieren** — Laufvolumen, Häufigkeit, Laufpuls, ACWR, Ruhepuls, HR-Zonen, VDOT, Trainingstempi, Profilvitalwerte und 26-Wochen-Historie auf die kanonische Datenbasis umstellen.
 6. **Health-Kennzahlen ergänzen** — direkte VO₂max getrennt von Modellschätzung; danach Schlaf, HRV, Alltag/Bewegung und ggf. Körperzusammensetzung mit vorsichtigen, erklärten Auswertungen.
 7. **Datenqualität und Plattformverhalten prüfen** — iOS/Android-Berechtigungen, leere/teilweise Freigabe, Widerruf, Löschen, Duplikate, Zeiträume, Einheiten, Offline-/Fehlerfälle und Nutzertexte auf Geräten durchgehen.
@@ -53,3 +53,7 @@ Dieses Dokument beschreibt, welche Kennzahlen Dorfdüsen bereits berechnet, welc
 ## Umfang des Verbindungsschritts
 
 Die App fordert für den ersten Sport-/Erholungsumfang Trainings, Schritte/Distanz, aktive Energie/Trainingszeit, Puls-/Ruhepuls-/HRV-Daten, relevante Körperwerte, direkte VO₂max, Schlaf und ausgewählte Vitaltrends an. Das Gerät entscheidet im eigenen Berechtigungsdialog, was davon zugänglich ist. Für die Übertragung und Kontospeicherung wird einmalig eine eigene, klar formulierte Zustimmung eingeholt. Ein späterer oder nicht erteilter Zugriff blockiert die übrige App nicht.
+
+## Gemeinsame Datenbasis (Schritt 4)
+
+`lib/mobile/health-overview.ts` baut ein nutzerbezogenes Read-Model aus den letzten 26 Wochen Health-Rohdaten und Strava-Aktivitäten. Unterstützte Messwerte sind direkte Health-VO₂max, Ruhepuls, HRV, Gewicht, Körperfett, Atemfrequenz und Sauerstoffsättigung. Die mobile Ansicht kennzeichnet Messzeitpunkt und Anbieter. Trainings-Workouts werden nur dann einer Strava-Aktivität zugeordnet, wenn Sportart bekannt und gleich ist, der Start höchstens acht Minuten abweicht und – falls vorhanden – die Dauer höchstens 20 % oder 150 Sekunden abweicht. Unbekannte Sportarten werden bewusst nicht automatisch verknüpft. Die Zuordnung wird bei jedem Abruf neu aus den Rohdaten berechnet; die Rohwerte bleiben erhalten und vorhandene Strava-Aktivitäten werden nicht kopiert.

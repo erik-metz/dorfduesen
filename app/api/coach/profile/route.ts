@@ -7,6 +7,7 @@ import { calculateFitnessHistory } from "@/lib/training/history";
 import { estimateVo2max } from "@/lib/training/vo2max";
 import { getTrainingPaces } from "@/lib/training/vdot";
 import { calculateHeartRateZones, estimateMaxHeartRate } from "@/lib/training/zones";
+import { buildHealthOverview } from "@/lib/mobile/health-overview";
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -15,10 +16,21 @@ export async function GET() {
   }
 
   const now = new Date();
-  const [profile, activities, metrics] = await Promise.all([
+  const healthFrom = new Date(now.getTime() - 182 * 86400000);
+  const [profile, activities, metrics, healthRecords] = await Promise.all([
     db.userProfile.findUnique({ where: { userId: user.id } }),
     db.activity.findMany({ where: { userId: user.id, startDate: { gte: new Date(now.getTime() - 38 * 7 * 86400000), lte: now } } }),
     db.healthMetric.findMany({ where: { userId: user.id, date: { lte: now } }, orderBy: { date: 'desc' } }),
+    db.mobileHealthRecord.findMany({
+      where: {
+        userId: user.id,
+        startAt: { gte: healthFrom, lte: now },
+        recordType: { in: ['workout', 'vo2_max', 'resting_heart_rate', 'heart_rate_variability', 'body_mass', 'body_fat_percentage', 'oxygen_saturation', 'respiratory_rate', 'sleep', 'step_count', 'heart_rate'] },
+      },
+      select: { id: true, provider: true, recordId: true, recordType: true, startAt: true, endAt: true, value: true, sourceName: true, sourceId: true },
+      orderBy: { startAt: 'desc' },
+      take: 5000,
+    }),
   ]);
   const baseline = baselineFromActivities(user.id, activities, profile, now);
   const history = calculateFitnessHistory(user.id, activities, metrics, now);
@@ -34,6 +46,7 @@ export async function GET() {
 
   const paces = getTrainingPaces(effectiveVdot);
   const zones = calculateHeartRateZones(effectiveMaxHr, profile?.restingHeartrate ?? undefined);
+  const healthOverview = buildHealthOverview(healthRecords, activities, now);
 
   return NextResponse.json({
     profile,
@@ -44,6 +57,7 @@ export async function GET() {
     zones,
     calculatedVdot: effectiveVdot,
     calculatedMaxHr: effectiveMaxHr,
+    healthOverview,
   });
 }
 

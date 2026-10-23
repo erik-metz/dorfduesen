@@ -4,6 +4,7 @@ import { useLocalSearchParams } from 'expo-router';
 import { useAuth } from '../../src/auth/AuthProvider';
 import { ActivityDetail } from '../../src/components/ActivityDetail';
 import { HealthDataPanel } from '../../src/components/HealthDataPanel';
+import { HealthOverviewPanel, type HealthOverviewData } from '../../src/components/HealthOverviewPanel';
 
 type Activity = {
   id: string; stravaId: string; name: string; sportType: string; distance: number;
@@ -360,6 +361,7 @@ function SectionContent({ tab, sectionData, arena, isReadOnly, sectionLoading, g
     return <View style={styles.stack}>
       <Text style={styles.copy}>Deine Leistungswerte, Gesundheitsmetriken und individuellen Trainingsbereiche.</Text>
       <HealthDataPanel />
+      {sectionData.healthOverview ? <HealthOverviewPanel data={sectionData.healthOverview as HealthOverviewData} /> : null}
       <View style={styles.inlineRow}>
         {[
           ['VDOT Fitnesswert', String(sectionData.calculatedVdot ?? '–'), profile?.vdotScore != null ? `Manuell · automatisch ${baseline?.estimatedVdot ?? '–'}` : 'Automatisch aus Strava-Läufen'],
