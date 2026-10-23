@@ -292,13 +292,13 @@ function workoutDistanceMeters(record: HealthRecordForOverview, distanceRecords:
   return Math.max(...grouped.values(), 0) || null;
 }
 
-/** Merge matched Health heart-rate samples into Strava rows and add complete Health-only sessions. */
+/** Prefer Health measurements for matched sessions and add complete Health-only sessions. */
 export function buildCanonicalActivities(userId: string, records: HealthRecordForOverview[], activities: Activity[], now: Date): Activity[] {
   const matches = buildHealthOverview(records, activities, now).activityMatches;
   const healthById = new Map(records.map(record => [record.id, record]));
   const heartRateRecords = records.filter(record => record.recordType === 'heart_rate');
   const distanceRecords = records.filter(record => ['distance', 'walking_running_distance', 'cycling_distance', 'swimming_distance'].includes(record.recordType));
-  const enrichment = new Map<string, { averageHeartrate: number; maxHeartrate: number }>();
+  const enrichment = new Map<string, Partial<Pick<Activity, 'distance' | 'movingTime' | 'elapsedTime' | 'averageSpeed' | 'averageHeartrate' | 'maxHeartrate' | 'totalElevationGain'>>>();
   const additional: Activity[] = [];
 
   for (const match of matches) {
@@ -308,7 +308,24 @@ export function buildCanonicalActivities(userId: string, records: HealthRecordFo
     const averageHeartrate = heartRates.length ? heartRates.reduce((sum, value) => sum + value, 0) / heartRates.length : null;
     const maxHeartrate = heartRates.length ? Math.max(...heartRates) : null;
     if (match.strava) {
-      if (averageHeartrate !== null && maxHeartrate !== null) enrichment.set(match.strava.id, { averageHeartrate, maxHeartrate });
+      const healthDistance = workoutDistanceMeters(record, distanceRecords);
+      const healthDuration = healthWorkoutDuration(record);
+      const directAverageHeartrate = finite(json(record.value).averageHeartRate) ?? finite(json(record.value).averageHeartrate);
+      const directMaxHeartrate = finite(json(record.value).maxHeartRate) ?? finite(json(record.value).maxHeartrate);
+      const healthValues: Partial<Pick<Activity, 'distance' | 'movingTime' | 'elapsedTime' | 'averageSpeed' | 'averageHeartrate' | 'maxHeartrate' | 'totalElevationGain'>> = {};
+      if (healthDistance !== null && healthDistance > 0) healthValues.distance = healthDistance;
+      if (healthDuration !== null && healthDuration > 0) {
+        healthValues.movingTime = Math.round(healthDuration);
+        healthValues.elapsedTime = Math.round(healthDuration);
+        if (healthDistance !== null && healthDistance > 0) healthValues.averageSpeed = healthDistance / healthDuration;
+      }
+      const healthAverageHeartrate = averageHeartrate ?? directAverageHeartrate;
+      const healthMaxHeartrate = maxHeartrate ?? directMaxHeartrate;
+      if (healthAverageHeartrate !== null) healthValues.averageHeartrate = healthAverageHeartrate;
+      if (healthMaxHeartrate !== null) healthValues.maxHeartrate = healthMaxHeartrate;
+      const healthElevation = finite(json(record.value).totalElevationGain);
+      if (healthElevation !== null && healthElevation >= 0) healthValues.totalElevationGain = healthElevation;
+      if (Object.keys(healthValues).length) enrichment.set(match.strava.id, healthValues);
       continue;
     }
     const family = healthSport(record);
@@ -348,14 +365,11 @@ export function buildCanonicalActivities(userId: string, records: HealthRecordFo
   }
 
   const enrichedStrava = activities.map(activity => {
-    if (activity.averageHeartrate && activity.maxHeartrate) return activity;
     const health = enrichment.get(activity.stravaId);
     if (!health) return activity;
-    return {
-      ...activity,
-      averageHeartrate: activity.averageHeartrate ?? health.averageHeartrate,
-      maxHeartrate: activity.maxHeartrate ?? health.maxHeartrate,
-    };
+    // A matched workout remains one canonical activity. Health values win when
+    // the OS supplied them; Strava fills only fields Health did not provide.
+    return { ...activity, ...health };
   });
   return [...enrichedStrava, ...additional];
 }
