@@ -12,14 +12,16 @@ export function HealthDataPanel() {
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState('Noch nicht verbunden');
   const [connected, setConnected] = useState(false);
+  const [hasStoredData, setHasStoredData] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     const response = await apiFetch('/api/mobile/health/status');
     if (!response.ok) return;
-    const payload = await response.json() as { connections?: HealthConnection[] };
+    const payload = await response.json() as { connections?: HealthConnection[]; storedRecordCount?: number };
     const active = payload.connections?.find(connection => !connection.revokedAt && connection.consentedTypes.length > 0);
     setConnected(Boolean(active));
+    setHasStoredData((payload.storedRecordCount ?? 0) > 0);
     setStatus(active
       ? `Einrichtung erfolgt · zuletzt synchronisiert ${active.lastSyncedAt ? new Date(active.lastSyncedAt).toLocaleString('de-DE') : 'noch nicht'}`
       : 'Noch nicht verbunden');
@@ -90,9 +92,9 @@ export function HealthDataPanel() {
     <Pressable accessibilityRole="button" disabled={busy} onPress={() => void sync()} style={{ backgroundColor: '#ea580c', borderRadius: 10, padding: 12, alignItems: 'center' }}>
       {busy ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontWeight: '800' }}>{connected ? 'Jetzt synchronisieren' : 'Health verbinden & synchronisieren'}</Text>}
     </Pressable>
-    {connected ? <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-      <Pressable accessibilityRole="button" disabled={busy} onPress={revoke}><Text style={{ color: '#fb923c', fontSize: 12 }}>Verbindung trennen</Text></Pressable>
-      <Pressable accessibilityRole="button" disabled={busy} onPress={deleteData}><Text style={{ color: '#f87171', fontSize: 12 }}>Importe löschen</Text></Pressable>
+    {connected || hasStoredData ? <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+      {connected ? <Pressable accessibilityRole="button" disabled={busy} onPress={revoke}><Text style={{ color: '#fb923c', fontSize: 12 }}>Verbindung trennen</Text></Pressable> : <View />}
+      {hasStoredData ? <Pressable accessibilityRole="button" disabled={busy} onPress={deleteData}><Text style={{ color: '#f87171', fontSize: 12 }}>Importe löschen</Text></Pressable> : null}
     </View> : null}
     {error ? <Text accessibilityLiveRegion="assertive" style={{ color: '#fca5a5', fontSize: 12 }}>{error}</Text> : null}
   </View>;
