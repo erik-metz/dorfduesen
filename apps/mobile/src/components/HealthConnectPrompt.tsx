@@ -59,14 +59,14 @@ export function HealthConnectPrompt() {
   return <Modal visible={visible} transparent animationType="fade" onRequestClose={() => void defer()}>
     <View style={{ flex: 1, justifyContent: 'center', padding: 24, backgroundColor: '#000b' }}>
       <View style={{ backgroundColor: '#18181b', borderColor: '#3f3f46', borderWidth: 1, borderRadius: 20, padding: 20, gap: 12 }}>
-        <Text style={{ color: '#fafafa', fontSize: 20, fontWeight: '900' }}>Health verbinden</Text>
+        <Text style={{ color: '#fafafa', fontSize: 20, fontWeight: '900' }}>Health koppeln</Text>
         <Text style={{ color: '#d4d4d8', fontSize: 14, lineHeight: 21 }}>
-          Verbinde Apple Health oder Health Connect, damit Dorfdüsen Trainings-, Belastungs-, Schlaf- und Vitaldaten mit deinen Strava-Aktivitäten auswerten kann. Dein Gerät fragt dich anschließend, welche Daten die App lesen darf. Mit „Verbinden“ stimmst du außerdem zu, dass lesbare Daten zu deinem Dorfdüsen-Konto übertragen und dort gespeichert werden. Sie werden nicht mit dem Team geteilt.
+          Kopple Apple Health oder Health Connect mit Dorfdüsen, damit Trainings-, Schlaf- und Vitaldaten in deine persönliche Auswertung einfließen. Dein Gerät fragt dich, welche Daten freigegeben werden dürfen. Mit „Health koppeln“ stimmst du außerdem zu, dass diese Daten in deinem Dorfdüsen-Konto gespeichert werden. Sie werden nicht mit dem Team geteilt.
         </Text>
-        <Text style={{ color: '#a1a1aa', fontSize: 12, lineHeight: 18 }}>Du kannst die Verbindung später in Physiologie trennen und importierte Daten löschen.</Text>
+        <Text style={{ color: '#a1a1aa', fontSize: 12, lineHeight: 18 }}>Du kannst die Kopplung später in Physiologie wieder trennen.</Text>
         {error ? <Text accessibilityLiveRegion="assertive" style={{ color: '#fca5a5', fontSize: 12 }}>{error}</Text> : null}
         <Pressable accessibilityRole="button" disabled={busy} onPress={() => void connect()} style={{ backgroundColor: '#ea580c', borderRadius: 12, minHeight: 48, justifyContent: 'center', alignItems: 'center' }}>
-          {busy ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontWeight: '800' }}>Verbinden & synchronisieren</Text>}
+          {busy ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontWeight: '800' }}>Health koppeln</Text>}
         </Pressable>
         <Pressable accessibilityRole="button" disabled={busy} onPress={() => void defer()} style={{ minHeight: 44, justifyContent: 'center', alignItems: 'center' }}>
           <Text style={{ color: '#d4d4d8', fontWeight: '700' }}>Später</Text>

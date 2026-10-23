@@ -341,6 +341,7 @@ function SectionContent({ tab, sectionData, arena, isReadOnly, sectionLoading, g
   const [historyIndex, setHistoryIndex] = useState(25);
   const [trophyFilter, setTrophyFilter] = useState('ALL');
   const [selectedTrophy, setSelectedTrophy] = useState<Record<string, any> | null>(null);
+  const [healthConnected, setHealthConnected] = useState(false);
   if (tab === 'Physiologie') {
     const metrics = (sectionData.metrics ?? []) as DashboardData['physiology']['recentMetrics'];
     const profile = sectionData.profile as Record<string, unknown> | null;
@@ -360,7 +361,7 @@ function SectionContent({ tab, sectionData, arena, isReadOnly, sectionLoading, g
     const metricLabel = { color: '#a1a1aa', fontSize: 10, fontWeight: '800' as const, textTransform: 'uppercase' as const };
     return <View style={styles.stack}>
       <Text style={styles.copy}>Deine Leistungswerte, Gesundheitsmetriken und individuellen Trainingsbereiche.</Text>
-      <HealthDataPanel />
+      {!healthConnected ? <HealthDataPanel initialConnected={healthConnected} onConnectionChange={setHealthConnected} /> : null}
       {sectionData.healthOverview ? <HealthOverviewPanel data={sectionData.healthOverview as HealthOverviewData} /> : null}
       <View style={styles.inlineRow}>
         {[
@@ -377,6 +378,7 @@ function SectionContent({ tab, sectionData, arena, isReadOnly, sectionLoading, g
       <View style={styles.weekCard}><Text style={styles.subheading}>Deine 5 Herzfrequenz-Zonen</Text><Text style={styles.tiny}>Pulsbereiche für gezielte aerobe und anaerobe Anpassung.</Text>{zones?.map((zone, index) => <View key={zone.zone ?? index} style={[styles.workout, { flexDirection: 'row', alignItems: 'center', gap: 10 }]}><Text style={styles.tabBadge}>Z{zone.zone ?? index + 1}</Text><View style={{ flex: 1 }}><Text style={styles.activityName}>{zone.name}</Text><Text style={styles.tiny}>{zone.description}</Text></View><Text style={styles.small}>{zone.minHr}–{zone.maxHr} bpm</Text></View>)}</View>
       <View style={styles.weekCard}><Text style={styles.subheading}>Körperdaten & Vital-Tracking</Text><Text style={styles.small}>Gewicht und Ruhepuls historisch erfassen. Die Werte fließen in Verlauf und Pulszonen ein.</Text><View style={styles.inlineRow}><TextInput style={styles.input} value={weight} onChangeText={setWeight} placeholder="Gewicht kg" placeholderTextColor="#71717a" keyboardType="decimal-pad" /><TextInput style={styles.input} value={restingHr} onChangeText={setRestingHr} placeholder="Ruhepuls bpm" placeholderTextColor="#71717a" keyboardType="number-pad" /></View><Pressable style={styles.primaryButton} onPress={addMetric}><Text style={styles.primaryButtonText}>Messwert speichern</Text></Pressable><Text style={styles.tiny}>Ruhepuls aktuell: {String(sectionData.calculatedRestingHeartrate ?? '–')} bpm · Maximalpuls: {String(sectionData.calculatedMaxHr ?? '–')} bpm</Text>
         {metrics.length ? <><View style={styles.inlineRow}>{[['NEUESTES GEWICHT', metrics.find(metric => metric.weightKg != null)?.weightKg ? `${metrics.find(metric => metric.weightKg != null)?.weightKg} kg` : '–'], ['NEUESTER RUHEPULS', metrics.find(metric => metric.restingHeartrate != null)?.restingHeartrate ? `${metrics.find(metric => metric.restingHeartrate != null)?.restingHeartrate} bpm` : '–'], ['ERFASSTE EINTRÄGE', String(metrics.length)]].map(([label, value]) => <View key={label} style={metricCard}><Text style={metricLabel}>{label}</Text><Text style={{ color: '#f4f4f5', fontSize: 18, fontWeight: '900' }}>{value}</Text></View>)}</View><Text style={styles.subheading}>Messhistorie · {metrics.length} Einträge</Text>{metrics.slice(0, 15).map(metric => <View key={metric.id} style={styles.spaceBetween}><Text style={styles.small}>{new Date(metric.date).toLocaleDateString('de-DE')}</Text><Text style={styles.small}>{metric.weightKg ? `${metric.weightKg} kg` : '–'} · {metric.restingHeartrate ? `${metric.restingHeartrate} bpm` : '–'}{metric.notes ? ` · ${metric.notes}` : ''}</Text></View>)}</> : <Text style={styles.small}>Noch keine manuellen Messwerte eingetragen.</Text>}</View>
+      {healthConnected ? <HealthDataPanel initialConnected={healthConnected} onConnectionChange={setHealthConnected} /> : null}
     </View>;
   }
   if (tab === 'Coach') {
