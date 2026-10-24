@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, Text, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { AppState, ActivityIndicator, Modal, Pressable, Platform, Text, View } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { useAuth } from '../auth/AuthProvider';
 import { DEFAULT_HEALTH_TYPES, importHealthData } from '../health/healthSync';
@@ -14,26 +14,72 @@ export function HealthConnectPrompt() {
   const [visible, setVisible] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const syncInProgress = useRef(false);
+
+  const checkConnectionAndSync = useCallback(async (cancelled?: () => boolean) => {
+    if (!user || syncInProgress.current) return;
+    syncInProgress.current = true;
+    try {
+      const response = await apiFetch('/api/mobile/health/status');
+      if (!response.ok || cancelled?.()) return;
+      const payload = await response.json() as { connections?: Array<{ provider: string; consentedTypes: string[]; revokedAt: string | null; lastSyncedAt: string | null }> };
+      const provider = Platform.OS === 'ios' ? 'APPLE_HEALTH' : Platform.OS === 'android' ? 'HEALTH_CONNECT' : null;
+      const activeConnection = payload.connections?.find(connection => connection.provider === provider && !connection.revokedAt && connection.consentedTypes.length > 0);
+      if (!activeConnection) return;
+
+      const lastSyncedAt = activeConnection.lastSyncedAt ? Date.parse(activeConnection.lastSyncedAt) : 0;
+      const staleAfterMs = 15 * 60 * 1000;
+      if (Date.now() - lastSyncedAt < staleAfterMs) return;
+
+      // Re-read a day before the previous cursor to catch records completed
+      // shortly after the last app session. Stable native IDs make this safe
+      // to upsert without creating duplicate rows.
+      const overlapMs = 24 * 60 * 60 * 1000;
+      const defaultLookbackMs = Platform.OS === 'android' ? 30 * 24 * 60 * 60 * 1000 : 365 * 24 * 60 * 60 * 1000;
+      const since = lastSyncedAt ? new Date(lastSyncedAt - overlapMs) : new Date(Date.now() - defaultLookbackMs);
+      const permittedTypes = DEFAULT_HEALTH_TYPES.filter(type => activeConnection.consentedTypes.includes(type));
+      if (!permittedTypes.length) return;
+
+      await importHealthData(apiFetch, permittedTypes, { since, requestPermissions: false, saveConsent: false });
+    } catch (syncError) {
+      // A background refresh should never block navigation or show a modal.
+      console.warn('Automatischer Health-Import fehlgeschlagen.', syncError instanceof Error ? syncError.message : 'Unbekannter Fehler');
+    } finally {
+      syncInProgress.current = false;
+    }
+  }, [apiFetch, user]);
 
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
     void (async () => {
       try {
-        const choiceKey = promptChoiceKey(user.id);
-        if (await SecureStore.getItemAsync(choiceKey)) return;
         const response = await apiFetch('/api/mobile/health/status');
         if (!response.ok) return;
-        const payload = await response.json() as { connections?: Array<{ consentedTypes: string[]; revokedAt: string | null }> };
-        const activeConnection = payload.connections?.some(connection => !connection.revokedAt && connection.consentedTypes.length > 0);
-        if (!cancelled && !activeConnection) setVisible(true);
-        if (activeConnection) await SecureStore.setItemAsync(choiceKey, 'connected');
+        const payload = await response.json() as { connections?: Array<{ provider: string; consentedTypes: string[]; revokedAt: string | null }> };
+        const provider = Platform.OS === 'ios' ? 'APPLE_HEALTH' : Platform.OS === 'android' ? 'HEALTH_CONNECT' : null;
+        const activeConnection = payload.connections?.some(connection => connection.provider === provider && !connection.revokedAt && connection.consentedTypes.length > 0);
+        if (!activeConnection) {
+          const choice = await SecureStore.getItemAsync(promptChoiceKey(user.id));
+          if (!cancelled && !choice) setVisible(true);
+          return;
+        }
+        await SecureStore.setItemAsync(promptChoiceKey(user.id), 'connected');
+        await checkConnectionAndSync(() => cancelled);
       } catch {
         // The regular physiology panel remains available if status cannot be loaded.
       }
     })();
     return () => { cancelled = true; };
-  }, [apiFetch, user]);
+  }, [apiFetch, checkConnectionAndSync, user]);
+
+  useEffect(() => {
+    if (!user) return;
+    const subscription = AppState.addEventListener('change', state => {
+      if (state === 'active') void checkConnectionAndSync();
+    });
+    return () => subscription.remove();
+  }, [checkConnectionAndSync, user]);
 
   async function defer() {
     if (user) {
@@ -46,7 +92,7 @@ export function HealthConnectPrompt() {
     if (!user) return;
     setBusy(true); setError(null);
     try {
-      await importHealthData(apiFetch, DEFAULT_HEALTH_TYPES);
+      await importHealthData(apiFetch, DEFAULT_HEALTH_TYPES, { requestPermissions: true, saveConsent: true });
       try { await SecureStore.setItemAsync(promptChoiceKey(user.id), 'connected'); } catch { /* A storage failure must not undo a successful Health import. */ }
       setVisible(false);
     } catch (connectError) {

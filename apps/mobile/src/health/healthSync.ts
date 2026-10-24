@@ -76,15 +76,14 @@ function idOf(value: unknown, fallback: string) {
   return typeof value === 'string' && value ? value : fallback;
 }
 
-async function readHealthKit(types: HealthRecordType[]): Promise<{ records: HealthImportRecord[]; supportedTypes: HealthRecordType[] }> {
+async function readHealthKit(types: HealthRecordType[], since: Date, requestPermissions: boolean): Promise<{ records: HealthImportRecord[]; supportedTypes: HealthRecordType[] }> {
   const hk = await import('@kingstinct/react-native-healthkit');
   if (!await hk.isHealthDataAvailable()) throw new Error('Apple Health ist auf diesem Gerät nicht verfügbar.');
   const quantityTypes = iosQuantityTypes.filter(([, type]) => types.includes(type));
   const categoryTypes = iosCategoryTypes.filter(([, type]) => types.includes(type));
   const supportedTypes = [...new Set([...quantityTypes.map(([, type]) => type), ...categoryTypes.map(([, type]) => type), ...(types.includes('workout') ? ['workout' as const] : [])])];
   const requested = [...new Set([...quantityTypes.map(([id]) => id), ...categoryTypes.map(([id]) => id), ...(types.includes('workout') ? ['HKWorkoutTypeIdentifier'] : [])])];
-  await hk.requestAuthorization({ toRead: requested as never[] });
-  const since = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
+  if (requestPermissions) await hk.requestAuthorization({ toRead: requested as never[] });
   const records: HealthImportRecord[] = [];
   for (const [identifier, recordType] of quantityTypes) {
     const samples = await hk.queryQuantitySamples(identifier as never, { limit: 0, ascending: false, filter: { date: { startDate: since } } });
@@ -113,23 +112,26 @@ async function readHealthKit(types: HealthRecordType[]): Promise<{ records: Heal
   return { records, supportedTypes };
 }
 
-async function readHealthConnect(types: HealthRecordType[]): Promise<{ records: HealthImportRecord[]; supportedTypes: HealthRecordType[] }> {
+async function readHealthConnect(types: HealthRecordType[], since: Date, requestPermissions: boolean): Promise<{ records: HealthImportRecord[]; supportedTypes: HealthRecordType[] }> {
   const hc = await import('react-native-health-connect');
   const available = await hc.initialize();
   if (!available) throw new Error('Health Connect ist auf diesem Gerät nicht verfügbar.');
   const mappings = androidTypes.filter(([, canonical]) => types.includes(canonical));
   const permissions = mappings.map(([recordType]) => ({ accessType: 'read' as const, recordType: recordType as never }));
-  const granted = await hc.requestPermission(permissions);
+  const granted = requestPermissions ? await hc.requestPermission(permissions) : await hc.getGrantedPermissions();
   const grantedTypes = new Set(granted.filter((permission) => permission.accessType === 'read').map((permission) => permission.recordType));
   const grantedMappings = mappings.filter(([recordType]) => grantedTypes.has(recordType as never));
   if (!grantedMappings.length) throw new Error('Health Connect hat keinen der ausgewählten Datentypen freigegeben.');
-  const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  // Health Connect limits historical reads to the most recent 30 days unless
+  // the user separately grants history access.
+  const earliestAllowed = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const querySince = since < earliestAllowed ? earliestAllowed : since;
   const endTime = new Date().toISOString();
   const records: HealthImportRecord[] = [];
   for (const [nativeType, recordType] of grantedMappings) {
     let pageToken: string | undefined;
     do {
-      const result = await hc.readRecords(nativeType as never, { timeRangeFilter: { operator: 'between', startTime: since.toISOString(), endTime }, pageSize: 500, ...(pageToken ? { pageToken } : {}) });
+      const result = await hc.readRecords(nativeType as never, { timeRangeFilter: { operator: 'between', startTime: querySince.toISOString(), endTime }, pageSize: 500, ...(pageToken ? { pageToken } : {}) });
       for (const item of result.records as unknown as Array<Record<string, unknown>>) {
         const metadata = (item.metadata && typeof item.metadata === 'object' ? item.metadata : {}) as Record<string, unknown>;
         const startAt = typeof item.startTime === 'string' ? item.startTime : typeof item.time === 'string' ? item.time : null;
@@ -153,20 +155,26 @@ async function readHealthConnect(types: HealthRecordType[]): Promise<{ records: 
   return { records, supportedTypes: [...new Set(grantedMappings.map(([, type]) => type))] };
 }
 
-export async function readDeviceHealthData(types: HealthRecordType[]) {
-  if (Platform.OS === 'ios') return { provider: 'APPLE_HEALTH' as const, ...await readHealthKit(types) };
-  if (Platform.OS === 'android') return { provider: 'HEALTH_CONNECT' as const, ...await readHealthConnect(types) };
+export async function readDeviceHealthData(types: HealthRecordType[], since = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000), requestPermissions = true) {
+  if (Platform.OS === 'ios') return { provider: 'APPLE_HEALTH' as const, ...await readHealthKit(types, since, requestPermissions) };
+  if (Platform.OS === 'android') return { provider: 'HEALTH_CONNECT' as const, ...await readHealthConnect(types, since, requestPermissions) };
   throw new Error('Gesundheitsdaten werden nur in den nativen iOS- und Android-Apps unterstützt.');
 }
 
-export async function importHealthData(apiFetch: (path: string, init?: RequestInit) => Promise<Response>, types: HealthRecordType[]) {
-  const { provider, records, supportedTypes } = await readDeviceHealthData(types);
+export async function importHealthData(
+  apiFetch: (path: string, init?: RequestInit) => Promise<Response>,
+  types: HealthRecordType[],
+  options: { since?: Date; requestPermissions?: boolean; saveConsent?: boolean } = {},
+) {
+  const { provider, records, supportedTypes } = await readDeviceHealthData(types, options.since, options.requestPermissions ?? true);
   if (!supportedTypes.length) throw new Error('Die ausgewählten Datentypen werden auf diesem Gerät nicht unterstützt.');
-  const consent = await apiFetch('/api/mobile/health/consent', {
-    method: 'PUT', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ provider, accepted: true, types: supportedTypes }),
-  });
-  if (!consent.ok) throw new Error('Die Zustimmung konnte nicht gespeichert werden.');
+  if (options.saveConsent !== false) {
+    const consent = await apiFetch('/api/mobile/health/consent', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ provider, accepted: true, types: supportedTypes }),
+    });
+    if (!consent.ok) throw new Error('Die Zustimmung konnte nicht gespeichert werden.');
+  }
   let saved = 0;
   const batches = records.length ? Array.from({ length: Math.ceil(records.length / 400) }, (_, index) => records.slice(index * 400, (index + 1) * 400)) : [[]];
   for (const batch of batches) {
