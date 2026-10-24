@@ -92,7 +92,8 @@ export function baselineFromActivities(
     }
 
     // Estimate VDOT if run is >= 3km and moving time > 0
-    const isHealthOnlyRun = run.stravaId.startsWith("health:");
+    // Historical callers and imported legacy rows can lack an external ID.
+    const isHealthOnlyRun = typeof run.stravaId === "string" && run.stravaId.startsWith("health:");
     if (run.distance >= 3000 && run.movingTime > 0 && (!isHealthOnlyRun || Boolean(run.averageHeartrate))) {
       fitnessSampleCount++;
       // Health-only sessions contribute as HR-adjusted aerobic samples, never as maximal race efforts.

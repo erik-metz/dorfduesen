@@ -2,13 +2,14 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { loadTs } from './load-ts.mjs';
 
-function route(profile, user = { id: 'athlete' }) {
+function route(profile, user = { id: 'athlete' }, activitiesOverride) {
   const now = new Date();
-  const activities = [1, 3, 5].map(days => ({ startDate: new Date(now.getTime() - days * 86400000), sportType: 'Run', distance: 5000, movingTime: 1800, elapsedTime: 1820, averageHeartrate: 145, maxHeartrate: 175, totalElevationGain: 10 }));
+  const activities = activitiesOverride ?? [1, 3, 5].map(days => ({ startDate: new Date(now.getTime() - days * 86400000), sportType: 'Run', distance: 5000, movingTime: 1800, elapsedTime: 1820, averageHeartrate: 145, maxHeartrate: 175, totalElevationGain: 10 }));
   const db = {
     userProfile: { findUnique: async ({ where }) => { assert.equal(where.userId, 'athlete'); return profile; } },
     activity: { findMany: async ({ where }) => { assert.equal(where.userId, 'athlete'); return activities; } },
     healthMetric: { findMany: async ({ where }) => { assert.equal(where.userId, 'athlete'); return []; } },
+    mobileHealthRecord: { findMany: async ({ where }) => { assert.equal(where.userId, 'athlete'); return []; } },
   };
   return loadTs('app/api/coach/profile/route.ts', {
     '@/lib/auth/session': { getCurrentUser: async () => user },
@@ -38,7 +39,7 @@ test('profile API returns separate VO2max and reconstructed history independent 
 test('profile API uses age when available and explicitly identifies the default otherwise', async () => {
   const aged = await (await route({ birthDate: new Date('1986-01-01') }).GET()).json();
   assert.equal(aged.vo2max.maxHrSource, 'age');
-  const fallback = await (await route(null).GET()).json();
+  const fallback = await (await route(null, undefined, []).GET()).json();
   assert.equal(fallback.vo2max.maxHrSource, 'default');
   assert.equal(fallback.vo2max.maxHr, 185);
 });

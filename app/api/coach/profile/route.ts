@@ -60,8 +60,10 @@ export async function GET() {
   const birthDate = profile?.birthDate;
   const age = birthDate ? now.getUTCFullYear() - birthDate.getUTCFullYear() - (now.getUTCMonth() < birthDate.getUTCMonth() || (now.getUTCMonth() === birthDate.getUTCMonth() && now.getUTCDate() < birthDate.getUTCDate()) ? 1 : 0) : null;
   const validAge = age !== null && age >= 18 && age <= 100;
-  const vo2maxHr = profile?.maxHeartrate ?? baseline.measuredMaxHr ?? (validAge ? estimateMaxHeartRate(age) : 185);
-  const vo2maxSource = profile?.maxHeartrate ? 'profile' : baseline.measuredMaxHr ? 'recorded' : validAge ? 'age' : 'default';
+  // Use a saved personal maximum first, then the age estimate. A workout's
+  // highest observed pulse is not necessarily the athlete's maximum HR.
+  const vo2maxHr = profile?.maxHeartrate ?? (validAge ? estimateMaxHeartRate(age) : baseline.measuredMaxHr ?? 185);
+  const vo2maxSource = profile?.maxHeartrate ? 'profile' : validAge ? 'age' : baseline.measuredMaxHr ? 'recorded' : 'default';
   const vo2max = estimateVo2max(canonicalActivities, now, vo2maxHr, vo2maxSource, calculationProfile.restingHeartrate);
   const effectiveVdot = profile?.vdotScore ?? baseline.estimatedVdot;
 
