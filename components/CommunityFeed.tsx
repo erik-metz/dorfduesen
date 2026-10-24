@@ -218,15 +218,17 @@ export async function CommunityFeed() {
                           {new Date(act.startDate).toLocaleDateString('de-DE')}
                         </div>
                       </div>
-                      <a
-                        href={`https://www.strava.com/activities/${act.stravaId}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="p-2 rounded-lg bg-zinc-800 text-zinc-400 hover:text-white"
-                        title="Auf Strava ansehen"
-                      >
-                        <ExternalLink className="w-3.5 h-3.5" />
-                      </a>
+                      {!act.stravaId.startsWith('health:') && (
+                        <a
+                          href={`https://www.strava.com/activities/${act.stravaId}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-2 rounded-lg bg-zinc-800 text-zinc-400 hover:text-white"
+                          title="Auf Strava ansehen"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </a>
+                      )}
                     </div>
                   </div>
                 ))}

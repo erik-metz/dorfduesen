@@ -9,6 +9,7 @@ test('completed Strava import expires the shared arena cache immediately', async
     '@/lib/db': { db: {} },
     './tokens': { getValidStravaToken: async () => 'unused' },
     '@/lib/inngest/client': { inngest: {} },
+    '@/lib/mobile/health-activities': { reconcileHealthActivities: async () => ({ createdOrUpdated: 0, removed: 0 }) },
     'next/cache': {
       revalidatePath: path => paths.push(path),
       revalidateTag: (tag, profile) => tags.push({ tag, expire: profile.expire }),

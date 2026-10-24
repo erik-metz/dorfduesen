@@ -65,9 +65,11 @@ export function RecentActivities({ activities }: { activities: RecentArenaActivi
                       <td className="py-4 px-2 sm:px-4 text-zinc-300 hidden sm:table-cell whitespace-nowrap">{duration}</td>
                       <td className="py-4 px-2 sm:px-4 text-zinc-400 hidden lg:table-cell whitespace-nowrap"><time dateTime={activity.startDate}>{date}</time></td>
                       <td className="py-4 px-2 sm:px-4 text-right sm:pr-6">
-                        <a href={`https://www.strava.com/activities/${activity.stravaId}`} target="_blank" rel="noopener noreferrer" aria-label={`${activity.name} auf Strava ansehen`} className="inline-flex p-2 rounded-lg text-zinc-400 hover:text-orange-400 hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-orange-400">
-                          <ExternalLink className="w-4 h-4" aria-hidden="true" />
-                        </a>
+                        {!activity.stravaId.startsWith('health:') && (
+                          <a href={`https://www.strava.com/activities/${activity.stravaId}`} target="_blank" rel="noopener noreferrer" aria-label={`${activity.name} auf Strava ansehen`} className="inline-flex p-2 rounded-lg text-zinc-400 hover:text-orange-400 hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-orange-400">
+                            <ExternalLink className="w-4 h-4" aria-hidden="true" />
+                          </a>
+                        )}
                       </td>
                     </tr>
                   );

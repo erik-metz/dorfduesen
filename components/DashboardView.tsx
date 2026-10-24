@@ -908,16 +908,18 @@ export function DashboardView({
                         </button>
 
                         {/* External Strava link */}
-                        <a
-                          href={`https://www.strava.com/activities/${act.stravaId}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          className="p-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white transition-colors"
-                          title="Auf Strava ansehen"
-                        >
-                          <ExternalLink className="w-4 h-4" />
-                        </a>
+                        {!act.stravaId.startsWith('health:') && (
+                          <a
+                            href={`https://www.strava.com/activities/${act.stravaId}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="p-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white transition-colors"
+                            title="Auf Strava ansehen"
+                          >
+                            <ExternalLink className="w-4 h-4" />
+                          </a>
+                        )}
 
                         {/* Accordion Chevron Trigger */}
                         <button

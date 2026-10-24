@@ -1,6 +1,7 @@
 import { db } from '@/lib/db';
 import { getValidStravaToken } from './tokens';
 import { inngest } from '@/lib/inngest/client';
+import { reconcileHealthActivities } from '@/lib/mobile/health-activities';
 
 export interface StravaRawActivity {
   id: number;
@@ -162,9 +163,10 @@ export async function syncUserActivities(userId: string, perPage = 100, options:
 
 export async function finalizeSync(userId: string) {
   const { revalidatePath, revalidateTag } = await import('next/cache');
-  revalidatePath('/arena'); revalidatePath('/'); revalidatePath('/dashboard'); revalidateTag('arena', { expire: 0 });
+  await reconcileHealthActivities(userId);
   const { checkWeeklyTitleChanges } = await import('@/lib/arena/title-tracker');
   await checkWeeklyTitleChanges();
   const { evaluateUserBadges } = await import('@/lib/arena/badge-engine');
   await evaluateUserBadges(userId);
+  revalidatePath('/arena'); revalidatePath('/'); revalidatePath('/dashboard'); revalidateTag('arena', { expire: 0 });
 }

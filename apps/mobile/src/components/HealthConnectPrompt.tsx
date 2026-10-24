@@ -107,7 +107,7 @@ export function HealthConnectPrompt() {
       <View style={{ backgroundColor: '#18181b', borderColor: '#3f3f46', borderWidth: 1, borderRadius: 20, padding: 20, gap: 12 }}>
         <Text style={{ color: '#fafafa', fontSize: 20, fontWeight: '900' }}>Health koppeln</Text>
         <Text style={{ color: '#d4d4d8', fontSize: 14, lineHeight: 21 }}>
-          Kopple Apple Health oder Health Connect mit Dorfdüsen, damit Trainings-, Schlaf- und Vitaldaten in deine persönliche Auswertung einfließen. Dein Gerät fragt dich, welche Daten freigegeben werden dürfen. Mit „Health koppeln“ stimmst du außerdem zu, dass diese Daten in deinem Dorfdüsen-Konto gespeichert werden. Sie werden nicht mit dem Team geteilt.
+          Kopple Apple Health oder Health Connect mit Dorfdüsen, damit Trainings-, Schlaf- und Vitaldaten in deine persönliche Auswertung einfließen. Dein Gerät fragt dich, welche Daten freigegeben werden dürfen. Mit „Health koppeln“ stimmst du außerdem zu, dass diese Daten in deinem Dorfdüsen-Konto gespeichert werden. Health-Workouts erscheinen mit Sportart, Zeit und verfügbarer Distanz in deiner Aktivitätenliste und der Düsen-Arena. Andere Vital- und Gesundheitswerte bleiben privat.
         </Text>
         <Text style={{ color: '#a1a1aa', fontSize: 12, lineHeight: 18 }}>Du kannst die Kopplung später in Physiologie wieder trennen.</Text>
         {error ? <Text accessibilityLiveRegion="assertive" style={{ color: '#fca5a5', fontSize: 12 }}>{error}</Text> : null}

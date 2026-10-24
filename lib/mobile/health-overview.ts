@@ -292,55 +292,34 @@ function workoutDistanceMeters(record: HealthRecordForOverview, distanceRecords:
   return Math.max(...grouped.values(), 0) || null;
 }
 
-/** Prefer Health measurements for matched sessions and add complete Health-only sessions. */
-export function buildCanonicalActivities(userId: string, records: HealthRecordForOverview[], activities: Activity[], now: Date): Activity[] {
-  const matches = buildHealthOverview(records, activities, now).activityMatches;
+function buildHealthOnlyActivities(userId: string, records: HealthRecordForOverview[], matches: ReturnType<typeof buildHealthOverview>['activityMatches']): Activity[] {
   const healthById = new Map(records.map(record => [record.id, record]));
   const heartRateRecords = records.filter(record => record.recordType === 'heart_rate');
   const distanceRecords = records.filter(record => ['distance', 'walking_running_distance', 'cycling_distance', 'swimming_distance'].includes(record.recordType));
-  const enrichment = new Map<string, Partial<Pick<Activity, 'distance' | 'movingTime' | 'elapsedTime' | 'averageSpeed' | 'averageHeartrate' | 'maxHeartrate' | 'totalElevationGain'>>>();
   const additional: Activity[] = [];
 
   for (const match of matches) {
+    if (match.strava) continue;
     const record = healthById.get(match.healthRecordId);
     if (!record) continue;
-    const heartRates = heartRateSamplesForWorkout(record, heartRateRecords);
-    const averageHeartrate = heartRates.length ? heartRates.reduce((sum, value) => sum + value, 0) / heartRates.length : null;
-    const maxHeartrate = heartRates.length ? Math.max(...heartRates) : null;
-    if (match.strava) {
-      const healthDistance = workoutDistanceMeters(record, distanceRecords);
-      const healthDuration = healthWorkoutDuration(record);
-      const directAverageHeartrate = finite(json(record.value).averageHeartRate) ?? finite(json(record.value).averageHeartrate);
-      const directMaxHeartrate = finite(json(record.value).maxHeartRate) ?? finite(json(record.value).maxHeartrate);
-      const healthValues: Partial<Pick<Activity, 'distance' | 'movingTime' | 'elapsedTime' | 'averageSpeed' | 'averageHeartrate' | 'maxHeartrate' | 'totalElevationGain'>> = {};
-      if (healthDistance !== null && healthDistance > 0) healthValues.distance = healthDistance;
-      if (healthDuration !== null && healthDuration > 0) {
-        healthValues.movingTime = Math.round(healthDuration);
-        healthValues.elapsedTime = Math.round(healthDuration);
-        if (healthDistance !== null && healthDistance > 0) healthValues.averageSpeed = healthDistance / healthDuration;
-      }
-      const healthAverageHeartrate = averageHeartrate ?? directAverageHeartrate;
-      const healthMaxHeartrate = maxHeartrate ?? directMaxHeartrate;
-      if (healthAverageHeartrate !== null) healthValues.averageHeartrate = healthAverageHeartrate;
-      if (healthMaxHeartrate !== null) healthValues.maxHeartrate = healthMaxHeartrate;
-      const healthElevation = finite(json(record.value).totalElevationGain);
-      if (healthElevation !== null && healthElevation >= 0) healthValues.totalElevationGain = healthElevation;
-      if (Object.keys(healthValues).length) enrichment.set(match.strava.id, healthValues);
-      continue;
-    }
     const family = healthSport(record);
-    const distance = workoutDistanceMeters(record, distanceRecords);
+    const distance = workoutDistanceMeters(record, distanceRecords) ?? 0;
     const duration = healthWorkoutDuration(record);
-    if (family === 'OTHER' || distance === null || distance < 500 || duration === null || duration < 60) continue;
+    // Manual Health workouts can have a duration but no distance. Keep them
+    // visible in the activity log while leaving their mileage at zero.
+    if (family === 'OTHER' || duration === null || duration < 60) continue;
     const sportType = family === 'RUN' ? 'Run' : family === 'RIDE' ? 'Ride' : family === 'WALK' ? 'Walk' : 'Swim';
     const value = json(record.value);
     const totalElevationGain = finite(value.totalElevationGain) ?? 0;
-    const started = record.startAt;
+    const sourceLabel = record.provider === 'APPLE_HEALTH' ? 'Apple Health' : 'Health Connect';
+    const heartRates = heartRateSamplesForWorkout(record, heartRateRecords);
+    const averageHeartrate = heartRates.length ? heartRates.reduce((sum, item) => sum + item, 0) / heartRates.length : null;
+    const maxHeartrate = heartRates.length ? Math.max(...heartRates) : null;
     additional.push({
       id: `health:${record.id}`,
       userId,
-      stravaId: `health:${record.provider}:${record.recordId}`,
-      name: typeof value.title === 'string' && value.title ? value.title : `${sportType} (Health)`,
+      stravaId: `health:${userId}:${record.provider}:${record.recordId}`,
+      name: typeof value.title === 'string' && value.title ? value.title : `${sportType} · ${sourceLabel}`,
       distance,
       extractedDistance: null,
       manualDistance: null,
@@ -348,10 +327,10 @@ export function buildCanonicalActivities(userId: string, records: HealthRecordFo
       elapsedTime: Math.round(duration),
       totalElevationGain,
       sportType,
-      startDate: started,
-      startDateLocal: started,
+      startDate: record.startAt,
+      startDateLocal: record.startAt,
       timezone: null,
-      averageSpeed: distance / duration,
+      averageSpeed: distance > 0 ? distance / duration : null,
       maxSpeed: null,
       averageHeartrate,
       maxHeartrate,
@@ -363,6 +342,43 @@ export function buildCanonicalActivities(userId: string, records: HealthRecordFo
       syncedAt: record.startAt,
     });
   }
+  return additional;
+}
+
+/** Prefer Health measurements for matched sessions and add Health-only sessions. */
+export function buildCanonicalActivities(userId: string, records: HealthRecordForOverview[], activities: Activity[], now: Date): Activity[] {
+  const matches = buildHealthOverview(records, activities, now).activityMatches;
+  const healthById = new Map(records.map(record => [record.id, record]));
+  const heartRateRecords = records.filter(record => record.recordType === 'heart_rate');
+  const distanceRecords = records.filter(record => ['distance', 'walking_running_distance', 'cycling_distance', 'swimming_distance'].includes(record.recordType));
+  const enrichment = new Map<string, Partial<Pick<Activity, 'distance' | 'movingTime' | 'elapsedTime' | 'averageSpeed' | 'averageHeartrate' | 'maxHeartrate' | 'totalElevationGain'>>>();
+
+  for (const match of matches) {
+    if (!match.strava) continue;
+    const record = healthById.get(match.healthRecordId);
+    if (!record) continue;
+    const heartRates = heartRateSamplesForWorkout(record, heartRateRecords);
+    const averageHeartrate = heartRates.length ? heartRates.reduce((sum, value) => sum + value, 0) / heartRates.length : null;
+    const maxHeartrate = heartRates.length ? Math.max(...heartRates) : null;
+    const healthDistance = workoutDistanceMeters(record, distanceRecords);
+    const healthDuration = healthWorkoutDuration(record);
+    const directAverageHeartrate = finite(json(record.value).averageHeartRate) ?? finite(json(record.value).averageHeartrate);
+    const directMaxHeartrate = finite(json(record.value).maxHeartRate) ?? finite(json(record.value).maxHeartrate);
+    const healthValues: Partial<Pick<Activity, 'distance' | 'movingTime' | 'elapsedTime' | 'averageSpeed' | 'averageHeartrate' | 'maxHeartrate' | 'totalElevationGain'>> = {};
+    if (healthDistance !== null && healthDistance > 0) healthValues.distance = healthDistance;
+    if (healthDuration !== null && healthDuration > 0) {
+      healthValues.movingTime = Math.round(healthDuration);
+      healthValues.elapsedTime = Math.round(healthDuration);
+      if (healthDistance !== null && healthDistance > 0) healthValues.averageSpeed = healthDistance / healthDuration;
+    }
+    const healthAverageHeartrate = averageHeartrate ?? directAverageHeartrate;
+    const healthMaxHeartrate = maxHeartrate ?? directMaxHeartrate;
+    if (healthAverageHeartrate !== null) healthValues.averageHeartrate = healthAverageHeartrate;
+    if (healthMaxHeartrate !== null) healthValues.maxHeartrate = healthMaxHeartrate;
+    const healthElevation = finite(json(record.value).totalElevationGain);
+    if (healthElevation !== null && healthElevation >= 0) healthValues.totalElevationGain = healthElevation;
+    if (Object.keys(healthValues).length) enrichment.set(match.strava.id, healthValues);
+  }
 
   const enrichedStrava = activities.map(activity => {
     const health = enrichment.get(activity.stravaId);
@@ -371,7 +387,12 @@ export function buildCanonicalActivities(userId: string, records: HealthRecordFo
     // the OS supplied them; Strava fills only fields Health did not provide.
     return { ...activity, ...health };
   });
-  return [...enrichedStrava, ...additional];
+  return [...enrichedStrava, ...buildHealthOnlyActivities(userId, records, matches)];
+}
+
+export function buildHealthOnlyCanonicalActivities(userId: string, records: HealthRecordForOverview[], stravaActivities: ActivityForMatching[], now: Date): Activity[] {
+  const matches = buildHealthOverview(records, stravaActivities, now).activityMatches;
+  return buildHealthOnlyActivities(userId, records, matches);
 }
 
 /** Import measured weight and resting pulse into the historical read-model, retaining manual entries. */

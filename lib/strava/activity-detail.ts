@@ -76,6 +76,7 @@ export interface ActivityDetailData {
   deviceWatts?: boolean;
   sufferScore?: number | null;
   deviceName?: string | null;
+  sourceName?: string | null;
   gear?: {
     id: string;
     name: string;
@@ -157,6 +158,14 @@ export async function getActivityDetails(
 
   if (!activity) {
     throw new Error(`Aktivität mit Strava ID ${stravaId} nicht in der Datenbank gefunden.`);
+  }
+
+  // Health-derived rows have no Strava resource. Never let them fall through
+  // to the remote API, and enforce ownership before returning cached details.
+  if (stravaId.startsWith('health:')) {
+    if (activity.userId !== userId) throw new Error('Keine Berechtigung für diese Aktivität.');
+    if (activity.detailJson) return activity.detailJson as unknown as ActivityDetailData;
+    throw new Error('Health-Aktivitätsdetails sind nicht verfügbar.');
   }
 
   // 2. Return cached detail data if already stored
