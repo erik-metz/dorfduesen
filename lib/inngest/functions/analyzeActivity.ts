@@ -3,6 +3,7 @@ import { inngest } from "../client";
 import { db } from "@/lib/db";
 import { xai, XAI_DEFAULT_MODEL } from "../../ai/xai";
 import { completeWorkoutOnce } from '@/lib/training/match';
+import { cacheTags, invalidateCacheTags } from '@/lib/cache-tags';
 
 export const analyzeActivityFunction = inngest.createFunction(
   {
@@ -181,6 +182,7 @@ Tatsächlich gelaufen: ${matchData.activityDistanceKm} km, Ø Puls: ${matchData.
     const completed = await step.run("update-workout-status", () =>
       completeWorkoutOnce(userId, activityId, matchData.workoutId!, feedback));
     if (!completed) return { status: 'SKIPPED', reason: 'Match already completed or plan inactive' };
+    invalidateCacheTags(cacheTags.userPlans(userId));
 
     return { status: "COMPLETED", workoutId: matchData.workoutId, feedback };
   }

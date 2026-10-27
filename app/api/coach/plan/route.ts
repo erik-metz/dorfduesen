@@ -5,31 +5,14 @@ import { db } from "@/lib/db";
 import { inngest } from "@/lib/inngest/client";
 
 import { DAILY_GENERATION_LIMIT, generationDay, reservePlan } from '@/lib/training/plan-requests';
+import { getCoachPlanData } from '@/lib/data/coach-plan';
+import { cacheTags, invalidateCacheTags } from '@/lib/cache-tags';
 
 export async function GET() {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const [plan, latest, generationsToday] = await Promise.all([
-    db.trainingPlan.findFirst({
-      where: { userId: user.id, status: 'ACTIVE' }, orderBy: { createdAt: 'desc' },
-      include: { weeks: { orderBy: { weekNumber: 'asc' }, include: {
-        workouts: { orderBy: { scheduledDate: 'asc' }, include: { matchedActivity: {
-          select: { id: true, stravaId: true, name: true, distance: true, movingTime: true,
-            averageSpeed: true, averageHeartrate: true, startDate: true },
-        } } },
-      } } },
-    }),
-    db.trainingPlan.findFirst({
-      where: { userId: user.id, status: { in: ['ACTIVE', 'PROCESSING', 'QUEUED', 'FAILED'] } },
-      orderBy: { createdAt: 'desc' }, select: { id: true, status: true },
-    }),
-    db.planGenerationAttempt.count({ where: { userId: user.id, createdAt: generationDay() } }),
-  ]);
-  return NextResponse.json({
-    plan, generation: latest && latest.status !== 'ACTIVE' ? latest : null,
-    generationsToday, dailyLimit: DAILY_GENERATION_LIMIT,
-    remainingToday: Math.max(0, DAILY_GENERATION_LIMIT - generationsToday),
-  });
+  const { gte: dayStart, lt: dayEnd } = generationDay();
+  return NextResponse.json(await getCoachPlanData(user.id, dayStart, dayEnd));
 }
 
 export async function POST(req: Request) {
@@ -92,6 +75,7 @@ export async function POST(req: Request) {
     if (reservation.kind === 'limit') return NextResponse.json({ error: 'Tageslimit erreicht', generationsToday: reservation.generationsToday }, { status: 429 });
     if (reservation.kind === 'pending') return NextResponse.json({ error: 'Ein Trainingsplan wird bereits erstellt.' }, { status: 409 });
     const plan = reservation.plan;
+    invalidateCacheTags(cacheTags.userPlans(user.id));
 
     // Enqueue background processing in Inngest
     const parsedLongRunDay =
@@ -119,6 +103,7 @@ export async function POST(req: Request) {
 
     } catch (error) {
       await db.trainingPlan.updateMany({ where: { id: plan.id, status: 'QUEUED' }, data: { status: 'FAILED' } });
+      invalidateCacheTags(cacheTags.userPlans(user.id));
       throw error;
     }
     return NextResponse.json({
@@ -148,6 +133,7 @@ export async function DELETE() {
         userId: user.id,
       },
     });
+    invalidateCacheTags(cacheTags.userPlans(user.id));
 
     return NextResponse.json({ success: true });
   } catch (error) {

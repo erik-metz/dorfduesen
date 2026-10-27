@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { isHealthProvider, isHealthRecordType, parseDate } from '@/lib/mobile/health';
 import { cacheTags, invalidateCacheTags } from '@/lib/cache-tags';
 import { reconcileHealthActivities } from '@/lib/mobile/health-activities';
+import { evaluateUserBadges } from '@/lib/arena/badge-engine';
 
 export async function GET(request: Request) {
   await connection();
@@ -48,6 +49,8 @@ export async function DELETE(request: Request) {
   });
   if (result.count) {
     await reconcileHealthActivities(user.id);
+    try { await evaluateUserBadges(user.id); }
+    catch (error) { console.error('Health-Daten wurden gelöscht, Trophäen konnten aber nicht aktualisiert werden:', error); }
     invalidateCacheTags(cacheTags.userHealth(user.id), cacheTags.userActivities(user.id), cacheTags.userTrophies(user.id), cacheTags.arena);
   }
   return NextResponse.json({ deleted: result.count });

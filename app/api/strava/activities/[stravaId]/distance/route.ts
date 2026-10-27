@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth/session';
 import { db } from '@/lib/db';
 import { cacheTags, invalidateCacheTags } from '@/lib/cache-tags';
+import { evaluateUserBadges } from '@/lib/arena/badge-engine';
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ stravaId: string }> }) {
   const user = await getCurrentUser();
@@ -18,6 +19,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ st
     where: { id: activity.id }, data: { manualDistance: km === 0 ? null : km * 1000 },
     select: { manualDistance: true, extractedDistance: true, distance: true },
   });
+  try { await evaluateUserBadges(user.id); }
+  catch (error) { console.error('Distanz wurde gespeichert, Trophäen konnten aber nicht aktualisiert werden:', error); }
   invalidateCacheTags(cacheTags.userActivities(user.id), cacheTags.arena);
   const { revalidatePath } = await import('next/cache');
   revalidatePath('/dashboard');

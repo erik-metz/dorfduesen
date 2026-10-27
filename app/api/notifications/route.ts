@@ -3,6 +3,7 @@ import { getCurrentUser } from '@/lib/auth/session';
 import { db } from '@/lib/db';
 import { checkWeeklyTitleChanges } from '@/lib/arena/title-tracker';
 import { cacheTags, invalidateCacheTags } from '@/lib/cache-tags';
+import { getUserNotifications } from '@/lib/data/notifications';
 
 export async function GET() {
   await connection();
@@ -16,22 +17,7 @@ export async function GET() {
     });
   }
 
-  const notifications = await db.notification.findMany({
-    where: {
-      userId: user.id,
-    },
-    orderBy: {
-      createdAt: 'desc',
-    },
-    take: 30,
-  });
-
-  const unreadCount = await db.notification.count({
-    where: {
-      userId: user.id,
-      isRead: false,
-    },
-  });
+  const { notifications, unreadCount } = await getUserNotifications(user.id);
 
   return NextResponse.json({
     authenticated: true,
@@ -62,7 +48,7 @@ export async function PATCH(request: Request) {
           isRead: true,
         },
       });
-      invalidateCacheTags(cacheTags.userNotifications(user.id));
+      invalidateCacheTags(cacheTags.notifications, cacheTags.userNotifications(user.id));
       return NextResponse.json({ success: true, markedAll: true });
     }
 
@@ -76,7 +62,7 @@ export async function PATCH(request: Request) {
           isRead: true,
         },
       });
-      invalidateCacheTags(cacheTags.userNotifications(user.id));
+      invalidateCacheTags(cacheTags.notifications, cacheTags.userNotifications(user.id));
       return NextResponse.json({ success: true, markedId: notificationId });
     }
 

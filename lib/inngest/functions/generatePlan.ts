@@ -6,6 +6,7 @@ import { buildPeriodizationSkeleton, PeriodizationPlanSkeleton } from "../../tra
 import { getTrainingPaces } from "../../training/vdot";
 import { calculateHeartRateZones } from "../../training/zones";
 import { generatePlanWithGrok, GeneratedWeek } from "../../ai/generator";
+import { cacheTags, invalidateCacheTags } from '@/lib/cache-tags';
 
 export const generatePlanFunction = inngest.createFunction(
   {
@@ -19,6 +20,7 @@ export const generatePlanFunction = inngest.createFunction(
         where: { id: event.data.event.data.planId, status: { in: ['QUEUED', 'PROCESSING'] } },
         data: { status: 'FAILED' },
       });
+      invalidateCacheTags(cacheTags.userPlans(event.data.event.data.userId));
     },
   },
   async ({ event, step }) => {
@@ -45,6 +47,7 @@ export const generatePlanFunction = inngest.createFunction(
         where: { id: planId },
         data: { status: "PROCESSING" },
       });
+      invalidateCacheTags(cacheTags.userPlans(userId));
 
       const stats = await calculateAthleteBaseline(userId);
 
@@ -149,6 +152,7 @@ export const generatePlanFunction = inngest.createFunction(
         });
       }, { timeout: 30000 });
     });
+    invalidateCacheTags(cacheTags.userPlans(userId));
 
     return {
       success: true,

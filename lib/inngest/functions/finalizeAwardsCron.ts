@@ -1,5 +1,6 @@
 import { inngest } from '../client';
 import { finalizeWeeklyAwards, finalizeMonthlyAwards } from '@/lib/arena/awards-finalizer';
+import { cacheTags, invalidateCacheTags } from '@/lib/cache-tags';
 
 export const finalizeAwardsWeeklyFunction = inngest.createFunction(
   {
@@ -14,6 +15,7 @@ export const finalizeAwardsWeeklyFunction = inngest.createFunction(
     const results = await step.run('finalize-weekly-champions', async () => {
       return await finalizeWeeklyAwards();
     });
+    invalidateCacheTags(cacheTags.trophies, cacheTags.notifications, cacheTags.arena);
 
     return { success: true, count: results.length, results };
   }
@@ -32,6 +34,7 @@ export const finalizeAwardsMonthlyFunction = inngest.createFunction(
     const results = await step.run('finalize-monthly-champions', async () => {
       return await finalizeMonthlyAwards();
     });
+    invalidateCacheTags(cacheTags.trophies, cacheTags.notifications, cacheTags.arena);
 
     return { success: true, count: results.length, results };
   }

@@ -2,6 +2,7 @@ import { weekRange, monthRange, shiftDay, berlinMidnight } from '@/lib/time';
 import { db } from '@/lib/db';
 import type { Prisma } from '@prisma/client';
 import { BADGE_DEFINITIONS, ensureBadgesSeeded } from './badge-definitions';
+import { cacheTags, invalidateCacheTags } from '@/lib/cache-tags';
 
 export interface UnlockedBadgeResult {
   code: string;
@@ -388,5 +389,6 @@ export async function evaluateUserBadges(userId: string): Promise<UnlockedBadgeR
     }
   }
 
+  invalidateCacheTags(cacheTags.userTrophies(userId), cacheTags.notifications, cacheTags.userNotifications(userId), cacheTags.arena);
   return results;
 }

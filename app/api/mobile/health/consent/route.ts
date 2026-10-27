@@ -3,6 +3,9 @@ import { Prisma } from '@prisma/client';
 import { getCurrentUser } from '@/lib/auth/session';
 import { db } from '@/lib/db';
 import { HEALTH_RECORD_TYPES, isHealthProvider, isHealthRecordType, isJsonObject } from '@/lib/mobile/health';
+import { cacheTags, invalidateCacheTags } from '@/lib/cache-tags';
+import { reconcileHealthActivities } from '@/lib/mobile/health-activities';
+import { evaluateUserBadges } from '@/lib/arena/badge-engine';
 
 const CONSENT_VERSION = '2026-10-22-v1';
 
@@ -56,6 +59,14 @@ export async function PUT(request: Request) {
     if (deleteRecords) await tx.mobileHealthRecord.deleteMany({ where: { userId: user.id, provider: body.provider as string } });
     return connection;
   });
+
+  if (deleteRecords) {
+    await reconcileHealthActivities(user.id);
+    try { await evaluateUserBadges(user.id); }
+    catch (error) { console.error('Health-Daten wurden gelöscht, Trophäen konnten aber nicht aktualisiert werden:', error); }
+  }
+  invalidateCacheTags(cacheTags.userHealth(user.id), cacheTags.userProfile(user.id));
+  if (deleteRecords) invalidateCacheTags(cacheTags.userActivities(user.id), cacheTags.userTrophies(user.id), cacheTags.arena);
 
   return NextResponse.json({ connection: result, deleted: deleteRecords });
 }

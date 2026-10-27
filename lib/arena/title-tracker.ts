@@ -1,5 +1,6 @@
 import { db } from '@/lib/db';
 import { getWeeklyChampions, getStartOfWeek, getWeekKey, ChampionTitle } from './stats';
+import { cacheTags, invalidateCacheTags } from '@/lib/cache-tags';
 
 export interface TitleChangeResult {
   titleId: string;
@@ -28,7 +29,7 @@ export async function checkWeeklyTitleChanges(refDate: Date = new Date()): Promi
   const startOfWeek = getStartOfWeek(refDate);
   const weekKey = getWeekKey(refDate);
 
-  return db.$transaction(async tx => {
+  const results = await db.$transaction(async tx => {
     await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext('arena'), hashtext(${weekKey}))::text`;
     // 1. Compute current leaders for the 6 weekly titles
     const champions: ChampionTitle[] = await getWeeklyChampions(startOfWeek);
@@ -213,4 +214,9 @@ export async function checkWeeklyTitleChanges(refDate: Date = new Date()): Promi
 
     return results;
   }, { timeout: 30000 });
+  if (results.length) {
+    const affectedUsers = new Set(results.flatMap(result => [result.previousHolder?.userId, result.newHolder.userId]).filter((id): id is string => Boolean(id)));
+    invalidateCacheTags(cacheTags.notifications, ...[...affectedUsers].flatMap(userId => [cacheTags.userNotifications(userId), cacheTags.userTrophies(userId)]));
+  }
+  return results;
 }

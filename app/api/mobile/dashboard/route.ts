@@ -1,10 +1,13 @@
 import { NextResponse, connection } from 'next/server';
 import { getCurrentUser } from '@/lib/auth/session';
 import { getDashboardActivities } from '@/lib/data/dashboard';
-import { db } from '@/lib/db';
 import { weekRange } from '@/lib/time';
 import { getArenaData, getWeeklyChampions } from '@/lib/arena/stats';
 import { sanitizeAvatarUrl } from '@/lib/utils/avatar';
+import { getActivePlanSummary } from '@/lib/data/coach-plan';
+import { getMobileDashboardActivitySummary, getMobileTargetUser } from '@/lib/data/mobile-dashboard';
+import { getCoachMetrics } from '@/lib/data/coach-profile';
+import { getUnreadNotificationSummary } from '@/lib/data/notifications';
 
 const headers = { 'Cache-Control': 'private, no-store, max-age=0' };
 
@@ -21,7 +24,7 @@ export async function GET(request: Request) {
   const sport = searchParams.get('sport') ?? undefined;
   const requestedUserId = searchParams.get('userId');
   const targetUser = requestedUserId && requestedUserId !== user.id
-    ? await db.user.findUnique({ where: { id: requestedUserId }, select: { id: true, firstname: true, lastname: true, username: true, profile: true, city: true, country: true, stravaAthleteId: true, _count: { select: { activities: true } } } })
+    ? await getMobileTargetUser(requestedUserId)
     : user;
   if (!targetUser) return NextResponse.json({ error: 'Mitglied nicht gefunden.' }, { status: 404, headers });
   const isReadOnly = targetUser.id !== user.id;
@@ -29,24 +32,19 @@ export async function GET(request: Request) {
 
   try {
     const nextWeek = weekRange(range.end);
-    const [activityData, healthMetrics, activePlan, unreadNotifications, latestUnread, arena, champions, goals, weekActivities] = await Promise.all([
+    const [activityData, healthMetrics, planData, notificationData, arena, champions, activitySummary] = await Promise.all([
       getDashboardActivities(targetUser.id, page, sport, '20'),
-      isReadOnly ? Promise.resolve([]) : db.healthMetric.findMany({ where: { userId: user.id }, orderBy: { date: 'desc' }, take: 5 }),
-      isReadOnly ? Promise.resolve(null) : db.trainingPlan.findFirst({
-        where: { userId: user.id, status: 'ACTIVE' },
-        orderBy: { createdAt: 'desc' },
-        select: { id: true, title: true, status: true, currentWeek: true, totalWeeks: true, endDate: true },
-      }),
-      isReadOnly ? Promise.resolve(0) : db.notification.count({ where: { userId: user.id, isRead: false } }),
-      isReadOnly ? Promise.resolve([]) : db.notification.findMany({ where: { userId: user.id, isRead: false }, orderBy: { createdAt: 'desc' }, take: 1, select: { title: true } }),
+      isReadOnly ? Promise.resolve([]) : getCoachMetrics(user.id, 5),
+      isReadOnly ? Promise.resolve({ plan: null }) : getActivePlanSummary(user.id).then(plan => ({ plan })),
+      isReadOnly ? Promise.resolve({ unreadCount: 0, latestUnread: null }) : getUnreadNotificationSummary(user.id),
       getArenaData('week', 'all'),
       getWeeklyChampions(undefined, targetUser.id),
-      db.weeklyGoal.findMany({ where: { userId: targetUser.id, weekKey: { in: [range.key, nextWeek.key] } } }),
-      db.activity.findMany({
-        where: { userId: targetUser.id, startDate: { gte: range.start, lt: range.end }, movingTime: { gt: 0 } },
-        select: { startDateLocal: true },
-      }),
+      getMobileDashboardActivitySummary(targetUser.id, range.start, range.end, range.key, nextWeek.key),
     ]);
+    const { goals, weekActivities } = activitySummary;
+    const activePlan = planData.plan;
+    const unreadNotifications = notificationData.unreadCount;
+    const latestUnread = notificationData.latestUnread;
 
     return NextResponse.json({
       user: {
@@ -67,7 +65,7 @@ export async function GET(request: Request) {
       pagination: activityData.pagination,
       physiology: { recentMetrics: healthMetrics },
       coach: { activePlan },
-      notifications: { unreadCount: unreadNotifications, latestUnread: latestUnread[0] ?? null },
+      notifications: { unreadCount: unreadNotifications, latestUnread: latestUnread ? { title: latestUnread.title } : null },
       arena: {
         weekKm: arena.weekKm,
         weekActivitiesCount: arena.weekActivitiesCount,

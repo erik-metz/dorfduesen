@@ -72,9 +72,9 @@ export async function getCoachProfileData(userId: string) {
   };
 }
 
-export async function getCoachMetrics(userId: string) {
+export async function getCoachMetrics(userId: string, take = 90) {
   'use cache: remote';
   cacheLife({ stale: 15, revalidate: 30, expire: 120 });
-  cacheTag(cacheTags.userHealth(userId));
-  return db.healthMetric.findMany({ where: { userId }, orderBy: { date: 'desc' }, take: 90 });
+  cacheTag(cacheTags.userHealth(userId), cacheTags.userProfile(userId));
+  return db.healthMetric.findMany({ where: { userId }, orderBy: { date: 'desc' }, take: Math.min(90, Math.max(1, take)) });
 }

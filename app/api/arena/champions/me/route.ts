@@ -1,8 +1,8 @@
 import { NextResponse, connection } from 'next/server';
 import { getCurrentUser } from '@/lib/auth/session';
-import { db } from '@/lib/db';
 import { weekRange, berlinMidnight, shiftDay } from '@/lib/time';
 import { getWeeklyChampions } from '@/lib/arena/stats';
+import { getChampionMeActivitySummary } from '@/lib/data/mobile-dashboard';
 
 export async function GET() {
   await connection();
@@ -13,14 +13,11 @@ export async function GET() {
     const nextWeek = weekRange(weekRange().end).key;
     const range = weekRange();
     const historyStart = berlinMidnight(shiftDay(range.key, -28));
-    const [champions, goals, activities] = await Promise.all([
+    const [champions, summary] = await Promise.all([
       getWeeklyChampions(undefined, user.id),
-      db.weeklyGoal.findMany({ where: { userId: user.id, weekKey: { in: [weekRange().key, nextWeek] } } }),
-      db.activity.findMany({
-        where: { userId: user.id, startDate: { gte: historyStart, lt: range.end }, movingTime: { gt: 0 } },
-        select: { startDate: true, startDateLocal: true },
-      }),
+      getChampionMeActivitySummary(user.id, historyStart, range.end, range.key, nextWeek),
     ]);
+    const { goals, activities } = summary;
     const days = new Map<string, Set<string>>();
     for (const activity of activities) {
       const key = weekRange(activity.startDate).key;
