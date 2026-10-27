@@ -2,83 +2,27 @@ import React from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Trophy, Footprints, Flame, ExternalLink, Users } from 'lucide-react';
-import { db } from '@/lib/db';
 import { StravaIcon } from '@/components/icons/BrandIcons';
 import { isValidAvatarUrl } from '@/lib/utils/avatar';
+import { connection } from 'next/server';
+import { getCommunityFeedData } from '@/lib/data/community-feed';
 
 export async function CommunityFeed() {
-  // Fetch top runners and recent activities from database
-  let topAthletes: {
-    userId: string;
-    name: string;
-    profile: string | null;
-    totalKm: number;
-    activityCount: number;
-  }[] = [];
-
-  let recentActivities: {
-    id: string;
-    stravaId: string;
-    name: string;
-    distance: number;
-    sportType: string;
-    startDate: string;
-    userId: string;
-    userName: string;
-    userProfile: string | null;
-  }[] = [];
-
-  let totalCommunityDistanceKm = 0;
-
+  await connection();
+  let data: Awaited<ReturnType<typeof getCommunityFeedData>> = {
+    topAthletes: [],
+    recentActivities: [],
+    totalCommunityDistanceKm: 0,
+  };
   try {
-    const rawActivities = await db.activity.findMany({
-      select: {
-        id: true, stravaId: true, userId: true, name: true, distance: true,
-        extractedDistance: true, manualDistance: true, sportType: true, startDate: true,
-        user: {
-          select: {
-            firstname: true,
-            lastname: true,
-            username: true,
-            profile: true,
-          },
-        },
-      },
-      orderBy: { startDate: 'desc' },
-      take: 8,
-    });
-
-    recentActivities = rawActivities.map((act) => ({
-      id: act.id,
-      stravaId: act.stravaId,
-      userId: act.userId,
-      name: act.name,
-      distance: act.manualDistance ?? act.extractedDistance ?? act.distance,
-      sportType: act.sportType,
-      startDate: act.startDate.toISOString(),
-      userName: [act.user.firstname, act.user.lastname].filter(Boolean).join(' ') || act.user.username || 'Dorfdüse',
-      userProfile: act.user.profile,
-    }));
-
-    const [groups, totals] = await Promise.all([
-      db.activity.groupBy({ by: ['userId'], _sum: { distance: true }, _count: { _all: true },
-        orderBy: { _sum: { distance: 'desc' } }, take: 3 }),
-      db.activity.aggregate({ _sum: { distance: true } }),
-    ]);
-    const users = await db.user.findMany({ where: { id: { in: groups.map(g => g.userId) } },
-      select: { id: true, firstname: true, lastname: true, username: true, profile: true } });
-    const usersById = new Map(users.map(u => [u.id, u]));
-    totalCommunityDistanceKm = (totals._sum.distance || 0) / 1000;
-    topAthletes = groups.flatMap(group => {
-      const user = usersById.get(group.userId);
-      return user ? [{ userId: user.id,
-        name: [user.firstname, user.lastname].filter(Boolean).join(' ') || user.username || 'Dorfdüse',
-        profile: user.profile, totalKm: (group._sum.distance || 0) / 1000, activityCount: group._count._all }] : [];
-    });
+    data = await getCommunityFeedData();
   } catch (error) {
     console.error('Error loading community activities:', error);
   }
+  return <CommunityFeedContent {...data} />;
+}
 
+function CommunityFeedContent({ topAthletes, recentActivities, totalCommunityDistanceKm }: Awaited<ReturnType<typeof getCommunityFeedData>>) {
   // If no DB activities yet, show the pre-launch / invitation teaser
   const hasDbActivities = recentActivities.length > 0;
 

@@ -1,4 +1,5 @@
 import React from 'react';
+import { connection } from 'next/server';
 import { getClubData } from '@/lib/data/club';
 import { getArenaData } from '@/lib/arena/stats';
 import { getRecentArenaActivities } from '@/lib/arena/recent-activities';
@@ -11,7 +12,6 @@ import { WeeklyChampions } from '@/components/arena/WeeklyChampions';
 import { MultiLeaderboard } from '@/components/arena/MultiLeaderboard';
 import { BadgesShowcase } from '@/components/arena/BadgesShowcase';
 import { NotificationToast } from '@/components/NotificationToast';
-import { cacheLife, cacheTag } from 'next/cache';
 
 export const metadata = {
   title: 'Düsen-Arena | Dorfdüsen Nordheim Leaderboard & Titel',
@@ -20,19 +20,7 @@ export const metadata = {
 };
 
 export default async function ArenaPage() {
-  'use cache';
-  cacheLife({
-    stale: 30,
-    revalidate: 15,
-    expire: 300,
-  });
-  cacheTag('arena');
-
-  const [club, arenaData, recentActivities] = await Promise.all([
-    getClubData(),
-    getArenaData('week', 'all'),
-    getRecentArenaActivities(),
-  ]);
+  const club = await getClubData();
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col selection:bg-orange-600 selection:text-white">
@@ -41,27 +29,9 @@ export default async function ArenaPage() {
 
       {/* Main Arena Content */}
       <main className="w-full min-w-0 flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-16">
-        {/* Hero with weekly KPIs */}
-        <ArenaHero
-          weekKm={arenaData.weekKm}
-          weekHours={arenaData.weekHours}
-          weekActivitiesCount={arenaData.weekActivitiesCount}
-          activeAthletesCount={arenaData.activeAthletesCount}
-        />
-
-        {/* Monthly Team Challenge Progress */}
-        <TeamChallengeBar challenge={arenaData.challenge} />
-
-        {/* 6 Weekly Champions Titles */}
-        <WeeklyChampions champions={arenaData.champions} />
-
-        {/* Multi-Leaderboard Table */}
-        <MultiLeaderboard initialEntries={arenaData.leaderboard} />
-
-        <RecentActivities activities={recentActivities} />
-
-        {/* Badges & Milestones Showcase */}
-        <BadgesShowcase badges={arenaData.availableBadges} />
+        <React.Suspense fallback={<ArenaLoading />}>
+          <ArenaLiveData />
+        </React.Suspense>
       </main>
 
       {/* Toast notifications */}
@@ -69,6 +39,42 @@ export default async function ArenaPage() {
 
       {/* Footer */}
       <Footer club={club} />
+    </div>
+  );
+}
+
+async function ArenaLiveData() {
+  // The database-backed views are cached at request time, but must not be computed
+  // while the production build is prerendering this route.
+  await connection();
+  const [arenaData, recentActivities] = await Promise.all([
+    getArenaData('week', 'all'),
+    getRecentArenaActivities(),
+  ]);
+
+  return (
+    <>
+      <ArenaHero
+        weekKm={arenaData.weekKm}
+        weekHours={arenaData.weekHours}
+        weekActivitiesCount={arenaData.weekActivitiesCount}
+        activeAthletesCount={arenaData.activeAthletesCount}
+      />
+      <TeamChallengeBar challenge={arenaData.challenge} />
+      <WeeklyChampions champions={arenaData.champions} />
+      <MultiLeaderboard initialEntries={arenaData.leaderboard} />
+      <RecentActivities activities={recentActivities} />
+      <BadgesShowcase badges={arenaData.availableBadges} />
+    </>
+  );
+}
+
+function ArenaLoading() {
+  return (
+    <div className="space-y-8" aria-busy="true" aria-label="Arena wird geladen">
+      <div className="h-48 animate-pulse rounded-3xl bg-zinc-900" />
+      <div className="h-32 animate-pulse rounded-3xl bg-zinc-900" />
+      <div className="h-96 animate-pulse rounded-3xl bg-zinc-900" />
     </div>
   );
 }

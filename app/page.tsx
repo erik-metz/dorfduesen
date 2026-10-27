@@ -9,8 +9,10 @@ import { CommunityFeed } from '@/components/CommunityFeed';
 import { PostGallery } from '@/components/PostGallery';
 import { getInstagramPosts } from '@/lib/instagram/feed';
 import type { ClubData } from '@/types/club';
+import { connection } from 'next/server';
 
 async function InstagramGallery({ club }: { club: ClubData }) {
+  await connection();
   const posts = await getInstagramPosts();
   return <PostGallery posts={posts ?? club.posts} instagramUrl={club.instagramUrl} />;
 }

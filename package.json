@@ -7,7 +7,7 @@
     "mobile": "npm --prefix apps/mobile run start",
     "mobile:android": "npm --prefix apps/mobile run android",
     "mobile:ios": "npm --prefix apps/mobile run ios",
-    "build": "prisma generate && next build",
+    "build": "prisma generate && next build --webpack",
     "start": "next start",
     "lint": "eslint",
     "test": "node --test tests/*.test.mjs",
