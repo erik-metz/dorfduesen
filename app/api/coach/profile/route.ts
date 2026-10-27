@@ -2,12 +2,8 @@ import { InputError, readCoachBody } from '@/lib/training/validation';
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { db } from "@/lib/db";
-import { baselineFromActivities } from "@/lib/training/baseline-calculation";
-import { calculateFitnessHistory } from "@/lib/training/history";
-import { estimateVo2max } from "@/lib/training/vo2max";
-import { getTrainingPaces } from "@/lib/training/vdot";
-import { calculateHeartRateZones, estimateMaxHeartRate } from "@/lib/training/zones";
-import { buildCanonicalActivities, buildHealthOverview, healthMetricHistory } from "@/lib/mobile/health-overview";
+import { getCoachProfileData } from '@/lib/data/coach-profile';
+import { cacheTags, invalidateCacheTags } from '@/lib/cache-tags';
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -15,74 +11,7 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const now = new Date();
-  const healthFrom = new Date(now.getTime() - 182 * 86400000);
-  const [profile, activities, metrics, healthWorkouts, healthSignals, healthDailyRecords, healthHeartRate] = await Promise.all([
-    db.userProfile.findUnique({ where: { userId: user.id } }),
-    db.activity.findMany({ where: { userId: user.id, startDate: { gte: new Date(now.getTime() - 38 * 7 * 86400000), lte: now } } }),
-    db.healthMetric.findMany({ where: { userId: user.id, date: { lte: now } }, orderBy: { date: 'desc' } }),
-    db.mobileHealthRecord.findMany({
-      where: {
-        userId: user.id,
-        startAt: { gte: healthFrom, lte: now },
-        recordType: { in: ['workout', 'distance', 'walking_running_distance', 'cycling_distance', 'swimming_distance'] },
-      },
-      select: { id: true, provider: true, recordId: true, recordType: true, startAt: true, endAt: true, value: true, sourceName: true, sourceId: true },
-      orderBy: { startAt: 'desc' },
-      take: 2500,
-    }),
-    db.mobileHealthRecord.findMany({
-      where: { userId: user.id, startAt: { gte: healthFrom, lte: now }, recordType: { in: ['vo2_max', 'resting_heart_rate', 'heart_rate_variability', 'body_mass', 'body_fat_percentage', 'oxygen_saturation', 'respiratory_rate'] } },
-      select: { id: true, provider: true, recordId: true, recordType: true, startAt: true, endAt: true, value: true, sourceName: true, sourceId: true },
-      orderBy: { startAt: 'desc' }, take: 1500,
-    }),
-    db.mobileHealthRecord.findMany({
-      where: { userId: user.id, startAt: { gte: healthFrom, lte: now }, recordType: { in: ['sleep', 'step_count'] } },
-      select: { id: true, provider: true, recordId: true, recordType: true, startAt: true, endAt: true, value: true, sourceName: true, sourceId: true },
-      orderBy: { startAt: 'desc' }, take: 4000,
-    }),
-    db.mobileHealthRecord.findMany({
-      where: { userId: user.id, startAt: { gte: new Date(now.getTime() - 84 * 86400000), lte: now }, recordType: 'heart_rate' },
-      select: { id: true, provider: true, recordId: true, recordType: true, startAt: true, endAt: true, value: true, sourceName: true, sourceId: true },
-      orderBy: { startAt: 'desc' }, take: 5000,
-    }),
-  ]);
-  const healthRecords = [...healthWorkouts, ...healthSignals, ...healthDailyRecords, ...healthHeartRate];
-  const canonicalActivities = buildCanonicalActivities(user.id, healthRecords, activities, now);
-  const healthMetrics = healthMetricHistory(healthRecords, user.id);
-  const historicalMetrics = [...metrics, ...healthMetrics].sort((a, b) => b.date.getTime() - a.date.getTime());
-  const latestHealthRestingHr = healthMetrics.filter(metric => metric.restingHeartrate !== null).sort((a, b) => b.date.getTime() - a.date.getTime())[0]?.restingHeartrate ?? null;
-  const calculationProfile = { maxHeartrate: profile?.maxHeartrate ?? null, restingHeartrate: profile?.restingHeartrate ?? latestHealthRestingHr };
-  const baseline = baselineFromActivities(user.id, canonicalActivities, calculationProfile, now);
-  const history = calculateFitnessHistory(user.id, canonicalActivities, historicalMetrics, now);
-
-  const effectiveMaxHr = profile?.maxHeartrate || baseline.measuredMaxHr || estimateMaxHeartRate(30);
-  const birthDate = profile?.birthDate;
-  const age = birthDate ? now.getUTCFullYear() - birthDate.getUTCFullYear() - (now.getUTCMonth() < birthDate.getUTCMonth() || (now.getUTCMonth() === birthDate.getUTCMonth() && now.getUTCDate() < birthDate.getUTCDate()) ? 1 : 0) : null;
-  const validAge = age !== null && age >= 18 && age <= 100;
-  // Use a saved personal maximum first, then the age estimate. A workout's
-  // highest observed pulse is not necessarily the athlete's maximum HR.
-  const vo2maxHr = profile?.maxHeartrate ?? (validAge ? estimateMaxHeartRate(age) : baseline.measuredMaxHr ?? 185);
-  const vo2maxSource = profile?.maxHeartrate ? 'profile' : validAge ? 'age' : baseline.measuredMaxHr ? 'recorded' : 'default';
-  const vo2max = estimateVo2max(canonicalActivities, now, vo2maxHr, vo2maxSource, calculationProfile.restingHeartrate);
-  const effectiveVdot = profile?.vdotScore ?? baseline.estimatedVdot;
-
-  const paces = getTrainingPaces(effectiveVdot);
-  const zones = calculateHeartRateZones(effectiveMaxHr, calculationProfile.restingHeartrate ?? undefined);
-  const healthOverview = buildHealthOverview(healthRecords, activities, now);
-
-  return NextResponse.json({
-    profile,
-    history,
-    vo2max,
-    baseline,
-    paces,
-    zones,
-    calculatedVdot: effectiveVdot,
-    calculatedMaxHr: effectiveMaxHr,
-    calculatedRestingHeartrate: calculationProfile.restingHeartrate,
-    healthOverview,
-  });
+  return NextResponse.json(await getCoachProfileData(user.id));
 }
 
 export async function POST(req: Request) {
@@ -144,6 +73,8 @@ export async function POST(req: Request) {
         notes: notes !== undefined ? notes : undefined,
       },
     });
+
+    invalidateCacheTags(cacheTags.userProfile(user.id), cacheTags.userHealth(user.id), cacheTags.members, cacheTags.arena);
 
     return NextResponse.json({ success: true, profile: updatedProfile });
   } catch (error) {

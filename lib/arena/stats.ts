@@ -3,6 +3,7 @@ import { db } from '@/lib/db';
 import { BADGE_DEFINITIONS, ensureBadgesSeeded } from './badge-definitions';
 import { computeHighlights, HIGHLIGHTS_START_WEEK } from './weekly-highlights';
 import { cacheLife, cacheTag } from 'next/cache';
+import { cacheTags } from '@/lib/cache-tags';
 
 export interface ChampionTitle {
   id: string;
@@ -216,6 +217,13 @@ export function computeWeeklyChampions(
 }
 
 export async function getWeeklyChampions(startOfWeek = getStartOfWeek(), userId?: string): Promise<ChampionTitle[]> {
+  'use cache: remote';
+  cacheLife({ stale: 30, revalidate: 60, expire: 300 });
+  cacheTag(cacheTags.arena);
+  if (userId) {
+    cacheTag(cacheTags.userActivities(userId));
+    cacheTag(cacheTags.userGoals(userId));
+  }
   if (getWeekKey(startOfWeek) >= HIGHLIGHTS_START_WEEK) return getHighlights(startOfWeek, userId);
   const weekActivities = await db.activity.findMany({
     where: {
@@ -283,13 +291,13 @@ export async function getArenaData(
   period: 'week' | 'month' | 'all' = 'week',
   sport: 'all' | 'run' | 'ride' = 'all'
 ): Promise<ArenaOverview> {
-  'use cache';
+  'use cache: remote';
   cacheLife({
     stale: 30,
     revalidate: 15,
     expire: 300,
   });
-  cacheTag('arena');
+  cacheTag(cacheTags.arena);
 
   const now = new Date();
   const startOfWeek = getStartOfWeek();
@@ -370,13 +378,13 @@ export async function getArenaLeaderboard(
   period: 'week' | 'month' | 'all' = 'week',
   sport: 'all' | 'run' | 'ride' = 'all'
 ): Promise<LeaderboardEntry[]> {
-  'use cache';
+  'use cache: remote';
   cacheLife({
     stale: 30,
     revalidate: 15,
     expire: 300,
   });
-  cacheTag('arena');
+  cacheTag(cacheTags.arena);
 
   const startOfWeek = getStartOfWeek();
   const startOfMonth = getStartOfMonth();

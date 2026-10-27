@@ -81,13 +81,13 @@ export default function DashboardScreen() {
     if (params.userId) setSelectedUserId(params.userId);
   }, [params.userId]);
 
-  const loadDashboard = useCallback(async (showLoading = true) => {
+  const loadDashboard = useCallback(async (showLoading = true, forceRefresh = false) => {
     if (showLoading) setLoading(true);
     setError(null);
     try {
       const params = new URLSearchParams({ sport });
       if (selectedUserId && selectedUserId !== user?.id) params.set('userId', selectedUserId);
-      const payload = await responseJson<DashboardData>(await apiFetch(`/api/mobile/dashboard?${params}`));
+      const payload = await responseJson<DashboardData>(await apiFetch(`/api/mobile/dashboard?${params}`, forceRefresh ? { cache: 'no-store' } : undefined));
       setData(payload);
       setGoalDays(payload.arena.weeklyGoal.nextWeekTargetActiveDays ?? 2);
     } catch (loadError) {
@@ -143,14 +143,14 @@ export default function DashboardScreen() {
   }, [apiFetch, data, selectedUserId, tab, user?.id]);
 
   const titleName = useMemo(() => data ? displayName(data.user) : user?.firstname || 'Dorfdüse', [data, user?.firstname]);
-  const refresh = () => { setRefreshing(true); void loadDashboard(false); };
+  const refresh = () => { setRefreshing(true); void loadDashboard(false, true); };
 
   async function loadMore() {
     if (!data || data.pagination.page >= data.pagination.pageCount) return;
     try {
       const params = new URLSearchParams({ page: String(data.pagination.page + 1), sport });
       if (selectedUserId && selectedUserId !== user?.id) params.set('userId', selectedUserId);
-      const next = await responseJson<DashboardData>(await apiFetch(`/api/mobile/dashboard?${params}`));
+      const next = await responseJson<DashboardData>(await apiFetch(`/api/mobile/dashboard?${params}`, { cache: 'no-store' }));
       setData(current => current ? { ...next, activities: [...current.activities, ...next.activities] } : next);
     } catch (loadError) { setActionMessage(loadError instanceof Error ? loadError.message : 'Weitere Aktivitäten konnten nicht geladen werden.'); }
   }

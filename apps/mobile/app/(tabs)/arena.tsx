@@ -46,12 +46,12 @@ export default function ArenaScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const loadArena = useCallback(async (showLoading = true) => {
+  const loadArena = useCallback(async (showLoading = true, forceRefresh = false) => {
     if (showLoading) setLoading(true);
     setError(null);
     try {
       const query = new URLSearchParams({ period, sport });
-      const result = await responseJson<ArenaData>(await apiFetch(`/api/mobile/arena?${query}`));
+      const result = await responseJson<ArenaData>(await apiFetch(`/api/mobile/arena?${query}`, forceRefresh ? { cache: 'no-store' } : undefined));
       setData(result);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : 'Arena konnte nicht geladen werden.');
@@ -83,7 +83,7 @@ export default function ArenaScreen() {
     return minutes >= 60 ? `${Math.floor(minutes / 60)} Std ${minutes % 60} Min` : `${minutes} Min`;
   };
 
-  return <ScrollView style={styles.page} contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void loadArena(false); }} tintColor="#fc7a3d" />}>
+  return <ScrollView style={styles.page} contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void loadArena(false, true); }} tintColor="#fc7a3d" />}>
     <Text style={styles.kicker}>RUNCLUB NORDHEIM</Text>
     <Text style={styles.heading}>Düsen-Arena</Text>
     <Text style={styles.intro}>Gemeinsam Kilometer sammeln, Wochenziele feiern und sehen, wer gerade vorne liegt.</Text>

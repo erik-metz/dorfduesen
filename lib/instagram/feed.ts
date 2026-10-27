@@ -1,7 +1,8 @@
-import { cacheLife, cacheTag, revalidateTag } from 'next/cache';
+import { cacheLife, cacheTag } from 'next/cache';
 import { db } from '@/lib/db';
 import type { ClubPost } from '@/types/club';
 import { scrapeInstagramPosts } from './scrape';
+import { cacheTags, invalidateCacheTags } from '@/lib/cache-tags';
 
 const id = 'dorfduesen';
 
@@ -15,14 +16,14 @@ export async function syncInstagramFeed() {
   }
   const data = { posts: JSON.parse(JSON.stringify(posts)), syncedAt: new Date() };
   await db.instagramFeedState.upsert({ where: { id }, create: { id, ...data }, update: data });
-  revalidateTag('instagram-feed', { expire: 0 });
+  invalidateCacheTags(cacheTags.instagramFeed);
   return { success: true, count: posts.length };
 }
 
 export async function getInstagramPosts(): Promise<ClubPost[] | null> {
-  'use cache';
+  'use cache: remote';
   cacheLife({ stale: 60, revalidate: 300, expire: 3600 });
-  cacheTag('instagram-feed');
+  cacheTag(cacheTags.instagramFeed);
   try {
     const state = await db.instagramFeedState.findUnique({ where: { id }, select: { posts: true } });
     return state ? state.posts as unknown as ClubPost[] : null;

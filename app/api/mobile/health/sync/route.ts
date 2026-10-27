@@ -1,11 +1,12 @@
 import { NextResponse, connection } from 'next/server';
-import { revalidatePath, revalidateTag } from 'next/cache';
+import { revalidatePath } from 'next/cache';
 import { Prisma } from '@prisma/client';
 import { getCurrentUser } from '@/lib/auth/session';
 import { db } from '@/lib/db';
 import { isHealthProvider, isHealthRecordType, isJsonObject, isSafeJson, parseDate } from '@/lib/mobile/health';
 import { reconcileHealthActivities } from '@/lib/mobile/health-activities';
 import { evaluateUserBadges } from '@/lib/arena/badge-engine';
+import { cacheTags, invalidateCacheTags } from '@/lib/cache-tags';
 
 const MAX_BODY_BYTES = 1_500_000;
 const MAX_BATCH_RECORDS = 500;
@@ -87,6 +88,9 @@ export async function POST(request: Request) {
     return normalized.length;
   });
   const activityRecordsChanged = normalized.some(record => ['workout', 'distance', 'walking_running_distance', 'cycling_distance', 'swimming_distance', 'heart_rate'].includes(record.recordType)) || deletedRecordIds.length > 0;
+  if (saved > 0 || deletedRecordIds.length > 0) {
+    invalidateCacheTags(cacheTags.userHealth(user.id), cacheTags.userProfile(user.id));
+  }
   if (activityRecordsChanged) {
     await reconcileHealthActivities(user.id);
     try {
@@ -94,7 +98,7 @@ export async function POST(request: Request) {
     } catch (error) {
       console.error('Health-Aktivitäten wurden gespeichert, Trophäen konnten aber nicht aktualisiert werden:', error);
     }
-    revalidateTag('arena', { expire: 0 });
+    invalidateCacheTags(cacheTags.arena, cacheTags.userActivities(user.id), cacheTags.userTrophies(user.id));
     revalidatePath('/');
     revalidatePath('/arena');
     revalidatePath('/dashboard');

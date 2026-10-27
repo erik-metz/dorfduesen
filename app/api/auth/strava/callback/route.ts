@@ -138,10 +138,11 @@ export async function GET(request: Request) {
     await setSessionCookie(sessionToken);
 
     try {
-      const { revalidatePath, revalidateTag } = await import('next/cache');
+      const { revalidatePath } = await import('next/cache');
+      const { cacheTags, invalidateCacheTags } = await import('@/lib/cache-tags');
       revalidatePath('/arena');
       revalidatePath('/');
-      revalidateTag('arena', { expire: 0 });
+      invalidateCacheTags(cacheTags.arena, cacheTags.members);
     } catch {
       // Ignored if outside context.
     }

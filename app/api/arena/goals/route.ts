@@ -2,6 +2,7 @@ import { NextResponse, connection } from 'next/server';
 import { getCurrentUser } from '@/lib/auth/session';
 import { db } from '@/lib/db';
 import { weekRange } from '@/lib/time';
+import { cacheTags, invalidateCacheTags } from '@/lib/cache-tags';
 
 const headers = { 'Cache-Control': 'private, no-store' };
 export async function POST(request: Request) {
@@ -28,6 +29,7 @@ export async function POST(request: Request) {
         update: { activeDays: body.activeDays },
       });
     });
+    invalidateCacheTags(cacheTags.userGoals(user.id), cacheTags.userActivities(user.id), cacheTags.arena);
     return NextResponse.json({ goal }, { headers });
   } catch (error) {
     console.error('Wochenziel konnte nicht gespeichert werden:', error);

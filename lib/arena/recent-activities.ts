@@ -1,10 +1,11 @@
 import { db } from '@/lib/db';
 import { cacheLife, cacheTag } from 'next/cache';
+import { cacheTags } from '@/lib/cache-tags';
 
 export async function getRecentArenaActivities() {
-  'use cache';
+  'use cache: remote';
   cacheLife({ stale: 30, revalidate: 15, expire: 300 });
-  cacheTag('arena');
+  cacheTag(cacheTags.arena);
   const activities = await db.activity.findMany({
     orderBy: [{ startDate: 'desc' }, { id: 'desc' }], take: 20,
     select: { id: true, stravaId: true, name: true, sportType: true, distance: true,

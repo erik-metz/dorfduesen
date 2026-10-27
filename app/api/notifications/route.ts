@@ -2,6 +2,7 @@ import { NextResponse, connection } from 'next/server';
 import { getCurrentUser } from '@/lib/auth/session';
 import { db } from '@/lib/db';
 import { checkWeeklyTitleChanges } from '@/lib/arena/title-tracker';
+import { cacheTags, invalidateCacheTags } from '@/lib/cache-tags';
 
 export async function GET() {
   await connection();
@@ -61,6 +62,7 @@ export async function PATCH(request: Request) {
           isRead: true,
         },
       });
+      invalidateCacheTags(cacheTags.userNotifications(user.id));
       return NextResponse.json({ success: true, markedAll: true });
     }
 
@@ -74,6 +76,7 @@ export async function PATCH(request: Request) {
           isRead: true,
         },
       });
+      invalidateCacheTags(cacheTags.userNotifications(user.id));
       return NextResponse.json({ success: true, markedId: notificationId });
     }
 

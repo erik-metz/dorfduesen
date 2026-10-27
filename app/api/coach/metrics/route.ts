@@ -2,6 +2,8 @@ import { InputError, readCoachBody } from '@/lib/training/validation';
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { db } from "@/lib/db";
+import { cacheTags, invalidateCacheTags } from '@/lib/cache-tags';
+import { getCoachMetrics } from '@/lib/data/coach-profile';
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -9,11 +11,7 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const metrics = await db.healthMetric.findMany({
-    where: { userId: user.id },
-    orderBy: { date: "desc" },
-    take: 90,
-  });
+  const metrics = await getCoachMetrics(user.id);
 
   return NextResponse.json({ metrics });
 }
@@ -53,6 +51,8 @@ export async function POST(req: Request) {
         ...(restingHeartrate ? { restingHeartrate: Number(restingHeartrate) } : {}),
       },
     });
+
+    invalidateCacheTags(cacheTags.userHealth(user.id), cacheTags.userProfile(user.id));
 
     return NextResponse.json({ success: true, metric: createdMetric });
   } catch (error) {

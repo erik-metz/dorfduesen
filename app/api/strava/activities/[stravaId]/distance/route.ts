@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth/session';
 import { db } from '@/lib/db';
+import { cacheTags, invalidateCacheTags } from '@/lib/cache-tags';
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ stravaId: string }> }) {
   const user = await getCurrentUser();
@@ -17,6 +18,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ st
     where: { id: activity.id }, data: { manualDistance: km === 0 ? null : km * 1000 },
     select: { manualDistance: true, extractedDistance: true, distance: true },
   });
+  invalidateCacheTags(cacheTags.userActivities(user.id), cacheTags.arena);
   const { revalidatePath } = await import('next/cache');
   revalidatePath('/dashboard');
   return NextResponse.json({ distance: updated.manualDistance ?? updated.extractedDistance ?? updated.distance });

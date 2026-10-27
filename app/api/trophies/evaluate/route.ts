@@ -1,6 +1,7 @@
 import { NextResponse, connection } from 'next/server';
 import { getCurrentUser } from '@/lib/auth/session';
 import { evaluateUserBadges } from '@/lib/arena/badge-engine';
+import { cacheTags, invalidateCacheTags } from '@/lib/cache-tags';
 
 export async function POST() {
   await connection();
@@ -11,6 +12,7 @@ export async function POST() {
 
   try {
     const results = await evaluateUserBadges(user.id);
+    invalidateCacheTags(cacheTags.userTrophies(user.id), cacheTags.arena);
     return NextResponse.json({
       success: true,
       newlyUnlockedCount: results.filter((r) => r.isNew).length,

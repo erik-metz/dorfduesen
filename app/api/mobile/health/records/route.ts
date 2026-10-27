@@ -2,6 +2,8 @@ import { NextResponse, connection } from 'next/server';
 import { getCurrentUser } from '@/lib/auth/session';
 import { db } from '@/lib/db';
 import { isHealthProvider, isHealthRecordType, parseDate } from '@/lib/mobile/health';
+import { cacheTags, invalidateCacheTags } from '@/lib/cache-tags';
+import { reconcileHealthActivities } from '@/lib/mobile/health-activities';
 
 export async function GET(request: Request) {
   await connection();
@@ -44,5 +46,9 @@ export async function DELETE(request: Request) {
   const result = await db.mobileHealthRecord.deleteMany({
     where: { userId: user.id, ...(provider ? { provider } : {}), ...(recordType ? { recordType } : {}) },
   });
+  if (result.count) {
+    await reconcileHealthActivities(user.id);
+    invalidateCacheTags(cacheTags.userHealth(user.id), cacheTags.userActivities(user.id), cacheTags.userTrophies(user.id), cacheTags.arena);
+  }
   return NextResponse.json({ deleted: result.count });
 }

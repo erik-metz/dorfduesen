@@ -29,6 +29,19 @@ type AuthContextValue = {
   apiFetch: (path: string, init?: RequestInit) => Promise<Response>;
 };
 
+type CachedResponse = { response: Response; expiresAt: number };
+
+function cacheTtlForPath(pathname: string) {
+  if (pathname === '/api/mobile/members') return 5 * 60_000;
+  if (pathname === '/api/mobile/arena') return 15_000;
+  if (pathname === '/api/mobile/dashboard') return 10_000;
+  if (pathname === '/api/coach/metrics' || pathname === '/api/coach/profile' || pathname === '/api/coach/plan') return 20_000;
+  if (pathname === '/api/trophies') return 20_000;
+  if (pathname === '/api/notifications') return 8_000;
+  if (/^\/api\/strava\/activities\/[^/]+$/.test(pathname)) return 60_000;
+  return 0;
+}
+
 const AuthContext = createContext<AuthContextValue | null>(null);
 const TOKEN_KEY = 'dorfduesen_mobile_session';
 const PENDING_STATE_KEY = 'dorfduesen_mobile_oauth_state';
@@ -56,6 +69,16 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const [error, setError] = useState<string | null>(null);
   const processingCallback = useRef(false);
   const processedStates = useRef(new Set<string>());
+  const responseCache = useRef(new Map<string, CachedResponse>());
+  const pendingRequests = useRef(new Map<string, Promise<Response>>());
+  const cacheUserId = useRef<string | null>(null);
+  const cacheGeneration = useRef(0);
+
+  const clearResponseCache = useCallback(() => {
+    cacheGeneration.current += 1;
+    responseCache.current.clear();
+    pendingRequests.current.clear();
+  }, []);
 
   const loadUser = useCallback(async (token: string) => {
     if (!API_BASE_URL) throw new Error('EXPO_PUBLIC_API_URL ist nicht konfiguriert.');
@@ -190,20 +213,55 @@ export function AuthProvider({ children }: PropsWithChildren) {
         // Always clear the local session, even while offline.
       }
     }
+    clearResponseCache();
     await SecureStore.deleteItemAsync(TOKEN_KEY);
     setUser(null);
     setError(null);
     setStatus('anonymous');
-  }, []);
+  }, [clearResponseCache]);
 
   const apiFetch = useCallback(async (path: string, init: RequestInit = {}) => {
     if (!API_BASE_URL) throw new Error('EXPO_PUBLIC_API_URL ist nicht konfiguriert.');
     const token = await SecureStore.getItemAsync(TOKEN_KEY);
     if (!token) throw new Error('Deine Sitzung ist abgelaufen. Bitte melde dich erneut an.');
-    const headers = new Headers(init.headers);
+    const { cache: cacheDirective, ...fetchOptions } = init;
+    const headers = new Headers(fetchOptions.headers);
     headers.set('Authorization', `Bearer ${token}`);
-    return fetch(new URL(path, `${API_BASE_URL}/`).toString(), { ...init, headers });
-  }, []);
+    const url = new URL(path, `${API_BASE_URL}/`);
+    const method = (fetchOptions.method ?? 'GET').toUpperCase();
+    const canCache = method === 'GET' && cacheDirective !== 'no-store' && cacheTtlForPath(url.pathname) > 0;
+    if (cacheUserId.current !== user?.id) {
+      clearResponseCache();
+      cacheUserId.current = user?.id ?? null;
+    }
+    const key = `${user?.id ?? 'unknown'}:${url.toString()}`;
+    const now = Date.now();
+    const cached = canCache ? responseCache.current.get(key) : undefined;
+    if (cached && cached.expiresAt > now) return cached.response.clone();
+    if (cached) responseCache.current.delete(key);
+    if (canCache) {
+      const pending = pendingRequests.current.get(key);
+      if (pending) return (await pending).clone();
+    }
+
+    const generation = cacheGeneration.current;
+    const request = fetch(url.toString(), { ...fetchOptions, headers });
+    if (canCache) pendingRequests.current.set(key, request);
+    try {
+      const response = await request;
+      if (method !== 'GET' && response.ok) clearResponseCache();
+      if (canCache && response.ok && generation === cacheGeneration.current) {
+        responseCache.current.set(key, { response: response.clone(), expiresAt: Date.now() + cacheTtlForPath(url.pathname) });
+        if (responseCache.current.size > 100) {
+          const oldestKey = responseCache.current.keys().next().value;
+          if (oldestKey) responseCache.current.delete(oldestKey);
+        }
+      }
+      return response;
+    } finally {
+      if (pendingRequests.current.get(key) === request) pendingRequests.current.delete(key);
+    }
+  }, [clearResponseCache, user?.id]);
 
   return (
     <AuthContext.Provider value={{ status, user, error, login, logout, apiFetch }}>
