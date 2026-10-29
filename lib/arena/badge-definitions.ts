@@ -94,6 +94,15 @@ export const BADGE_DEFINITIONS: BadgeDefinition[] = [
 
   // --- MONATLICHE AUSZEICHNUNGEN ---
   {
+    code: 'MONTHLY_TEAM_1000',
+    name: 'Gemeinsam 1.000 km',
+    description: 'Gemeinsam das Monatsziel erreicht und selbst Kilometer beigetragen. Jeder erfolgreiche Monat bekommt einen eigenen Pokal mit Monat und Jahr.',
+    icon: '🏆',
+    category: 'MONTHLY',
+    rarity: 'EPIC',
+    hint: 'Trage in diesem Monat mit einer Aktivität Kilometer bei. Sobald der Club 1.000 km erreicht, erhältst du den Monatspokal – auch bei einem späteren Einstieg im selben Monat.',
+  },
+  {
     code: 'MONTH_KING',
     name: 'Monats-König',
     description: 'Monatssieger mit den meisten Gesamtkilometern im gesamten Club.',

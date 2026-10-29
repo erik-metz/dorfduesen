@@ -1,5 +1,6 @@
 import { weekRange, monthRange, shiftDay, berlinMidnight } from '@/lib/time';
 import { db } from '@/lib/db';
+import { awardMonthlyTeamChallenge } from './team-awards';
 import { Prisma } from '@prisma/client';
 import { getWeeklyChampions } from './stats';
 import { ensureBadgesSeeded } from './badge-definitions';
@@ -182,6 +183,7 @@ export async function finalizeMonthlyAwards(refDate: Date = new Date()) {
   await ensureBadgesSeeded(db);
 
   const previous = monthRange(new Date(monthRange(refDate).start.getTime() - 1));
+  await awardMonthlyTeamChallenge(previous.start, refDate);
   const monthKey = previous.key;
   const startOfMonth = previous.start;
   const endOfMonth = previous.end;

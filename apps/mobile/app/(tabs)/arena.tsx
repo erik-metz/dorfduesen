@@ -16,7 +16,7 @@ type Champion = {
 type ArenaData = {
   filters: { period: 'week' | 'month' | 'all'; sport: 'all' | 'run' | 'ride' };
   summary: { weekKm: number; weekHours: number; weekActivitiesCount: number; activeAthletesCount: number };
-  challenge: { title: string; description: string; targetKm: number; currentKm: number; percentage: number; daysRemaining: number };
+  challenge: { title: string; description: string; targetKm: number; currentKm: number; percentage: number; daysRemaining: number; isCompleted: boolean; monthLabel: string; contributorCount: number };
   champions: Champion[];
   leaderboard: LeaderboardEntry[];
   recentActivities: Array<{ id: string; stravaId: string; name: string; sportType: string; distanceKm: number; movingTime: number; startDate: string; userId: string; userName: string; userProfile: string | null }>;
@@ -97,12 +97,13 @@ export default function ArenaScreen() {
       </View>
 
       <View style={styles.challenge}>
-        <Text style={styles.kicker}>AKTUELLE TEAM-CHALLENGE</Text>
+        <Text style={styles.kicker}>{data.challenge.isCompleted ? '🏆 MONATSZIEL GESCHAFFT!' : 'AKTUELLE TEAM-CHALLENGE'}</Text>
         <Text style={styles.cardTitle}>{data.challenge.title}</Text>
-        <Text style={styles.copy}>{data.challenge.description}</Text>
-        <View style={styles.challengeNumbers}><Text style={styles.challengeValue}>{data.challenge.currentKm.toFixed(1)} <Text style={styles.challengeTarget}>/ {data.challenge.targetKm} km</Text></Text><Text style={styles.orange}>Noch {data.challenge.daysRemaining} Tage</Text></View>
+        <Text style={styles.copy}>{data.challenge.isCompleted ? `Gemeinsam geschafft! ${data.challenge.contributorCount} aktive Düsen haben das Monatsziel geknackt.` : data.challenge.description}</Text>
+        {data.challenge.isCompleted ? <View style={styles.challenge}><Text style={styles.cardTitle}>🏆 Euer Monatspokal · {data.challenge.monthLabel}</Text><Text style={styles.copy}>Alle mit eigenen Kilometern in diesem Monat erhalten eine Trophäe in ihrer Sammlung. Du kannst bis Monatsende noch einsteigen – jeder weitere Kilometer zählt!</Text></View> : null}
+        <View style={styles.challengeNumbers}><Text style={styles.challengeValue}>{data.challenge.currentKm.toFixed(1)} <Text style={styles.challengeTarget}>/ {data.challenge.targetKm} km</Text></Text><Text style={styles.orange}>{data.challenge.isCompleted ? data.challenge.monthLabel : `Noch ${data.challenge.daysRemaining} Tage`}</Text></View>
         <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${Math.max(0, Math.min(100, data.challenge.percentage))}%` }]} /></View>
-        <View style={styles.spaceBetween}><Text style={styles.small}>{Math.round(data.challenge.percentage)}% erreicht</Text><Text style={styles.small}>Ziel: {data.challenge.targetKm} km</Text></View>
+        <View style={styles.spaceBetween}><Text style={styles.small}>{data.challenge.isCompleted ? '1.000 km geschafft!' : `${Math.round(data.challenge.percentage)}% erreicht`}</Text><Text style={styles.small}>{data.challenge.isCompleted ? `+${Math.max(0, data.challenge.currentKm - data.challenge.targetKm).toFixed(1)} km über dem Ziel` : `Ziel: ${data.challenge.targetKm} km`}</Text></View>
       </View>
 
       <View style={styles.sectionHead}><Text style={styles.sectionTitle}>Champions der Woche</Text><Text style={styles.small}>Montag bis Sonntag</Text></View>

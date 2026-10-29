@@ -13,6 +13,8 @@ async function evaluate(activities, existing = []) {
   };
   const definitions = loadTs('lib/arena/badge-definitions.ts').BADGE_DEFINITIONS;
   const { evaluateUserBadges } = loadTs('lib/arena/badge-engine.ts', {
+    'next/cache': { revalidateTag() {} },
+    './team-awards': { evaluateMonthlyTeamChallenges: async () => [] },
     '@/lib/db': { db }, './badge-definitions': { BADGE_DEFINITIONS: definitions, ensureBadgesSeeded: async () => {} },
   });
   await evaluateUserBadges('athlete');

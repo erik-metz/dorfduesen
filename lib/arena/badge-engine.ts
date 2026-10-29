@@ -1,5 +1,6 @@
 import { weekRange, monthRange, shiftDay, berlinMidnight } from '@/lib/time';
 import { db } from '@/lib/db';
+import { evaluateMonthlyTeamChallenges } from './team-awards';
 import type { Prisma } from '@prisma/client';
 import { BADGE_DEFINITIONS, ensureBadgesSeeded } from './badge-definitions';
 import { cacheTags, invalidateCacheTags } from '@/lib/cache-tags';
@@ -389,6 +390,10 @@ export async function evaluateUserBadges(userId: string): Promise<UnlockedBadgeR
     }
   }
 
+  const teamAwards = await evaluateMonthlyTeamChallenges();
+  results.push(...teamAwards.filter(award => award.userId === userId).map(award => ({
+    code: award.code, name: award.name, icon: award.icon, isNew: award.isNew, level: award.level,
+  })));
   invalidateCacheTags(cacheTags.userTrophies(userId), cacheTags.notifications, cacheTags.userNotifications(userId), cacheTags.arena);
   return results;
 }

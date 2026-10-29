@@ -1,5 +1,6 @@
-import { weekRange, monthRange, dayKey, shiftDay, berlinMidnight } from '@/lib/time';
+import { weekRange, monthRange, shiftDay, berlinMidnight } from '@/lib/time';
 import { db } from '@/lib/db';
+import { buildTeamChallenge, teamContributions } from './team-challenge';
 import { BADGE_DEFINITIONS, ensureBadgesSeeded } from './badge-definitions';
 import { computeHighlights, HIGHLIGHTS_START_WEEK } from './weekly-highlights';
 import { cacheLife, cacheTag } from 'next/cache';
@@ -34,14 +35,7 @@ export interface LeaderboardEntry {
   badgesCount: number;
 }
 
-export interface TeamChallenge {
-  title: string;
-  description: string;
-  targetKm: number;
-  currentKm: number;
-  percentage: number;
-  daysRemaining: number;
-}
+export type TeamChallenge = ReturnType<typeof buildTeamChallenge>;
 
 export interface ArenaOverview {
   weekKm: number;
@@ -301,7 +295,7 @@ export async function getArenaData(
 
   const now = new Date();
   const startOfWeek = getStartOfWeek();
-  const startOfMonth = getStartOfMonth();
+  const startOfMonth = monthRange(now).start;
 
   // 1. Fetch current week's activities for Champions calculation & weekly KPI
   const weekActivities = await db.activity.findMany({
@@ -334,22 +328,11 @@ export async function getArenaData(
     ? computeWeeklyChampions(weekActivities) : await getHighlights(startOfWeek);
 
   // 3. Team-Challenge (Monthly 1,000 km mission)
-  const monthTotals = await db.activity.aggregate({
-    where: { startDate: { gte: startOfMonth, lt: monthRange(startOfMonth).end } }, _sum: { distance: true },
+  const monthActivities = await db.activity.findMany({
+    where: { startDate: { gte: startOfMonth, lt: monthRange(now).end, lte: now }, movingTime: { gt: 0 } },
+    select: { userId: true, distance: true, manualDistance: true, extractedDistance: true, movingTime: true, startDate: true },
   });
-  const monthCurrentKm = (monthTotals._sum.distance || 0) / 1000;
-  const targetKm = 1000;
-  const daysInMonth = new Date(monthRange(now).end.getTime() - 1).getUTCDate();
-  const daysRemaining = Math.max(0, daysInMonth - Number(dayKey(now).slice(-2)));
-
-  const challenge: TeamChallenge = {
-    title: `Mission 1.000 km (${now.toLocaleString('de-DE', { month: 'long', timeZone: 'Europe/Berlin' })})`,
-    description: 'Gemeinsames Club-Ziel: Zusammen schaffen wir 1.000 Kilometer durchs Ried!',
-    targetKm,
-    currentKm: monthCurrentKm,
-    percentage: Math.min(100, (monthCurrentKm / targetKm) * 100),
-    daysRemaining,
-  };
+  const challenge = buildTeamChallenge(teamContributions(monthActivities, now, now), now);
 
   // 4. Leaderboard query for requested period & sport filter
   const leaderboard = await getArenaLeaderboard(period, sport);

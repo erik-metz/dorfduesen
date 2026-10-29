@@ -1,12 +1,13 @@
 import React from 'react';
-import { Target, Calendar, Flame } from 'lucide-react';
-import { TeamChallenge } from '@/lib/arena/stats';
+import { Target, Calendar, Flame, Trophy } from 'lucide-react';
+import type { TeamChallenge } from '@/lib/arena/stats';
 
 interface TeamChallengeBarProps {
   challenge: TeamChallenge;
 }
 
 export function TeamChallengeBar({ challenge }: TeamChallengeBarProps) {
+  const completed = challenge.isCompleted;
   const percentageRounded = Math.round(challenge.percentage);
 
   return (
@@ -15,17 +16,19 @@ export function TeamChallengeBar({ challenge }: TeamChallengeBarProps) {
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <span className="p-1.5 rounded-lg bg-orange-600/20 text-orange-400 border border-orange-500/30">
-              <Target className="w-4 h-4" />
+              {completed ? <Trophy className="w-4 h-4" /> : <Target className="w-4 h-4" />}
             </span>
             <span className="text-xs font-black uppercase tracking-wider text-orange-400">
-              Aktuelle Team-Challenge
+              {completed ? 'Monatsziel geschafft!' : 'Aktuelle Team-Challenge'}
             </span>
           </div>
           <h3 className="text-xl sm:text-2xl font-black text-white tracking-tight">
             {challenge.title}
           </h3>
           <p className="text-xs sm:text-sm text-zinc-400">
-            {challenge.description}
+            {completed
+              ? `Gemeinsam geschafft! ${challenge.contributorCount} aktive Düsen haben das Monatsziel geknackt.`
+              : challenge.description}
           </p>
         </div>
 
@@ -36,12 +39,22 @@ export function TeamChallengeBar({ challenge }: TeamChallengeBarProps) {
               <span className="text-sm font-bold text-zinc-500">/ {challenge.targetKm} km</span>
             </div>
             <div className="text-xs text-orange-400 font-bold flex items-center md:justify-end gap-1">
-              <Calendar className="w-3.5 h-3.5" />
-              <span>Noch {challenge.daysRemaining} Tage</span>
+              {completed ? <Trophy className="w-3.5 h-3.5" /> : <Calendar className="w-3.5 h-3.5" />}
+              <span>{completed ? challenge.monthLabel : `Noch ${challenge.daysRemaining} Tage`}</span>
             </div>
           </div>
         </div>
       </div>
+
+      {completed ? (
+        <div className="mb-6 rounded-2xl border border-amber-400/30 bg-amber-500/10 p-4 flex items-start gap-3">
+          <Trophy className="h-7 w-7 shrink-0 text-amber-400" aria-hidden="true" />
+          <div>
+            <p className="font-bold text-amber-300">Euer Monatspokal · {challenge.monthLabel}</p>
+            <p className="mt-1 text-sm text-zinc-300">Alle mit eigenen Kilometern in diesem Monat erhalten eine Trophäe in ihrer Sammlung. Du kannst bis Monatsende noch einsteigen – jeder weitere Kilometer zählt!</p>
+          </div>
+        </div>
+      ) : null}
 
       {/* Progress Bar Container */}
       <div className="space-y-2">
@@ -51,16 +64,16 @@ export function TeamChallengeBar({ challenge }: TeamChallengeBarProps) {
             style={{ width: `${Math.max(0, Math.min(100, challenge.percentage))}%` }}
           >
             {/* Shimmer effect */}
-            <div className="absolute inset-0 bg-white/20 animate-pulse rounded-full" />
+            <div className="absolute inset-0 bg-white/20 motion-safe:animate-pulse rounded-full" />
           </div>
         </div>
 
         <div className="flex items-center justify-between text-xs text-zinc-400 pt-1">
           <span className="flex items-center gap-1 font-bold text-zinc-300">
             <Flame className="w-3.5 h-3.5 text-orange-500" />
-            {percentageRounded}% erreicht
+            {completed ? '1.000 km gemeinsam geschafft!' : `${percentageRounded}% erreicht`}
           </span>
-          <span>Ziel: {challenge.targetKm} km</span>
+          <span>{completed ? `+${Math.max(0, challenge.currentKm - challenge.targetKm).toFixed(1)} km über dem Ziel` : `Ziel: ${challenge.targetKm} km`}</span>
         </div>
       </div>
     </div>
