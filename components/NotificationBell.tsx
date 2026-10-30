@@ -57,8 +57,8 @@ export function NotificationBell() {
   useEffect(() => {
     const initialFetch = setTimeout(fetchNotifications, 0);
 
-    // Poll every 30s
-    const interval = setInterval(fetchNotifications, 30000);
+    // Notifications are non-critical; refresh twice a day while the app is open.
+    const interval = setInterval(fetchNotifications, 12 * 60 * 60 * 1000);
 
     // Listen for custom trigger event
     const handleRefresh = () => fetchNotifications();

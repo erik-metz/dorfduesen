@@ -163,8 +163,8 @@ export function DashboardNotifications({
     // If we had no initial notifications, load on mount
     const initialFetch = initialNotifications.length === 0 ? setTimeout(fetchLatest, 0) : undefined;
 
-    // Auto-poll every 30 seconds
-    const interval = setInterval(fetchLatest, 30000);
+    // Notifications are non-critical; refresh twice a day while the tab is open.
+    const interval = setInterval(fetchLatest, 12 * 60 * 60 * 1000);
 
     // Sync with navbar or other components
     const handleRefresh = () => fetchLatest();
