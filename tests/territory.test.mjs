@@ -161,3 +161,19 @@ test('territory: a traced inner hole stays empty when crossed paths are normaliz
   const expected=area(square(8,49,.01))-area(square(8.002,49.002,.006));
   assert.ok(Math.abs(area(result.geometry)-expected)<1);
 });
+
+test('territory: many nearly coincident GPS borders remain finite and do not duplicate area', () => {
+  const rounds=Array.from({length:35},(_,i)=>{
+    const ring=Array.from({length:145},(_,k)=>{
+      const angle=2*Math.PI*(k%144)/144;
+      return [8.38+.006*Math.cos(angle)+Math.sin(i+k)*1e-9,49.69+.004*Math.sin(angle)+Math.cos(i+k)*1e-9];
+    });
+    ring[ring.length-1]=[...ring[0]];
+    return claim(String(i).padStart(3,'0'),`runner-${i%3}`,{type:'Polygon',coordinates:[ring]},i);
+  });
+  const state=replayClaims(rounds);
+  const total=state.territories.reduce((sum,t)=>sum+t.areaM2,0);
+  assert.ok(Number.isFinite(total) && total>10000);
+  assert.ok(total<=area(rounds[0].geometry)*1.01);
+  assert.ok(state.events.length>=rounds.length);
+});

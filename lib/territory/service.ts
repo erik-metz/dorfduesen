@@ -6,6 +6,9 @@ import { getValidStravaToken } from '@/lib/strava/tokens';
 import { RetryAfterError } from 'inngest';
 import { evaluateLoop, reasons, replayClaims, RULES_VERSION, seasonRange, type Reason, type Shape } from './engine';
 
+// One bounded projection per warm server instance; validate against lightweight row metadata.
+let projectionCache: { key: string; value: Promise<ReturnType<typeof replayClaims>> } | null = null;
+
 export type ActivitySource = { summaryPolyline: string | null; sportType: string; startDate: Date; elapsedTime: number; distance: number };
 export function sourceHash(activity: ActivitySource, rulesVersion = RULES_VERSION) {
   return createHash('sha256').update(JSON.stringify([activity.summaryPolyline, activity.sportType, activity.startDate.toISOString(), activity.elapsedTime, activity.distance, rulesVersion])).digest('hex');
@@ -79,13 +82,31 @@ export async function getTerritoryData(userId: string): Promise<TerritoryData> {
   const season = await getSeason(now);
   const rows = await db.territoryClaim.findMany({
     where: { endedAt: { gte: season.start, lt: season.end, lte: now }, activity: { startDate: { gte: season.start } } },
-    include: { activity: { select: { userId: true, name: true, stravaId: true, summaryPolyline: true, sportType: true, startDate: true, elapsedTime: true, distance: true,
+    select: { id: true, activityId: true, sourceHash: true, rulesVersion: true, status: true, reason: true, endedAt: true, checkedAt: true, activity: { select: { userId: true, name: true, stravaId: true, summaryPolyline: true, sportType: true, startDate: true, elapsedTime: true, distance: true,
       user: { select: { id: true, firstname: true, lastname: true } } } } },
   });
   const current = rows.filter(row => row.sourceHash === sourceHash(row.activity, row.rulesVersion));
-  const state = replayClaims(current.filter(row => row.status === 'VALID' && row.geometry).map(row => ({
-    id: row.activityId, userId: row.activity.userId, endedAt: row.endedAt.toISOString(), geometry: row.geometry as unknown as Shape,
-  })));
+  const valid = current.filter(row => row.status === 'VALID');
+  const key = createHash('sha256').update(JSON.stringify(valid.map(row => [row.id, row.sourceHash,
+    row.checkedAt.toISOString(), row.endedAt.toISOString(), row.activity.userId]).sort((a, b) => a[0].localeCompare(b[0])))).digest('hex');
+  if (projectionCache?.key !== key) {
+    const value = (async () => {
+      const shapes = valid.length ? await db.territoryClaim.findMany({
+        where: { id: { in: valid.map(row => row.id) } }, select: { id: true, geometry: true, checkedAt: true },
+      }) : [];
+      const metadata = new Map(valid.map(row => [row.id, row]));
+      return replayClaims(shapes.flatMap(shape => {
+        const row = metadata.get(shape.id);
+        // Do not mix metadata with a concurrently replaced geometry.
+        return row && shape.geometry && shape.checkedAt.getTime() === row.checkedAt.getTime() ? [{
+          id: row.activityId, userId: row.activity.userId, endedAt: row.endedAt.toISOString(), geometry: shape.geometry as unknown as Shape,
+        }] : [];
+      }));
+    })();
+    projectionCache = { key, value };
+    void value.catch(() => { if (projectionCache?.value === value) projectionCache = null; });
+  }
+  const state = await projectionCache.value;
   const names = new Map(rows.map(row => [row.activity.userId, [row.activity.user.firstname, row.activity.user.lastname].filter(Boolean).join(' ') || 'DorfDüse']));
   const leaderboard = new Map<string, { userId: string; name: string; areaM2: number; count: number }>();
   for (const t of state.territories) {
@@ -107,7 +128,7 @@ export async function getTerritoryData(userId: string): Promise<TerritoryData> {
     histories.set(event.territoryId, history);
   }
   const own = await db.activity.findMany({ where: { userId, sportType: { in: ['Run', 'TrailRun'] }, startDate: { gte: season.start, lt: season.end } },
-    orderBy: [{ startDate: 'desc' }, { id: 'asc' }], take: 10, select: { id: true, name: true, stravaId: true, startDate: true, elapsedTime: true, distance: true, sportType: true, summaryPolyline: true, territoryClaim: true } });
+    orderBy: [{ startDate: 'desc' }, { id: 'asc' }], take: 10, select: { id: true, name: true, stravaId: true, startDate: true, elapsedTime: true, distance: true, sportType: true, summaryPolyline: true, territoryClaim: { select: { sourceHash: true, rulesVersion: true, status: true, reason: true } } } });
   return {
     season: { key: season.key, start: season.start.toISOString(), end: season.end.toISOString() },
     myAreaM2: leaderboard.get(userId)?.areaM2 ?? 0,

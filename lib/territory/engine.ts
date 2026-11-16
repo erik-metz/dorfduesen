@@ -1,9 +1,9 @@
 import { area } from '@turf/area';
 import { distance } from '@turf/distance';
-import { union } from 'polyclip-ts';
-import { difference } from '@turf/difference';
+import { normalizeShape, subtractShape } from './clipping';
+import { simplify } from '@turf/simplify';
 import { buffer } from '@turf/buffer';
-import { feature, featureCollection, polygon } from '@turf/helpers';
+import { feature, polygon } from '@turf/helpers';
 import type { Polygon, MultiPolygon } from 'geojson';
 
 export const RULES_VERSION = 2;
@@ -49,7 +49,8 @@ export function evaluateLoop(points: number[][], times: number[], reportedDistan
   try {
     // Normalize the actual boundary, including repeated access paths and crossed loops.
     // Non-zero winding retains enclosed faces; it never invents a convex hull.
-    const faces = union([ring]).filter(coordinates => {
+    const normalized = normalizeShape({ type: 'Polygon', coordinates: [ring] });
+    const faces = (normalized ? normalized.type === 'Polygon' ? [normalized.coordinates] : normalized.coordinates : []).filter(coordinates => {
       const face = polygon(coordinates);
       if (area(face) < 10000) return false;
       // A narrow GPS ribbon along an out-and-back track is not a real enclosed plot.
@@ -81,6 +82,20 @@ function bounds(shape: Shape): number[] {
 }
 function intersects(a: number[], b: number[]) { return a[0] <= b[2] && a[2] >= b[0] && a[1] <= b[3] && a[3] >= b[1]; }
 
+/** Keep the full claim for audit; bound clipping work with a 5m boundary tolerance. */
+function replayShape(shape: Shape): Shape {
+  const polygons = shape.type === 'Polygon' ? [shape.coordinates] : shape.coordinates;
+  const latitude = polygons[0][0][0][1] * Math.PI / 180;
+  const mx = 111195 * Math.cos(latitude), my = 111195;
+  const projected: MultiPolygon = { type: 'MultiPolygon', coordinates: polygons.map(rings =>
+    rings.map(ring => ring.map(([x, y]) => [x * mx, y * my]))) };
+  const reduced = simplify(projected, { tolerance: 5, highQuality: true });
+  const coordinates = reduced.coordinates.map(rings => rings.map(ring => ring.map(([x, y]) =>
+    [Number((x / mx).toFixed(12)), Number((y / my).toFixed(12))])));
+  // Simplification can introduce touching segments; normalize them before clipping.
+  return normalizeShape({ type: 'MultiPolygon', coordinates }) ?? shape;
+}
+
 /** Deterministic ledger replay: import order, retries and concurrent jobs cannot change ownership. */
 export function replayClaims(input: Claim[]) {
   const territories: Territory[] = [];
@@ -91,15 +106,16 @@ export function replayClaims(input: Claim[]) {
   for (const claim of [...input].sort((a, b) => a.endedAt.localeCompare(b.endedAt) || a.id.localeCompare(b.id))) {
     if (seen.has(claim.id)) continue;
     seen.add(claim.id);
-    const candidate = feature(claim.geometry);
+    const geometry = replayShape(claim.geometry);
+    const candidate = feature(geometry);
     const tolerant = buffer(candidate, 10, { units: 'meters' });
-    const candidateBox = bounds(claim.geometry);
+    const candidateBox = bounds(geometry);
     const tolerantBox = tolerant ? bounds(tolerant.geometry) : candidateBox;
     let gainedM2 = 0;
     let capturedCount = 0;
     for (const target of territories) {
       if (target.userId === claim.userId || !tolerant || !intersects(tolerantBox, boxes.get(target.id)!)) continue;
-      const outside = difference(featureCollection([feature(target.geometry), tolerant]));
+      const outside = subtractShape(target.geometry, [tolerant.geometry]);
       if (outside && area(outside) > 1) continue;
       events.push({ claimId: claim.id, territoryId: target.id, fromUserId: target.userId, toUserId: claim.userId, areaM2: target.areaM2, at: claim.endedAt });
       target.userId = claim.userId;
@@ -111,10 +127,10 @@ export function replayClaims(input: Claim[]) {
     // Existing borders stay intact, including partially intersected foreign territories.
     const overlaps = territories.filter(t => intersects(candidateBox, boxes.get(t.id)!));
     const free = overlaps.length
-      ? difference(featureCollection([candidate, ...overlaps.map(t => feature(t.geometry))]))
-      : candidate;
+      ? subtractShape(geometry, overlaps.map(t => t.geometry))
+      : geometry;
     if (free) {
-      const pieces = free.geometry.type === 'Polygon' ? [free.geometry.coordinates] : free.geometry.coordinates;
+      const pieces = free.type === 'Polygon' ? [free.coordinates] : free.coordinates;
       pieces.forEach((coordinates, index) => {
         const geometry: Polygon = { type: 'Polygon', coordinates };
         const areaM2 = area(geometry);
