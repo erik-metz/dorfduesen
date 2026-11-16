@@ -1,5 +1,7 @@
 'use client';
 
+import { ModalDialog } from '@/components/ModalDialog';
+
 import React, { useState, useEffect } from 'react';
 import {
   Trophy,
@@ -477,17 +479,15 @@ export function TrophyCabinet({ initialBadges, userId, isReadOnly = false }: Tro
 
       {/* Trophy Detail Modal */}
       {selectedTrophy && (
-        <div
-          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
-          onClick={() => setSelectedTrophy(null)}
-        >
+        <ModalDialog onClose={() => setSelectedTrophy(null)} label="Trophäendetails">
           <div
             className="max-w-md w-full max-h-[90dvh] overflow-y-auto overscroll-contain rounded-3xl bg-zinc-900 border border-zinc-800 p-6 sm:p-8 space-y-6 shadow-2xl relative"
             onClick={(e) => e.stopPropagation()}
           >
             <button
+              type="button" aria-label="Trophäendetails schließen"
               onClick={() => setSelectedTrophy(null)}
-              className="absolute top-5 right-5 p-2 rounded-xl text-zinc-400 hover:text-white bg-zinc-800/60 hover:bg-zinc-800 transition-colors"
+              className="absolute top-5 right-5 min-h-11 min-w-11 p-2 rounded-xl text-zinc-400 hover:text-white bg-zinc-800/60 hover:bg-zinc-800 transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
@@ -570,7 +570,7 @@ export function TrophyCabinet({ initialBadges, userId, isReadOnly = false }: Tro
               )}
             </div>
           </div>
-        </div>
+        </ModalDialog>
       )}
     </div>
   );

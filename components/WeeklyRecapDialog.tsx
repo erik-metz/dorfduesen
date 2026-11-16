@@ -1,12 +1,11 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { ModalDialog } from '@/components/ModalDialog';
 import Link from 'next/link';
 import { X } from 'lucide-react';
 import type { NotificationItem } from '@/types/notification';
 
 export function WeeklyRecapDialog({ notification, onClose }: { notification: NotificationItem; onClose: () => void }) {
-  const dialog = useRef<HTMLDialogElement>(null);
   const weekKey = notification.metadata?.weekKey;
   const weekLabel = weekKey && /^\d{4}-\d{2}-\d{2}$/.test(weekKey)
     ? `Woche ab ${new Date(`${weekKey}T12:00:00Z`).toLocaleDateString('de-DE', { timeZone: 'UTC' })}` : 'Deine Woche';
@@ -14,29 +13,8 @@ export function WeeklyRecapDialog({ notification, onClose }: { notification: Not
   const rawAwards = notification.metadata?.awards;
   const awards = Array.isArray(rawAwards) ? rawAwards.filter((a): a is { title: string; icon: string; formattedValue: string } =>
     a !== null && typeof a === 'object' && typeof a.title === 'string' && typeof a.icon === 'string' && typeof a.formattedValue === 'string') : [];
-  useEffect(() => {
-    const element = dialog.current;
-    element?.showModal();
-    return () => element?.close();
-  }, []);
-
-  function handleBackdropClick(event: React.MouseEvent<HTMLDialogElement>) {
-    const element = dialog.current;
-    if (!element) return;
-
-    // Browsers differ in which element receives a click on the native dialog
-    // backdrop. Checking the dialog bounds also handles cases where the event
-    // target is not the dialog element itself.
-    const bounds = element.getBoundingClientRect();
-    const clickedOutside = event.clientX < bounds.left || event.clientX > bounds.right
-      || event.clientY < bounds.top || event.clientY > bounds.bottom;
-    if (event.target === element || clickedOutside) onClose();
-  }
-
-  return <dialog ref={dialog} aria-labelledby="weekly-recap-title" aria-describedby="weekly-recap-message"
-    onCancel={event => { event.preventDefault(); onClose(); }}
-    onClick={handleBackdropClick}
-    className="weekly-recap-dialog m-auto max-h-[90dvh] w-[calc(100%-2rem)] max-w-lg overflow-y-auto rounded-3xl border border-orange-400/40 bg-zinc-950 p-0 text-zinc-100 shadow-2xl backdrop:bg-black/75 backdrop:backdrop-blur-sm">
+  return <ModalDialog onClose={onClose} labelledBy="weekly-recap-title" describedBy="weekly-recap-message"
+    className="weekly-recap-dialog max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-3xl border border-orange-400/40 bg-zinc-950 p-0 text-zinc-100 shadow-2xl">
     <div className="relative overflow-hidden p-6 sm:p-8" onClick={event => event.stopPropagation()}>
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(251,146,60,0.22),transparent_70%)]" />
       {celebration && <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
@@ -56,5 +34,5 @@ export function WeeklyRecapDialog({ notification, onClose }: { notification: Not
         <button type="button" onClick={onClose} className="min-h-11 px-4 text-sm text-zinc-400 hover:text-white">{celebration ? 'Danke, weiter geht’s!' : 'Ich bin dabei'}</button>
       </div>
     </div>
-  </dialog>;
+  </ModalDialog>;
 }

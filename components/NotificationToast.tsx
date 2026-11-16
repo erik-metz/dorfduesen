@@ -81,18 +81,17 @@ function ToastContent() {
       .catch(() => {});
   }, [login, logout, error]);
 
-  const handleDismissAlert = async () => {
-    if (activeAlert) {
-      try {
-        await fetch('/api/notifications', {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ notificationId: activeAlert.id }),
-        });
-      } catch {}
-      setActiveAlert(null);
-    }
+  const handleDismissAlert = () => {
+    const notificationId = activeAlert?.id;
+    setActiveAlert(null);
     setDismissed(true);
+    if (notificationId) {
+      void fetch('/api/notifications', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notificationId }),
+      }).catch(() => {});
+    }
   };
 
   if (dismissed) return null;

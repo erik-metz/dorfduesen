@@ -1,5 +1,7 @@
 'use client';
 
+import { ModalDialog } from '@/components/ModalDialog';
+
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -206,19 +208,6 @@ export function DashboardView({
   const [modalDetail, setModalDetail] = useState<ActivityDetailData | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [distanceSaving, setDistanceSaving] = useState<string | null>(null);
-
-  // Close modal on ESC key
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setIsModalOpen(false);
-      }
-    };
-    if (isModalOpen) {
-      window.addEventListener('keydown', handleKeyDown);
-    }
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isModalOpen]);
 
   const fetchActivityDetails = async (stravaId: string): Promise<ActivityDetailData | null> => {
     if (detailsCache[stravaId]) {
@@ -984,7 +973,7 @@ export function DashboardView({
 
       {/* Fullscreen Modal View */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 overflow-y-auto animate-fade-in">
+        <ModalDialog onClose={() => setIsModalOpen(false)} label="Aktivitäts-Vollansicht">
           <div className="bg-zinc-900 border border-zinc-800 rounded-3xl w-full max-w-5xl max-h-[92dvh] overflow-y-auto overscroll-contain shadow-2xl relative flex flex-col">
             {/* Modal Header */}
             <div className="sticky top-0 z-20 bg-zinc-900/95 backdrop-blur-md px-4 sm:px-6 py-4 border-b border-zinc-800 flex items-center justify-between gap-3">
@@ -1032,7 +1021,7 @@ export function DashboardView({
               )}
             </div>
           </div>
-        </div>
+        </ModalDialog>
       )}
     </div>
   );

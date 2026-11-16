@@ -157,80 +157,81 @@ export function Navbar({ club, currentUser }: NavbarProps) {
             ))}
           </nav>
 
-          {/* Desktop Action Right (One Clear, Focused Element) */}
-          <div className="hidden xl:flex items-center gap-3">
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-3">
             {user && <NotificationBell />}
-            {user ? (
-              <Link
-                href="/dashboard"
-                className="inline-flex items-center gap-2.5 pl-2.5 pr-4 py-1.5 rounded-full text-xs font-bold bg-zinc-900 hover:bg-zinc-800 border border-zinc-700/80 text-white transition-all shadow-md group"
-              >
-                {isValidAvatarUrl(user.profile) ? (
-                  <div className="relative w-6 h-6 rounded-full overflow-hidden ring-1 ring-orange-500">
-                    <Image src={user.profile!} alt={displayName || ''} fill unoptimized className="object-cover" />
-                  </div>
-                ) : (
-                  <div className="w-6 h-6 rounded-full bg-orange-600/20 text-orange-400 flex items-center justify-center">
-                    <UserIcon className="w-3.5 h-3.5" />
-                  </div>
-                )}
-                <span className="truncate max-w-[130px]">{displayName}</span>
-                <LayoutDashboard className="w-3.5 h-3.5 text-zinc-400 group-hover:text-orange-400 transition-colors" />
-              </Link>
-            ) : (
-              <Link
-                href="/dashboard"
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider bg-[#fc5200] hover:bg-[#e04800] text-white shadow-lg shadow-[#fc5200]/25 hover:shadow-[#fc5200]/40 transition-all active:scale-95"
-              >
-                <StravaIcon className="w-4 h-4 text-white" />
-                <span>Mit Strava verbinden</span>
-              </Link>
-            )}
-          </div>
-
-          {/* Mobile Right Bar: Fast Action + Hamburger */}
-          <div className="flex shrink-0 xl:hidden items-center gap-1.5 sm:gap-2">
-            {user && <NotificationBell />}
-            {/* Quick Profile/Login Button on Mobile */}
-            {user ? (
-              <Link
-                href="/dashboard"
-                className="flex shrink-0 min-h-11 min-w-11 justify-center items-center gap-2 p-1.5 sm:px-3 sm:py-1.5 rounded-full bg-zinc-900 border border-zinc-800 text-xs font-bold text-white"
-                aria-label="Dashboard"
-              >
-                {isValidAvatarUrl(user.profile) ? (
-                  <div className="relative w-7 h-7 rounded-full overflow-hidden ring-1 ring-orange-500">
-                    <Image src={user.profile!} alt={displayName || ''} fill unoptimized className="object-cover" />
-                  </div>
-                ) : (
-                  <UserIcon className="w-4 h-4 text-orange-400" />
-                )}
-                <span className="hidden sm:inline text-xs truncate max-w-[90px]">{displayName}</span>
-              </Link>
-            ) : (
-              <Link
-                href="/dashboard"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-[#fc5200] text-white shadow-sm"
-              >
-                <StravaIcon className="w-3.5 h-3.5 text-white" />
-                <span className="text-[11px] sm:text-xs">Login</span>
-              </Link>
-            )}
-
-            {/* Hamburger Button */}
-            <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="shrink-0 min-h-11 min-w-11 p-2 sm:p-2.5 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-white hover:bg-zinc-800 focus:outline-none transition-colors"
-              aria-label={mobileMenuOpen ? 'Menü schließen' : 'Menü öffnen'}
-              aria-expanded={mobileMenuOpen}
-              aria-controls="mobile-navigation"
-            >
-              {mobileMenuOpen ? (
-                <X className="w-5 h-5 text-zinc-200" />
+            {/* Desktop Action Right (One Clear, Focused Element) */}
+            <div className="hidden xl:flex items-center gap-3">
+              {user ? (
+                <Link
+                  href="/dashboard"
+                  className="inline-flex items-center gap-2.5 pl-2.5 pr-4 py-1.5 rounded-full text-xs font-bold bg-zinc-900 hover:bg-zinc-800 border border-zinc-700/80 text-white transition-all shadow-md group"
+                >
+                  {isValidAvatarUrl(user.profile) ? (
+                    <div className="relative w-6 h-6 rounded-full overflow-hidden ring-1 ring-orange-500">
+                      <Image src={user.profile!} alt={displayName || ''} fill unoptimized className="object-cover" />
+                    </div>
+                  ) : (
+                    <div className="w-6 h-6 rounded-full bg-orange-600/20 text-orange-400 flex items-center justify-center">
+                      <UserIcon className="w-3.5 h-3.5" />
+                    </div>
+                  )}
+                  <span className="truncate max-w-[130px]">{displayName}</span>
+                  <LayoutDashboard className="w-3.5 h-3.5 text-zinc-400 group-hover:text-orange-400 transition-colors" />
+                </Link>
               ) : (
-                <Menu className="w-5 h-5 text-orange-500" />
+                <Link
+                  href="/dashboard"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider bg-[#fc5200] hover:bg-[#e04800] text-white shadow-lg shadow-[#fc5200]/25 hover:shadow-[#fc5200]/40 transition-all active:scale-95"
+                >
+                  <StravaIcon className="w-4 h-4 text-white" />
+                  <span>Mit Strava verbinden</span>
+                </Link>
               )}
-            </button>
+            </div>
+
+            {/* Mobile Right Bar: Fast Action + Hamburger */}
+            <div className="flex shrink-0 xl:hidden items-center gap-1.5 sm:gap-2">
+              {/* Quick Profile/Login Button on Mobile */}
+              {user ? (
+                <Link
+                  href="/dashboard"
+                  className="flex shrink-0 min-h-11 min-w-11 justify-center items-center gap-2 p-1.5 sm:px-3 sm:py-1.5 rounded-full bg-zinc-900 border border-zinc-800 text-xs font-bold text-white"
+                  aria-label="Dashboard"
+                >
+                  {isValidAvatarUrl(user.profile) ? (
+                    <div className="relative w-7 h-7 rounded-full overflow-hidden ring-1 ring-orange-500">
+                      <Image src={user.profile!} alt={displayName || ''} fill unoptimized className="object-cover" />
+                    </div>
+                  ) : (
+                    <UserIcon className="w-4 h-4 text-orange-400" />
+                  )}
+                  <span className="hidden sm:inline text-xs truncate max-w-[90px]">{displayName}</span>
+                </Link>
+              ) : (
+                <Link
+                  href="/dashboard"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-[#fc5200] text-white shadow-sm"
+                >
+                  <StravaIcon className="w-3.5 h-3.5 text-white" />
+                  <span className="text-[11px] sm:text-xs">Login</span>
+                </Link>
+              )}
+
+              {/* Hamburger Button */}
+              <button
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className="shrink-0 min-h-11 min-w-11 p-2 sm:p-2.5 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-white hover:bg-zinc-800 focus:outline-none transition-colors"
+                aria-label={mobileMenuOpen ? 'Menü schließen' : 'Menü öffnen'}
+                aria-expanded={mobileMenuOpen}
+                aria-controls="mobile-navigation"
+              >
+                {mobileMenuOpen ? (
+                  <X className="w-5 h-5 text-zinc-200" />
+                ) : (
+                  <Menu className="w-5 h-5 text-orange-500" />
+                )}
+              </button>
+            </div>
           </div>
         </div>
       </div>

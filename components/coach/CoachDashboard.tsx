@@ -1,5 +1,7 @@
 'use client';
 
+import { ModalDialog } from '@/components/ModalDialog';
+
 import { FitnessHistory } from './FitnessHistory';
 import type { Vo2maxEstimate } from '@/lib/training/vo2max';
 import type { FitnessHistoryPoint } from '@/lib/training/history';
@@ -2057,7 +2059,7 @@ export function CoachDashboard({ physiologyOnly = false }: { physiologyOnly?: bo
 
       {/* Modal: Delete Active Plan */}
       {showDeleteModal && plan && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+        <ModalDialog onClose={() => setShowDeleteModal(false)} label="Trainingsplan löschen">
           <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 sm:p-8 max-w-md w-full max-h-[90dvh] overflow-y-auto overscroll-contain shadow-2xl space-y-6 animate-in fade-in zoom-in-95 duration-150">
             <div className="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center justify-center">
               <Trash2 className="w-6 h-6" />
@@ -2074,7 +2076,6 @@ export function CoachDashboard({ physiologyOnly = false }: { physiologyOnly?: bo
               <button
                 type="button"
                 onClick={() => setShowDeleteModal(false)}
-                disabled={deletingPlan}
                 className="px-4 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-bold text-sm transition-colors cursor-pointer"
               >
                 Abbrechen
@@ -2099,12 +2100,12 @@ export function CoachDashboard({ physiologyOnly = false }: { physiologyOnly?: bo
               </button>
             </div>
           </div>
-        </div>
+        </ModalDialog>
       )}
 
       {/* Modal: Replace Active Plan on New Generation */}
       {showReplaceModal && plan && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+        <ModalDialog onClose={() => setShowReplaceModal(false)} label="Trainingsplan ersetzen">
           <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 sm:p-8 max-w-md w-full max-h-[90dvh] overflow-y-auto overscroll-contain shadow-2xl space-y-6 animate-in fade-in zoom-in-95 duration-150">
             <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center">
               <AlertCircle className="w-6 h-6" />
@@ -2135,7 +2136,7 @@ export function CoachDashboard({ physiologyOnly = false }: { physiologyOnly?: bo
               </button>
             </div>
           </div>
-        </div>
+        </ModalDialog>
       )}
     </div>
   );

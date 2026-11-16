@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import Image from 'next/image';
+import { ModalDialog } from '@/components/ModalDialog';
 import Link from 'next/link';
 import type { ChampionTitle } from '@/lib/arena/stats';
 import { highlightCards, highlightHint, type PersonalWeek } from '@/lib/arena/highlight-presentation';
@@ -11,7 +12,6 @@ type Card = ReturnType<typeof highlightCards>[number];
 export function WeeklyChampions({ champions, currentUserId }: { champions: ChampionTitle[]; currentUserId?: string | null }) {
   const [personal, setPersonal] = useState<PersonalWeek | null>(null);
   const [selected, setSelected] = useState<Card | null>(null);
-  const dialog = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     const controller = new AbortController();
     fetch('/api/arena/champions/me', { cache: 'no-store', signal: controller.signal })
@@ -22,7 +22,7 @@ export function WeeklyChampions({ champions, currentUserId }: { champions: Champ
   }, []);
   const userId = personal?.userId ?? currentUserId;
   const cards = highlightCards(champions);
-  function open(card: Card) { setSelected(card); dialog.current?.showModal(); }
+  function open(card: Card) { setSelected(card); }
   return <section aria-labelledby="weekly-champions" className="space-y-5">
     <div>
       <h2 id="weekly-champions" className="text-2xl sm:text-4xl font-black uppercase tracking-tight text-white">Die Champions der Woche</h2>
@@ -55,12 +55,12 @@ export function WeeklyChampions({ champions, currentUserId }: { champions: Champ
         </button>;
       })}
     </div>
-    <dialog ref={dialog} onClick={e => { if (e.target === e.currentTarget) dialog.current?.close(); }}
-      className="m-auto w-[calc(100%_-_2rem)] max-w-lg max-h-[85dvh] overflow-y-auto rounded-3xl border border-zinc-700 bg-zinc-950 p-6 text-zinc-100 backdrop:bg-black/75" aria-labelledby="champion-dialog-title">
+    {selected && <ModalDialog onClose={() => setSelected(null)} labelledBy="champion-dialog-title"
+      className="w-full max-w-lg max-h-[85dvh] overflow-y-auto rounded-3xl border border-zinc-700 bg-zinc-950 p-6 text-zinc-100">
       {selected ? <>
         <div className="flex items-start justify-between gap-4">
           <h3 id="champion-dialog-title" className="text-2xl font-black">{selected.champion.icon} {selected.champion.title}</h3>
-          <button type="button" autoFocus onClick={() => dialog.current?.close()} aria-label="Schließen" className="rounded-lg px-3 py-1 text-xl text-zinc-400 hover:bg-zinc-800 hover:text-white focus-visible:outline-2 focus-visible:outline-orange-400">×</button>
+          <button type="button" autoFocus onClick={() => setSelected(null)} aria-label="Schließen" className="min-h-11 min-w-11 shrink-0 rounded-lg px-3 py-1 text-xl text-zinc-400 hover:bg-zinc-800 hover:text-white focus-visible:outline-2 focus-visible:outline-orange-400">×</button>
         </div>
         <p className="mt-4 text-sm text-zinc-400">{selected.champion.subtitle}. Montag bis Sonntag zählt; die Trophäe gibt’s nach Wochenabschluss.</p>
         {selected.champion.id === 'progress' ? <p className="mt-2 text-sm text-zinc-400">Verglichen werden vier vollständige Vorwochen, auch Wochen ohne Sport. Neue Düsen sammeln erst vier Wochen Anlauf.</p> : null}
@@ -74,6 +74,6 @@ export function WeeklyChampions({ champions, currentUserId }: { champions: Champ
         {!selected.recipients.length ? <p className="mt-4 text-sm text-zinc-300">Hier ist noch Platz für deinen Namen.</p> : null}
         {selected.champion.id === 'goal' ? <Link href="/dashboard?tab=trophies#wochenziel" className="mt-5 inline-block rounded-xl bg-orange-600 px-4 py-3 text-sm font-bold hover:bg-orange-500">Dein nächstes Ziel festlegen →</Link> : null}
       </> : null}
-    </dialog>
+    </ModalDialog>}
   </section>;
 }

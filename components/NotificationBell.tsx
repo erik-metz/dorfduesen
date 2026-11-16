@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { Bell, CheckCheck, Trophy, ChevronRight, LayoutDashboard } from 'lucide-react';
 import { WeeklyRecapDialog } from '@/components/WeeklyRecapDialog';
+import { claimWeeklyRecap } from '@/lib/notifications/recap-session';
 import type { NotificationItem } from '@/types/notification';
 export type { NotificationItem };
 
@@ -27,7 +28,6 @@ function formatRelativeTime(dateString: string): string {
 export function NotificationBell() {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [recap, setRecap] = useState<NotificationItem | null>(null);
-  const shownRecaps = useRef(new Set<string>());
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -42,8 +42,7 @@ export function NotificationBell() {
           const items: NotificationItem[] = data.notifications || [];
           setNotifications(items);
           const latest = items.find(n => n.type === 'WEEKLY_RECAP' && Date.now() - Date.parse(n.createdAt) < 14 * 86400000);
-          if (latest && !latest.isRead && !shownRecaps.current.has(latest.id)) {
-            shownRecaps.current.add(latest.id);
+          if (latest && !latest.isRead && claimWeeklyRecap(latest.id)) {
             setRecap(latest);
           }
           setUnreadCount(data.unreadCount || 0);
