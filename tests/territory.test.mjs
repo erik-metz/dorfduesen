@@ -29,10 +29,9 @@ test('territory: full GPS round creates a polygon; a short closure is allowed', 
   const open = vertices.slice(0,-1).concat([[8,49.0002]]);
   assert.ok(evaluate(open).geometry);
 });
-test('territory: open tracks, tiny loops, self intersections and out-and-back do not claim land', () => {
+test('territory: open tracks, tiny loops and out-and-back do not claim land', () => {
   assert.equal(evaluate(square().coordinates[0].slice(0,-1)).reason,'OPEN');
   assert.equal(evaluate(square(8,49,.0005).coordinates[0]).reason,'SMALL');
-  assert.equal(evaluate([[8,49],[8.005,49.005],[8.005,49],[8,49.005],[8,49]]).reason,'CROSSED');
   assert.ok(evaluate([[8,49],[8.005,49],[8,49]]).reason);
 });
 test('territory: corrupt GPS, missing times, high speed and recording gaps are rejected', () => {
@@ -121,4 +120,44 @@ test('territory: syncing a run schedules evaluation without an active training p
   assert.equal(sent.length,1);
   assert.equal(sent[0].name,'territory/activity.check');
   assert.equal(sent[0].data.activityId,'run-1');
+});
+
+
+test('territory: closure allows short GPS offsets and 100–300 m gaps on longer rounds', () => {
+  for (const [size, gapLat] of [[.002,.00054],[.005,.00135],[.01,.0025]]) {
+    const vertices=square(8,49,size).coordinates[0].slice(0,-1).concat([[8,49+gapLat]]);
+    assert.ok(evaluate(vertices).geometry, `size=${size}, gap=${gapLat}`);
+  }
+  assert.equal(evaluate(square(8,49,.01).coordinates[0].slice(0,-1).concat([[8,49.0032]])).reason,'OPEN');
+  // A short route cannot acquire land by bridging a gap larger than 10% (with a 100m floor).
+  assert.equal(evaluate(square(8,49,.002).coordinates[0].slice(0,-1).concat([[8,49.0011]])).reason,'OPEN');
+});
+test('territory: a figure eight yields its two enclosed faces', () => {
+  const result=evaluate([[8,49],[8.005,49.005],[8.005,49],[8,49.005],[8,49]]);
+  assert.equal(result.reason,null);
+  assert.equal(result.geometry.type,'MultiPolygon');
+  assert.equal(result.geometry.coordinates.length,2);
+  assert.ok(area(result.geometry)>10000);
+});
+test('territory: an access path traversed twice does not invalidate the enclosed park', () => {
+  const park=square().coordinates[0];
+  const result=evaluate([[7.998,49],...park,[7.998,49]]);
+  assert.equal(result.reason,null);
+  assert.ok(Math.abs(area(result.geometry)-area(square()))<1);
+});
+test('territory: small GPS loops do not reject an otherwise valid round', () => {
+  const result=evaluate([...square().coordinates[0],[7.99999,49.00001],[8.00001,49.00001],[8,49]]);
+  assert.equal(result.reason,null);
+  assert.ok(Math.abs(area(result.geometry)-area(square()))<10);
+});
+test('territory: narrow GPS ribbons on an out-and-back track do not claim land', () => {
+  assert.equal(evaluate([[8,49],[8.03,49],[8.03,49.0001],[8,49.0001],[8,49]]).reason,'SMALL');
+});
+test('territory: a traced inner hole stays empty when crossed paths are normalized', () => {
+  const result=evaluate([[8,49],[8.01,49],[8.01,49.01],[8,49.01],[8,49],[8.002,49.002],[8.002,49.008],[8.008,49.008],[8.008,49.002],[8.002,49.002],[8,49]]);
+  assert.equal(result.reason,null);
+  assert.equal(result.geometry.type,'Polygon');
+  assert.equal(result.geometry.coordinates.length,2);
+  const expected=area(square(8,49,.01))-area(square(8.002,49.002,.006));
+  assert.ok(Math.abs(area(result.geometry)-expected)<1);
 });

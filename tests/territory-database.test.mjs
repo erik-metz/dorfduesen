@@ -18,7 +18,7 @@ test('territory database: import → GPS evaluation → ownership → late captu
   const remote = new Map();
   let requests = 0;
   let remoteFailure = null;
-  const { evaluateActivity, getTerritoryData } = loadTs('lib/territory/service.ts', {
+  const { evaluateActivity, getTerritoryData, sourceHash } = loadTs('lib/territory/service.ts', {
     '@/lib/db': { db },
     '@/lib/strava/tokens': { getValidStravaToken: async () => 'test-token' },
     fetch: async input => {
@@ -58,6 +58,13 @@ test('territory database: import → GPS evaluation → ownership → late captu
     assert.ok(data.territories.every(t=>t.userId===users[1].id));
     assert.equal(data.events.filter(e=>e.fromUserId===users[0].id).length,1);
     assert.equal(data.myRuns[0].status,'VALID');
+    // Previous valid rules stay visible until the new version has been evaluated.
+    await db.territoryClaim.update({where:{activityId:a.id},data:{rulesVersion:1,sourceHash:sourceHash(a,1)}});
+    assert.equal((await getTerritoryData(users[0].id)).myRuns[0].status,'VALID');
+    const beforeUpgrade=requests;
+    await evaluateActivity(a.id);
+    assert.ok(requests>beforeUpgrade);
+    assert.equal((await db.territoryClaim.findUnique({where:{activityId:a.id}})).rulesVersion,2);
     const initialRequests=requests;
     await Promise.all([evaluateActivity(a.id),evaluateActivity(a.id)]);
     assert.equal(await db.territoryClaim.count({where:{activityId:a.id}}),1);

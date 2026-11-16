@@ -7,8 +7,8 @@ import { RetryAfterError } from 'inngest';
 import { evaluateLoop, reasons, replayClaims, RULES_VERSION, seasonRange, type Reason, type Shape } from './engine';
 
 export type ActivitySource = { summaryPolyline: string | null; sportType: string; startDate: Date; elapsedTime: number; distance: number };
-export function sourceHash(activity: ActivitySource) {
-  return createHash('sha256').update(JSON.stringify([activity.summaryPolyline, activity.sportType, activity.startDate.toISOString(), activity.elapsedTime, activity.distance, RULES_VERSION])).digest('hex');
+export function sourceHash(activity: ActivitySource, rulesVersion = RULES_VERSION) {
+  return createHash('sha256').update(JSON.stringify([activity.summaryPolyline, activity.sportType, activity.startDate.toISOString(), activity.elapsedTime, activity.distance, rulesVersion])).digest('hex');
 }
 export async function getSeason(now = new Date()) {
   const settings = await db.territorySettings.findUniqueOrThrow({ where: { id: 'revier' } });
@@ -82,7 +82,7 @@ export async function getTerritoryData(userId: string): Promise<TerritoryData> {
     include: { activity: { select: { userId: true, name: true, stravaId: true, summaryPolyline: true, sportType: true, startDate: true, elapsedTime: true, distance: true,
       user: { select: { id: true, firstname: true, lastname: true } } } } },
   });
-  const current = rows.filter(row => row.sourceHash === sourceHash(row.activity));
+  const current = rows.filter(row => row.sourceHash === sourceHash(row.activity, row.rulesVersion));
   const state = replayClaims(current.filter(row => row.status === 'VALID' && row.geometry).map(row => ({
     id: row.activityId, userId: row.activity.userId, endedAt: row.endedAt.toISOString(), geometry: row.geometry as unknown as Shape,
   })));
@@ -119,7 +119,7 @@ export async function getTerritoryData(userId: string): Promise<TerritoryData> {
     events: state.events.slice(-30).reverse().map(presentEvent),
     myRuns: own.map(a => {
       const evaluation = a.territoryClaim;
-      const fresh = evaluation && evaluation.sourceHash === sourceHash(a);
+      const fresh = evaluation && evaluation.sourceHash === sourceHash(a, evaluation.rulesVersion);
       const result = resultMap.get(a.id);
       return { id: a.id, stravaId: a.stravaId, name: a.name, startDate: a.startDate.toISOString(),
         status: a.stravaId.startsWith('health:') ? 'REJECTED' : fresh ? evaluation.status : 'PENDING',

@@ -31,7 +31,7 @@ try {
   // Seed a validated ledger entry; GPS validation is exercised in the database test.
   const activity=await db.activity.create({data:{userId:user.id,stravaId:`http-revier-${crypto.randomUUID()}`,name:'Revier-Runde',distance:1500,movingTime:1,elapsedTime:1,totalElevationGain:0,sportType:'Run',startDate,startDateLocal:startDate}});
   const { sourceHash }=loadTs('lib/territory/service.ts',{'@/lib/db':{db}});
-  await db.territoryClaim.create({data:{activityId:activity.id,sourceHash:sourceHash(activity),rulesVersion:1,status:'VALID',endedAt,
+  await db.territoryClaim.create({data:{activityId:activity.id,sourceHash:sourceHash(activity,1),rulesVersion:1,status:'VALID',endedAt,
     geometry:{type:'Polygon',coordinates:[[[8,49],[8.005,49],[8.005,49.005],[8,49.005],[8,49]]]}}});
   const owned=await (await fetch(`${base}/api/arena/territories`,{headers})).json();
   assert.ok(owned.myAreaM2>10000,JSON.stringify(owned));

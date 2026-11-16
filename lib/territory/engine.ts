@@ -1,25 +1,25 @@
 import { area } from '@turf/area';
 import { distance } from '@turf/distance';
-import { kinks } from '@turf/kinks';
+import { union } from 'polyclip-ts';
 import { difference } from '@turf/difference';
 import { buffer } from '@turf/buffer';
 import { feature, featureCollection, polygon } from '@turf/helpers';
 import type { Polygon, MultiPolygon, Position } from 'geojson';
 
-export const RULES_VERSION = 1;
+export const RULES_VERSION = 2;
 export type Shape = Polygon | MultiPolygon;
 export const reasons = {
   NO_GPS: 'Keine vollständige GPS-Strecke verfügbar.',
-  OPEN: 'Start und Ziel liegen zu weit auseinander (max. 100 m und 5 % der Strecke).',
+  OPEN: 'Start und Ziel liegen zu weit auseinander (100 m Grundtoleranz, bis 10 % der Strecke, maximal 300 m).',
   INVALID: 'GPS-Strecke ist unvollständig oder enthält unplausible Sprünge.',
-  CROSSED: 'Die Strecke kreuzt sich selbst. In dieser Version zählt nur eine einfache Runde.',
+  CROSSED: 'Aus dieser Strecke konnte bisher keine geschlossene Fläche erkannt werden. Eine erneute Prüfung berücksichtigt Kreuzungen.',
   SMALL: 'Die Runde umschließt weniger als einen Hektar (10.000 m²).',
   SPORT: 'Nur Outdoor-Läufe und Trailruns zählen.',
   OLD: 'Der Lauf liegt außerhalb der aktiven Saison.',
   PRIVATE: 'Manuelle, Indoor- oder private Aktivitäten zählen nicht.',
 } as const;
 export type Reason = keyof typeof reasons;
-export type Evaluation = { geometry: Polygon; reason: null } | { geometry: null; reason: Reason };
+export type Evaluation = { geometry: Shape; reason: null } | { geometry: null; reason: Reason };
 
 /** Input is the full latlng stream, never the diagram's downsampled stream. */
 export function evaluateLoop(points: number[][], times: number[], reportedDistance: number): Evaluation {
@@ -27,7 +27,7 @@ export function evaluateLoop(points: number[][], times: number[], reportedDistan
   if (!Array.isArray(points) || !Array.isArray(times)) return invalid();
   if (points.length < 4) return { geometry: null, reason: 'NO_GPS' };
   if (points.length > 30000 || times.length !== points.length || !Number.isFinite(reportedDistance) || reportedDistance <= 0) return invalid();
-  const ring: Position[] = [];
+  const ring: [number, number][] = [];
   let measured = 0;
   for (let i = 0; i < points.length; i++) {
     const p = points[i];
@@ -43,13 +43,27 @@ export function evaluateLoop(points: number[][], times: number[], reportedDistan
   }
   if (measured < reportedDistance * 0.75 || measured > reportedDistance * 1.25 || ring.length < 4) return invalid();
   const gap = distance(ring[0], ring[ring.length - 1], { units: 'meters' });
-  if (gap > Math.min(100, measured * 0.05)) return { geometry: null, reason: 'OPEN' };
+  if (gap > Math.min(300, Math.max(100, measured * 0.10))) return { geometry: null, reason: 'OPEN' };
   if (gap > 0) ring.push([...ring[0]]);
   if (Math.max(...ring.map(p => p[0])) - Math.min(...ring.map(p => p[0])) > 180) return invalid();
-  const boundary = polygon([ring]);
-  if (kinks(boundary).features.length) return { geometry: null, reason: 'CROSSED' };
-  if (area(boundary) < 10000) return { geometry: null, reason: 'SMALL' };
-  return { geometry: boundary.geometry, reason: null };
+  try {
+    // Normalize the actual boundary, including repeated access paths and crossed loops.
+    // Non-zero winding retains enclosed faces; it never invents a convex hull.
+    const faces = union([ring]).filter(coordinates => {
+      const face = polygon(coordinates);
+      if (area(face) < 10000) return false;
+      // A narrow GPS ribbon along an out-and-back track is not a real enclosed plot.
+      const interior = buffer(face, -15, { units: 'meters' });
+      return interior && area(interior) >= 100;
+    });
+    if (!faces.length) return { geometry: null, reason: 'SMALL' };
+    const geometry: Shape = faces.length === 1
+      ? { type: 'Polygon', coordinates: faces[0] }
+      : { type: 'MultiPolygon', coordinates: faces };
+    return { geometry, reason: null };
+  } catch {
+    return invalid();
+  }
 }
 
 export type Claim = { id: string; userId: string; endedAt: string; geometry: Shape };
