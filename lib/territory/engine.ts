@@ -4,7 +4,7 @@ import { union } from 'polyclip-ts';
 import { difference } from '@turf/difference';
 import { buffer } from '@turf/buffer';
 import { feature, featureCollection, polygon } from '@turf/helpers';
-import type { Polygon, MultiPolygon, Position } from 'geojson';
+import type { Polygon, MultiPolygon } from 'geojson';
 
 export const RULES_VERSION = 2;
 export type Shape = Polygon | MultiPolygon;
