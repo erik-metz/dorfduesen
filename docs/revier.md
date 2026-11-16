@@ -4,7 +4,7 @@ Outdoor-Läufe (`Run`, `TrailRun`) mit vollständigen Strava-GPS- und Zeitstream
 
 ## Regeln, Version 1
 
-- Die erste Saison beginnt mit dem Einspielen der Migration. Danach werden die Gebiete jeweils zu Quartalsbeginn um 00:00 UTC zurückgesetzt. Historische Läufe vor Aktivierung bleiben ausgeschlossen.
+- Die erste Saison beginnt mit dem Einspielen der Migration. Danach werden die Gebiete jeweils zu Quartalsbeginn um 00:00 UTC zurückgesetzt. Standardmäßig bleiben historische Läufe vor Aktivierung ausgeschlossen. Ein ausdrücklich gestarteter Backfill kann die erste Saison bis zum aktuellen Quartalsbeginn erweitern.
 - Der gesamte Lauf muss innerhalb derselben Saison liegen. Der Abschlusszeitpunkt ist `start_date + elapsed_time`. Exakte Gleichstände werden nach stabiler lokaler Aktivitäts-ID sortiert.
 - Start und Ziel: höchstens 100 Meter Abstand, zusätzlich höchstens 5 % der gemessenen Strecke. Nur diese kleine Lücke wird geschlossen.
 - Mindestens 10.000 m² Fläche. Keine Selbstkreuzungen, manuellen, privaten oder Indoor-Aktivitäten. Health-Importe ohne GPS zählen nicht.
@@ -36,7 +36,9 @@ Neue Webkarten-Daten werden minütlich bei sichtbarem Tab geladen. Die mobile Ar
 3. Mobile App neu bauen: `react-native-svg` ist eine native Abhängigkeit (an die Expo-SDK-Version angepasst).
 4. Einen neuen echten Rundlauf synchronisieren, Jobausführung prüfen und in Arena → Revier kontrollieren. Alternativ `territory/reconcile` auslösen.
 
-Die Migration führt bewusst keinen Backfill alter Läufe aus. Saisonstart liegt in PostgreSQL, benötigt keine neue Umgebungsvariable und bleibt bei Deployments unverändert. Es gibt zunächst keine Verwaltungsoberfläche für abweichende Saisonzeiträume und keine Push-Benachrichtigungen; Gebietswechsel stehen in der Revierhistorie.
+Die Migration führt selbst keinen Backfill alter Läufe aus. Für vorhandene Läufe der aktuellen Quartalssaison gibt es `node --env-file=.env scripts/backfill-territories.mjs`: Zunächst werden ohne Änderungen Anzahl und Zeitraum angezeigt. Mit `--apply` wird der Teilnahmebeginn bei Bedarf auf den Quartalsbeginn vorgezogen und `territory/reconcile` gesendet. Alte `OLD`-Prüfungen innerhalb dieses Zeitraums werden für eine erneute Prüfung freigegeben. Wiederholungen sind sicher; abgeschlossene frühere Quartale werden nicht in die aktuelle Besitzkarte übernommen. Die Ausführung erfordert eine erreichbare Datenbank und einen produktiven `INNGEST_EVENT_KEY`. Ein erfolgreich gesendetes Event bestätigt die Einreihung, nicht den Abschluss der GPS-Prüfung.
+
+Saisonstart liegt in PostgreSQL, benötigt keine neue Umgebungsvariable und bleibt bei Deployments unverändert. Es gibt zunächst keine Verwaltungsoberfläche für abweichende Saisonzeiträume und keine Push-Benachrichtigungen; Gebietswechsel stehen in der Revierhistorie.
 
 ## Verifikation
 
