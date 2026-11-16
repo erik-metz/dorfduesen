@@ -1,3 +1,4 @@
+import { TerritoryPanel } from '@/components/arena/TerritoryPanel';
 import React from 'react';
 import { connection } from 'next/server';
 import { getClubData } from '@/lib/data/club';
@@ -61,6 +62,7 @@ async function ArenaLiveData() {
         activeAthletesCount={arenaData.activeAthletesCount}
       />
       <TeamChallengeBar challenge={arenaData.challenge} />
+      <TerritoryPanel />
       <WeeklyChampions champions={arenaData.champions} />
       <MultiLeaderboard initialEntries={arenaData.leaderboard} />
       <RecentActivities activities={recentActivities} />

@@ -43,4 +43,5 @@ jobs:
           npm start -- --hostname 127.0.0.1 --port 3107 > /tmp/dorfduesen-server.log 2>&1 &
           server_pid=$!
           trap 'kill "$server_pid"' EXIT
+          node tests/territory-http-smoke.mjs
           node tests/http-smoke.mjs

@@ -1,3 +1,5 @@
+import { TerritoryPanel } from '../../src/components/TerritoryPanel';
+import type { TerritoryData } from '../../../../lib/territory/types';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -14,6 +16,7 @@ type Champion = {
   recipients?: Array<{ userId: string; name: string; profile: string | null; value: number; formattedValue: string }>;
 };
 type ArenaData = {
+  territories: TerritoryData;
   filters: { period: 'week' | 'month' | 'all'; sport: 'all' | 'run' | 'ride' };
   summary: { weekKm: number; weekHours: number; weekActivitiesCount: number; activeAthletesCount: number };
   challenge: { title: string; description: string; targetKm: number; currentKm: number; percentage: number; daysRemaining: number; isCompleted: boolean; monthLabel: string; contributorCount: number };
@@ -105,6 +108,8 @@ export default function ArenaScreen() {
         <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${Math.max(0, Math.min(100, data.challenge.percentage))}%` }]} /></View>
         <View style={styles.spaceBetween}><Text style={styles.small}>{data.challenge.isCompleted ? '1.000 km geschafft!' : `${Math.round(data.challenge.percentage)}% erreicht`}</Text><Text style={styles.small}>{data.challenge.isCompleted ? `+${Math.max(0, data.challenge.currentKm - data.challenge.targetKm).toFixed(1)} km über dem Ziel` : `Ziel: ${data.challenge.targetKm} km`}</Text></View>
       </View>
+
+      <TerritoryPanel data={data.territories} />
 
       <View style={styles.sectionHead}><Text style={styles.sectionTitle}>Champions der Woche</Text><Text style={styles.small}>Montag bis Sonntag</Text></View>
       <View style={styles.championList}>

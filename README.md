@@ -99,3 +99,9 @@ Aktivierung:
 3. In Inngest das Event `instagram/feed.sync` senden und das Ergebnis des Laufs prüfen.
 
 Ohne erfolgreichen Erstimport zeigt die Homepage die bisherige lokale Galerie. Die gespeicherten Beiträge liegen in PostgreSQL; die Homepage liest den Feed über einen Cache mit fünf Minuten Revalidierung. Bereits geöffnete Seiten benötigen ein Neuladen. Instagram-CDN-Links können vor dem nächsten Import ablaufen; die Medien werden nicht lokal archiviert. Private Inhalte und Stories werden nicht importiert. Die früheren Instagram-Token-Variablen werden nicht mehr benötigt, bestehende Token-Spalten bleiben zur Datenerhaltung bestehen, sind künftig optional und werden nicht mehr verwendet.
+
+## Revier – Gebiete durch Rundläufe einnehmen
+
+Die Arena enthält für angemeldete Mitglieder eine Revierkarte mit Gebieten, Flächenrangliste und Lauf-Ergebnissen. Geschlossene Outdoor-Läufe nehmen freie Fläche ein; vollständig umlaufene fremde Gebiete wechseln den Besitzer. Die erste Saison startet mit Migration `20261116120000_territories`, danach jeweils zum UTC-Quartalsbeginn. Vor dem neuen Code die Migration anwenden und anschließend die beiden neuen Inngest-Funktionen synchronisieren. Die mobile App benötigt einen neuen Build mit `react-native-svg`.
+
+[Regeln, Verarbeitung, Betrieb und Tests](docs/revier.md).

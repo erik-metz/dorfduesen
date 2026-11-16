@@ -1,3 +1,4 @@
+import { evaluateTerritoryFunction, reconcileTerritoriesFunction } from '@/lib/inngest/functions/territory';
 import { serve } from "inngest/next";
 import { inngest } from "@/lib/inngest/client";
 import { generatePlanFunction } from "@/lib/inngest/functions/generatePlan";
@@ -14,6 +15,8 @@ import { syncInstagramFunction } from '@/lib/inngest/functions/syncInstagram';
 export const { GET, POST, PUT } = serve({
   client: inngest,
   functions: [
+    evaluateTerritoryFunction,
+    reconcileTerritoriesFunction,
     syncInstagramFunction,
     generatePlanFunction,
     analyzeActivityFunction,

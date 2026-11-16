@@ -74,6 +74,7 @@ export async function syncUserActivities(userId: string, perPage = 100, options:
     if (!Array.isArray(activities)) throw new Error('Invalid Strava response');
     const activePlan = await db.trainingPlan.findFirst({ where: { userId, status: 'ACTIVE' }, select: { id: true, startDate: true } });
     const events = [];
+    const territorySettings = await db.territorySettings.findUnique({ where: { id: 'revier' } });
     let syncedCount = 0;
     for (const act of activities) {
       const stravaId = String(act.id);
@@ -143,6 +144,9 @@ export async function syncUserActivities(userId: string, perPage = 100, options:
       if (activePlan && new Date(act.start_date) >= activePlan.startDate && sportType.toLowerCase().includes('run')) {
         events.push({ id: `activity:${record.id}:plan:${activePlan.id}`, name: 'strava/activity.synced',
           data: { activityId: record.id, userId, planId: activePlan.id } });
+      }
+      if (territorySettings && new Date(act.start_date) >= territorySettings.enabledAt && ['Run', 'TrailRun'].includes(sportType)) {
+        events.push({ name: 'territory/activity.check', data: { activityId: record.id } });
       }
       syncedCount++;
     }

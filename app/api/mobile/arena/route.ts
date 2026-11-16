@@ -1,3 +1,4 @@
+import { getTerritoryData } from '@/lib/territory/service';
 import { NextResponse, connection } from 'next/server';
 import { getCurrentUser } from '@/lib/auth/session';
 import { getArenaData } from '@/lib/arena/stats';
@@ -19,11 +20,13 @@ export async function GET(request: Request) {
   const sport = rawSport === 'run' || rawSport === 'ride' ? rawSport : 'all';
 
   try {
-    const [arena, recentActivities] = await Promise.all([
+    const [arena, recentActivities, territories] = await Promise.all([
       getArenaData(period, sport),
       getRecentArenaActivities(),
+      getTerritoryData(user.id),
     ]);
     return NextResponse.json({
+      territories,
       filters: { period, sport },
       summary: {
         weekKm: arena.weekKm,

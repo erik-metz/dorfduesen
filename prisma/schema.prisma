@@ -114,6 +114,7 @@ model Activity {
   summaryPolyline    String?
   detailJson         Json?
   syncedAt           DateTime @default(now())
+  territoryClaim     TerritoryClaim?
   matchedWorkouts    PlanWorkout[]
 
   @@index([userId])
@@ -402,4 +403,25 @@ model InstagramFeedState {
   id             String   @id
   posts          Json
   syncedAt       DateTime
+}
+
+// One authoritative evaluation per activity. Ownership is derived by chronological replay.
+model TerritoryClaim {
+  id           String   @id @default(cuid())
+  activityId   String   @unique
+  activity     Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  sourceHash   String
+  rulesVersion Int
+  status       String   // VALID | REJECTED
+  reason       String?
+  geometry     Json?
+  endedAt      DateTime @db.Timestamptz(3)
+  checkedAt    DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([endedAt, status])
+}
+
+model TerritorySettings {
+  id        String   @id
+  enabledAt DateTime @default(now()) @db.Timestamptz(3)
 }
