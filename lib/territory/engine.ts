@@ -1,3 +1,4 @@
+import { replayBudget } from './budget';
 import { area } from '@turf/area';
 import { distance } from '@turf/distance';
 import { normalizeShape, subtractShape } from './clipping';
@@ -97,23 +98,28 @@ function replayShape(shape: Shape): Shape {
 }
 
 /** Deterministic ledger replay: import order, retries and concurrent jobs cannot change ownership. */
-export function replayClaims(input: Claim[]) {
+export function replayClaims(input: Claim[], options: { budgetMs?: number } = {}) {
+  const checkBudget = options.budgetMs === undefined ? () => {} : replayBudget(options.budgetMs);
+  checkBudget();
   const territories: Territory[] = [];
   const events: CaptureEvent[] = [];
   const results: ClaimResult[] = [];
   const seen = new Set<string>();
   const boxes = new Map<string, number[]>();
   for (const claim of [...input].sort((a, b) => a.endedAt.localeCompare(b.endedAt) || a.id.localeCompare(b.id))) {
+    checkBudget();
     if (seen.has(claim.id)) continue;
     seen.add(claim.id);
     const geometry = replayShape(claim.geometry);
     const candidate = feature(geometry);
+    checkBudget();
     const tolerant = buffer(candidate, 10, { units: 'meters' });
     const candidateBox = bounds(geometry);
     const tolerantBox = tolerant ? bounds(tolerant.geometry) : candidateBox;
     let gainedM2 = 0;
     let capturedCount = 0;
     for (const target of territories) {
+      checkBudget();
       if (target.userId === claim.userId || !tolerant || !intersects(tolerantBox, boxes.get(target.id)!)) continue;
       const outside = subtractShape(target.geometry, [tolerant.geometry]);
       if (outside && area(outside) > 1) continue;
@@ -129,6 +135,7 @@ export function replayClaims(input: Claim[]) {
     const free = overlaps.length
       ? subtractShape(geometry, overlaps.map(t => t.geometry))
       : geometry;
+    checkBudget();
     if (free) {
       const pieces = free.type === 'Polygon' ? [free.coordinates] : free.coordinates;
       pieces.forEach((coordinates, index) => {
@@ -144,6 +151,7 @@ export function replayClaims(input: Claim[]) {
     }
     results.push({ claimId: claim.id, gainedM2, capturedCount });
   }
+  checkBudget();
   return { territories, events, results };
 }
 

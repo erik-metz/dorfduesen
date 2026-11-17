@@ -29,7 +29,7 @@ Der bestehende Strava-Import sendet für geeignete Aktivitäten nach Aktivierung
 
 `territory-reconcile` läuft täglich um 05:30 Europe/Berlin und verteilt die aktuellen Saisonaktivitäten in Seiten zu je 100 auf einzelne Prüfjobs. Dadurch werden auch entfernte Strava-Aktivitäten (404), Privatsphäreänderungen und GPS-Änderungen außerhalb des siebentägigen Syncfensters erkannt. Änderungen können bis zur nächsten erfolgreichen täglichen Prüfung sichtbar bleiben. Das Event `territory/reconcile` startet den gleichen Abgleich manuell.
 
-Neue Webkarten-Daten werden minütlich bei sichtbarem Tab geladen. Die mobile Arena nutzt dasselbe Datenmodell; Pull-to-refresh aktualisiert die Ansicht. Die Webkarte lädt Leaflet erst beim Anzeigen. Die mobile Karte verwendet `react-native-svg` und Web-Mercator-Kartenkacheln mit Zoom- und Verschiebesteuerung. Beide Karten verwenden OpenStreetMap-Kacheln und zeigen deren Attribution. Die externen Kacheln benötigen eine Internetverbindung; bei größerem Nutzerkreis sollte ein passender Kartenanbieter eingeplant werden.
+Die Webkarte lädt einmal beim Öffnen und anschließend nur per „Revier aktualisieren“. Gleichzeitige Abrufe werden zusammengefasst; es gibt kein periodisches Polling. Die mobile Arena nutzt dasselbe Datenmodell; Pull-to-refresh aktualisiert die Ansicht. Die Webkarte lädt Leaflet erst beim Anzeigen. Die mobile Karte verwendet `react-native-svg` und Web-Mercator-Kartenkacheln mit Zoom- und Verschiebesteuerung. Beide Karten verwenden OpenStreetMap-Kacheln und zeigen deren Attribution. Die externen Kacheln benötigen eine Internetverbindung; bei größerem Nutzerkreis sollte ein passender Kartenanbieter eingeplant werden.
 
 ## Rollout
 
@@ -51,3 +51,14 @@ Saisonstart liegt in PostgreSQL, benötigt keine neue Umgebungsvariable und blei
 Für die HTTP-Prüfung einen Produktionsserver mit der lokalen Testdatenbank starten und dann `TEST_BASE_URL`, `TEST_DATABASE_URL` und denselben `SESSION_SECRET` für `node tests/territory-http-smoke.mjs` setzen. Die CI führt diesen Check vor den bestehenden HTTP-Smoke-Tests aus.
 
 Die Tests verwenden ausschließlich eine explizit angegebene lokale Datenbank mit `_test`-Suffix. Die Strava-API wird in automatisierten Tests ersetzt; ein echter GPS-Lauf muss nach dem Rollout als Produktionsprüfung folgen.
+
+
+## Schutz vor unnötigem Fluid Compute
+
+Die Besitzberechnung auf öffentlichen Lese-Endpunkten hat ein kooperatives 2-Sekunden-Budget. Es wird zwischen den Geometrieoperationen geprüft; eine einzelne synchrone Bibliotheksoperation kann erst nach ihrer Rückkehr geprüft werden. Zusätzlich begrenzt `maxDuration = 10` die Gesamtlaufzeit von `/api/arena/territories` und `/api/mobile/arena` auf der Hostingplattform. Inngest und Coach erhalten dieses kurze Limit ausdrücklich nicht.
+
+Ein Budgetfehler liefert `503` mit `Retry-After: 600`. Für denselben Datenstand merkt sich die betroffene warme Instanz den Fehlschlag zehn Minuten, statt dieselbe teure Berechnung bei jedem Besucher erneut zu starten. Andere Datenstände dürfen neu berechnet werden; normale Datenbankfehler werden nicht als Budgetfehler gespeichert. Das ist ein Schutz pro Instanz, kein globales Kontingent. Der Browser respektiert die Wartezeit und aktualisiert nicht automatisch.
+
+Diagnose am 17.11.2026 im Vercel-Dashboard: Im Fenster „Last 12 hours“ verbrauchte `/api/arena/territories` mit 58 Aufrufen rund eine Stunde Active CPU. `/api/inngest` lag bei 553 Aufrufen und rund einer Minute Active CPU. Die spätere Einzelansicht zeigte Timeouts. Im separat ausgewählten Fenster „Last hour“ lagen 9 Revier-Aufrufe bei P75 702 ms Active CPU und 0 % Timeouts. Das spricht für die inzwischen korrigierte Geometrieberechnung als Ursache der früheren Spitze; eine exakte Verteilung auf einzelne Deployments wurde nicht nachgewiesen. Die angezeigten Duration-Demo-Daten wurden nicht als Messung verwendet.
+
+Für weitere Änderungen: zuerst lokal gegen begrenzte Fixtures prüfen, anschließend genau eine fertig geprüfte Änderung veröffentlichen. Keine Produktions-Backfills oder Lasttests zur Verifikation auslösen. Die später diskutierten Verteidigungs- und Dauerwertungsregeln sind durch diese Ressourcenkorrektur nicht implementiert.

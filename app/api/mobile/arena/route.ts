@@ -1,3 +1,4 @@
+import { isTerritoryBudgetError, TERRITORY_RETRY_SECONDS } from '@/lib/territory/budget';
 import { getTerritoryData } from '@/lib/territory/service';
 import { NextResponse, connection } from 'next/server';
 import { getCurrentUser } from '@/lib/auth/session';
@@ -8,6 +9,9 @@ import { sanitizeAvatarUrl } from '@/lib/utils/avatar';
 const headers = { 'Cache-Control': 'private, no-store, max-age=0' };
 
 /** Mobile Arena payload with validated leaderboard filters. */
+// Bound public reads independently of the long-running Inngest/coach handlers.
+export const maxDuration = 10;
+
 export async function GET(request: Request) {
   await connection();
   const user = await getCurrentUser();
@@ -45,6 +49,9 @@ export async function GET(request: Request) {
       badges: arena.availableBadges,
     }, { headers });
   } catch (error) {
+    if (isTerritoryBudgetError(error)) return NextResponse.json({ error: 'Die Revierkarte ist gerade nicht verfügbar. Bitte später erneut versuchen.' }, {
+      status: 503, headers: { ...headers, 'Retry-After': String(TERRITORY_RETRY_SECONDS) },
+    });
     console.error('Mobile Arena konnte nicht geladen werden:', error);
     return NextResponse.json({ error: 'Arena konnte nicht geladen werden.' }, { status: 500, headers });
   }

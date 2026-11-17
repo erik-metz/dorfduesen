@@ -1,3 +1,4 @@
+import { isTerritoryBudgetError, TERRITORY_REPLAY_BUDGET_MS, TERRITORY_RETRY_SECONDS } from './budget';
 import type { TerritoryData } from './types';
 import { createHash } from 'node:crypto';
 import { Prisma } from '@prisma/client';
@@ -7,7 +8,8 @@ import { RetryAfterError } from 'inngest';
 import { evaluateLoop, reasons, replayClaims, RULES_VERSION, seasonRange, type Reason, type Shape } from './engine';
 
 // One bounded projection per warm server instance; validate against lightweight row metadata.
-let projectionCache: { key: string; value: Promise<ReturnType<typeof replayClaims>> } | null = null;
+type ProjectionCache = { key: string; value: Promise<ReturnType<typeof replayClaims>>; retryAt?: number };
+let projectionCache: ProjectionCache | null = null;
 
 export type ActivitySource = { summaryPolyline: string | null; sportType: string; startDate: Date; elapsedTime: number; distance: number };
 export function sourceHash(activity: ActivitySource, rulesVersion = RULES_VERSION) {
@@ -89,6 +91,7 @@ export async function getTerritoryData(userId: string): Promise<TerritoryData> {
   const valid = current.filter(row => row.status === 'VALID');
   const key = createHash('sha256').update(JSON.stringify(valid.map(row => [row.id, row.sourceHash,
     row.checkedAt.toISOString(), row.endedAt.toISOString(), row.activity.userId]).sort((a, b) => a[0].localeCompare(b[0])))).digest('hex');
+  if (projectionCache?.retryAt && Date.now() >= projectionCache.retryAt) projectionCache = null;
   if (projectionCache?.key !== key) {
     const value = (async () => {
       const shapes = valid.length ? await db.territoryClaim.findMany({
@@ -101,10 +104,19 @@ export async function getTerritoryData(userId: string): Promise<TerritoryData> {
         return row && shape.geometry && shape.checkedAt.getTime() === row.checkedAt.getTime() ? [{
           id: row.activityId, userId: row.activity.userId, endedAt: row.endedAt.toISOString(), geometry: shape.geometry as unknown as Shape,
         }] : [];
-      }));
+      }), { budgetMs: TERRITORY_REPLAY_BUDGET_MS });
     })();
-    projectionCache = { key, value };
-    void value.catch(() => { if (projectionCache?.value === value) projectionCache = null; });
+    const entry: ProjectionCache = { key, value };
+    projectionCache = entry;
+    void value.catch(error => {
+      if (projectionCache !== entry) return;
+      if (isTerritoryBudgetError(error)) {
+        // Keep this failed projection as a circuit breaker. An unchanged map must
+        // not spend the same CPU again on each visitor or manual refresh.
+        entry.retryAt = Date.now() + TERRITORY_RETRY_SECONDS * 1000;
+        console.warn('Territory projection paused after exceeding compute budget');
+      } else projectionCache = null;
+    });
   }
   const state = await projectionCache.value;
   const names = new Map(rows.map(row => [row.activity.userId, [row.activity.user.firstname, row.activity.user.lastname].filter(Boolean).join(' ') || 'DorfDüse']));
