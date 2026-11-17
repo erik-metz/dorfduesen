@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Linking, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { useAuth } from '../../src/auth/AuthProvider';
@@ -62,6 +62,7 @@ export default function DashboardScreen() {
   const [tab, setTab] = useState<DashboardTab>('Aktivitäten');
   const [data, setData] = useState<DashboardData | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
+  const [membersLoaded, setMembersLoaded] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [sport, setSport] = useState('all');
   const [loading, setLoading] = useState(true);
@@ -76,6 +77,7 @@ export default function DashboardScreen() {
   const [restingHr, setRestingHr] = useState('');
   const [goalDays, setGoalDays] = useState(2);
   const [goalType, setGoalType] = useState('GENERAL_FITNESS');
+  const arenaPrefetched = useRef(false);
 
   useEffect(() => {
     if (params.userId) setSelectedUserId(params.userId);
@@ -103,9 +105,23 @@ export default function DashboardScreen() {
     let active = true;
     void apiFetch('/api/mobile/members').then(response => responseJson<{ members: Member[] }>(response))
       .then(result => { if (active) setMembers(result.members); })
-      .catch(() => undefined);
+      .catch(() => undefined)
+      .finally(() => { if (active) setMembersLoaded(true); });
     return () => { active = false; };
   }, [apiFetch]);
+
+  useEffect(() => {
+    if (!data || loading || !membersLoaded || data.isReadOnly || arenaPrefetched.current ||
+      (selectedUserId && selectedUserId !== user?.id) || (params.userId && params.userId !== user?.id)) return;
+    arenaPrefetched.current = true;
+    const warm = (path: string) => apiFetch(path)
+      .then(response => response.json().catch(() => null))
+      .catch(() => undefined);
+    void Promise.all([
+      warm('/api/mobile/arena?period=week&sport=all&includeTerritories=false'),
+      warm('/api/arena/territories'),
+    ]);
+  }, [apiFetch, data, loading, membersLoaded, params.userId, selectedUserId, user?.id]);
 
   useEffect(() => {
     if (tab === 'Aktivitäten' || !data || data.isReadOnly && ['Physiologie', 'Coach', 'Hinweise'].includes(tab)) {

@@ -9,7 +9,7 @@
     "userInterfaceStyle": "dark",
     "ios": {
       "appleTeamId": "GS338K2H7M",
-      "buildNumber": "1",
+      "buildNumber": "3",
       "supportsTablet": true,
       "bundleIdentifier": "de.dorfduesen.app"
     },

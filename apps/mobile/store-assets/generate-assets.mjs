@@ -24,14 +24,7 @@ function logoSvg(size, color = orange) {
   return `<path d="M ${start} ${end} L ${end} ${start} M ${size * 0.43} ${start} H ${end} V ${size * 0.57}" fill="none" stroke="${color}" stroke-width="${stroke}" stroke-linecap="square" stroke-linejoin="miter"/>`;
 }
 
-function appIcon() {
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
-    <defs><radialGradient id="glow"><stop stop-color="#32180f"/><stop offset="1" stop-color="${bg}"/></radialGradient></defs>
-    <rect width="1024" height="1024" fill="url(#glow)"/>
-    <rect x="205" y="205" width="614" height="614" rx="174" fill="#1b100c" stroke="#85360f" stroke-width="12"/>
-    <g transform="translate(145 145) scale(0.72)">${logoSvg(1024, orange)}</g>
-  </svg>`;
-}
+const appIconSource = path.resolve(root, '../../../public/dorfduesen-logo-1024.png');
 
 function adaptiveIcon(monochrome = false) {
   const color = monochrome ? '#ffffff' : orange;
@@ -44,7 +37,13 @@ async function png(svg, filepath, width, height) {
   await sharp(Buffer.from(svg)).resize(width, height).png().toFile(filepath);
 }
 
-await png(appIcon(), path.join(iconDir, 'app-icon-1024.png'), 1024, 1024);
+const appIconPath = path.join(iconDir, 'app-icon-1024.png');
+await sharp(appIconSource)
+  .resize(1024, 1024, { fit: 'contain', background: '#ffffff', kernel: 'lanczos3' })
+  .flatten({ background: '#ffffff' })
+  .png()
+  .toFile(appIconPath);
+await fs.copyFile(appIconPath, path.resolve(root, '../ios/Dorfdsen/Images.xcassets/AppIcon.appiconset/App-Icon-1024x1024@1x.png'));
 await png(adaptiveIcon(), path.join(iconDir, 'android-adaptive-foreground-432.png'), 432, 432);
 await png(adaptiveIcon(true), path.join(iconDir, 'android-adaptive-monochrome-432.png'), 432, 432);
 await png(`<svg xmlns="http://www.w3.org/2000/svg" width="432" height="432"><rect width="432" height="432" fill="${bg}"/></svg>`, path.join(iconDir, 'android-adaptive-background-432.png'), 432, 432);

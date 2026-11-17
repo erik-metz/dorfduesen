@@ -1,5 +1,5 @@
 import { Redirect } from 'expo-router';
-import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useAuth } from '../src/auth/AuthProvider';
 
 export default function IndexScreen() {
@@ -18,7 +18,7 @@ export default function IndexScreen() {
 
   return (
     <View style={styles.page}>
-      <View style={styles.mark}><Text style={styles.flame}>↗</Text></View>
+      <Image source={require('../store-assets/icons/app-icon-1024.png')} style={styles.mark} accessibilityLabel="Dorfdüsen Runclub-Logo" />
       <Text style={styles.eyebrow}>RUNCLUB NORDHEIM</Text>
       <Text style={styles.title}>Dorfdüsen</Text>
       <Text style={styles.copy}>Melde dich mit Strava an, um dein Dashboard und die Düsen-Arena zu öffnen.</Text>
@@ -35,8 +35,7 @@ export default function IndexScreen() {
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14, backgroundColor: '#09090b' },
   page: { flex: 1, justifyContent: 'center', paddingHorizontal: 28, backgroundColor: '#09090b' },
-  mark: { width: 64, height: 64, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fc520022', borderWidth: 1, borderColor: '#fc520055', marginBottom: 28 },
-  flame: { color: '#fc5200', fontSize: 32, fontWeight: '900' },
+  mark: { width: 76, height: 76, borderRadius: 38, backgroundColor: '#fff', marginBottom: 28 },
   eyebrow: { color: '#fc7a3d', fontSize: 11, fontWeight: '800', letterSpacing: 2.4, marginBottom: 8 },
   title: { color: '#fafafa', fontSize: 38, fontWeight: '900', letterSpacing: -1.2 },
   copy: { color: '#a1a1aa', fontSize: 16, lineHeight: 24, marginTop: 14, marginBottom: 30 },

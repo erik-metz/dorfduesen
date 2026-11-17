@@ -97,6 +97,45 @@ function replayShape(shape: Shape): Shape {
   return normalizeShape({ type: 'MultiPolygon', coordinates }) ?? shape;
 }
 
+const GRID_CELL_DEGREES = 0.01;
+const GRID_MAX_CELLS = 512;
+
+function gridCells(box: number[]) {
+  const minX = Math.floor(box[0] / GRID_CELL_DEGREES);
+  const minY = Math.floor(box[1] / GRID_CELL_DEGREES);
+  const maxX = Math.floor(box[2] / GRID_CELL_DEGREES);
+  const maxY = Math.floor(box[3] / GRID_CELL_DEGREES);
+  const count = (maxX - minX + 1) * (maxY - minY + 1);
+  if (!Number.isSafeInteger(count) || count <= 0 || count > GRID_MAX_CELLS) return null;
+  const cells: string[] = [];
+  for (let x = minX; x <= maxX; x++) for (let y = minY; y <= maxY; y++) cells.push(`${x}:${y}`);
+  return cells;
+}
+
+/** Broad phase only: exact geometry checks still decide every overlap and capture. */
+class TerritorySpatialIndex {
+  private readonly cells = new Map<string, number[]>();
+  private readonly wide = new Set<number>();
+
+  add(index: number, box: number[]) {
+    const keys = gridCells(box);
+    if (!keys) { this.wide.add(index); return; }
+    for (const key of keys) {
+      const bucket = this.cells.get(key);
+      if (bucket) bucket.push(index);
+      else this.cells.set(key, [index]);
+    }
+  }
+
+  candidates(box: number[]) {
+    const keys = gridCells(box);
+    if (!keys) return null;
+    const result = new Set(this.wide);
+    for (const key of keys) for (const index of this.cells.get(key) ?? []) result.add(index);
+    return [...result].sort((a, b) => a - b);
+  }
+}
+
 /** Deterministic ledger replay: import order, retries and concurrent jobs cannot change ownership. */
 export function replayClaims(input: Claim[], options: { budgetMs?: number } = {}) {
   const checkBudget = options.budgetMs === undefined ? () => {} : replayBudget(options.budgetMs);
@@ -106,6 +145,7 @@ export function replayClaims(input: Claim[], options: { budgetMs?: number } = {}
   const results: ClaimResult[] = [];
   const seen = new Set<string>();
   const boxes = new Map<string, number[]>();
+  const spatialIndex = new TerritorySpatialIndex();
   for (const claim of [...input].sort((a, b) => a.endedAt.localeCompare(b.endedAt) || a.id.localeCompare(b.id))) {
     checkBudget();
     if (seen.has(claim.id)) continue;
@@ -118,9 +158,11 @@ export function replayClaims(input: Claim[], options: { budgetMs?: number } = {}
     const tolerantBox = tolerant ? bounds(tolerant.geometry) : candidateBox;
     let gainedM2 = 0;
     let capturedCount = 0;
-    for (const target of territories) {
+    const captureCandidates = spatialIndex.candidates(tolerantBox) ?? territories.map((_, index) => index);
+    for (const targetIndex of captureCandidates) {
       checkBudget();
-      if (target.userId === claim.userId || !tolerant || !intersects(tolerantBox, boxes.get(target.id)!)) continue;
+      const target = territories[targetIndex];
+      if (!target || target.userId === claim.userId || !tolerant || !intersects(tolerantBox, boxes.get(target.id)!)) continue;
       const outside = subtractShape(target.geometry, [tolerant.geometry]);
       if (outside && area(outside) > 1) continue;
       events.push({ claimId: claim.id, territoryId: target.id, fromUserId: target.userId, toUserId: claim.userId, areaM2: target.areaM2, at: claim.endedAt });
@@ -131,7 +173,8 @@ export function replayClaims(input: Claim[], options: { budgetMs?: number } = {}
       capturedCount++;
     }
     // Existing borders stay intact, including partially intersected foreign territories.
-    const overlaps = territories.filter(t => intersects(candidateBox, boxes.get(t.id)!));
+    const overlapCandidates = spatialIndex.candidates(candidateBox) ?? territories.map((_, index) => index);
+    const overlaps = overlapCandidates.map(index => territories[index]).filter(t => t && intersects(candidateBox, boxes.get(t.id)!));
     const free = overlaps.length
       ? subtractShape(geometry, overlaps.map(t => t.geometry))
       : geometry;
@@ -145,6 +188,7 @@ export function replayClaims(input: Claim[], options: { budgetMs?: number } = {}
         const id = `${claim.id}:${index}`;
         boxes.set(id, bounds(geometry));
         territories.push({ id, geometry, userId: claim.userId, originClaimId: claim.id, lastClaimId: claim.id, areaM2, capturedAt: claim.endedAt });
+        spatialIndex.add(territories.length - 1, boxes.get(id)!);
         events.push({ claimId: claim.id, territoryId: id, fromUserId: null, toUserId: claim.userId, areaM2, at: claim.endedAt });
         gainedM2 += areaM2;
       });

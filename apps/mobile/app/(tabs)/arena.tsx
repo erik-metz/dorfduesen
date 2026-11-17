@@ -16,7 +16,6 @@ type Champion = {
   recipients?: Array<{ userId: string; name: string; profile: string | null; value: number; formattedValue: string }>;
 };
 type ArenaData = {
-  territories: TerritoryData;
   filters: { period: 'week' | 'month' | 'all'; sport: 'all' | 'run' | 'ride' };
   summary: { weekKm: number; weekHours: number; weekActivitiesCount: number; activeAthletesCount: number };
   challenge: { title: string; description: string; targetKm: number; currentKm: number; percentage: number; daysRemaining: number; isCompleted: boolean; monthLabel: string; contributorCount: number };
@@ -45,6 +44,9 @@ export default function ArenaScreen() {
   const [sport, setSport] = useState<ArenaData['filters']['sport']>('all');
   const [sortBy, setSortBy] = useState<SortBy>('distance');
   const [data, setData] = useState<ArenaData | null>(null);
+  const [territories, setTerritories] = useState<TerritoryData | null>(null);
+  const [territoryLoading, setTerritoryLoading] = useState(true);
+  const [territoryError, setTerritoryError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -54,14 +56,31 @@ export default function ArenaScreen() {
     setError(null);
     try {
       const query = new URLSearchParams({ period, sport });
+      query.set('includeTerritories', 'false');
       const result = await responseJson<ArenaData>(await apiFetch(`/api/mobile/arena?${query}`, forceRefresh ? { cache: 'no-store' } : undefined));
       setData(result);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : 'Arena konnte nicht geladen werden.');
-    } finally { setLoading(false); setRefreshing(false); }
+    } finally { setLoading(false); }
   }, [apiFetch, period, sport]);
 
+  const loadTerritories = useCallback(async (forceRefresh = false) => {
+    setTerritoryLoading(true);
+    setTerritoryError(null);
+    try {
+      const result = await responseJson<TerritoryData>(await apiFetch('/api/arena/territories', forceRefresh ? { cache: 'no-store' } : undefined));
+      setTerritories(result);
+    } catch (loadError) {
+      setTerritoryError(loadError instanceof Error ? loadError.message : 'Die Revierkarte ist gerade nicht verfügbar. Bitte später erneut versuchen.');
+    } finally { setTerritoryLoading(false); }
+  }, [apiFetch]);
+
   useEffect(() => { void loadArena(); }, [loadArena]);
+  useEffect(() => { void loadTerritories(); }, [loadTerritories]);
+  const refresh = () => {
+    setRefreshing(true);
+    void Promise.all([loadArena(false, true), loadTerritories(true)]).finally(() => setRefreshing(false));
+  };
   const sortedLeaderboard = useMemo(() => [...(data?.leaderboard ?? [])].sort((a, b) => {
     if (sortBy === 'time') return b.totalHours - a.totalHours;
     if (sortBy === 'elevation') return b.totalElevation - a.totalElevation;
@@ -86,7 +105,7 @@ export default function ArenaScreen() {
     return minutes >= 60 ? `${Math.floor(minutes / 60)} Std ${minutes % 60} Min` : `${minutes} Min`;
   };
 
-  return <ScrollView style={styles.page} contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void loadArena(false, true); }} tintColor="#fc7a3d" />}>
+  return <ScrollView style={styles.page} contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor="#fc7a3d" />}>
     <Text style={styles.kicker}>RUNCLUB NORDHEIM</Text>
     <Text style={styles.heading}>Düsen-Arena</Text>
     <Text style={styles.intro}>Gemeinsam Kilometer sammeln, Wochenziele feiern und sehen, wer gerade vorne liegt.</Text>
@@ -109,7 +128,7 @@ export default function ArenaScreen() {
         <View style={styles.spaceBetween}><Text style={styles.small}>{data.challenge.isCompleted ? '1.000 km geschafft!' : `${Math.round(data.challenge.percentage)}% erreicht`}</Text><Text style={styles.small}>{data.challenge.isCompleted ? `+${Math.max(0, data.challenge.currentKm - data.challenge.targetKm).toFixed(1)} km über dem Ziel` : `Ziel: ${data.challenge.targetKm} km`}</Text></View>
       </View>
 
-      <TerritoryPanel data={data.territories} />
+      <TerritoryPanel data={territories ?? undefined} loading={territoryLoading} error={territoryError} onRetry={() => void loadTerritories(true)} />
 
       <View style={styles.sectionHead}><Text style={styles.sectionTitle}>Champions der Woche</Text><Text style={styles.small}>Montag bis Sonntag</Text></View>
       <View style={styles.championList}>

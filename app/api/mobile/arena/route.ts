@@ -20,6 +20,7 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const rawPeriod = searchParams.get('period');
   const rawSport = searchParams.get('sport');
+  const includeTerritories = searchParams.get('includeTerritories') !== 'false';
   const period = rawPeriod === 'month' || rawPeriod === 'all' ? rawPeriod : 'week';
   const sport = rawSport === 'run' || rawSport === 'ride' ? rawSport : 'all';
 
@@ -27,10 +28,10 @@ export async function GET(request: Request) {
     const [arena, recentActivities, territories] = await Promise.all([
       getArenaData(period, sport),
       getRecentArenaActivities(),
-      getTerritoryData(user.id),
+      includeTerritories ? getTerritoryData(user.id) : Promise.resolve(undefined),
     ]);
     return NextResponse.json({
-      territories,
+      ...(territories ? { territories } : {}),
       filters: { period, sport },
       summary: {
         weekKm: arena.weekKm,

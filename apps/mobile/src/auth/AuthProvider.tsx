@@ -35,6 +35,7 @@ type CachedResponse = { response: Response; expiresAt: number };
 function cacheTtlForPath(pathname: string) {
   if (pathname === '/api/mobile/members') return 5 * 60_000;
   if (pathname === '/api/mobile/arena') return 15_000;
+  if (pathname === '/api/arena/territories') return 60_000;
   if (pathname === '/api/mobile/dashboard') return 10_000;
   if (pathname === '/api/coach/metrics' || pathname === '/api/coach/profile' || pathname === '/api/coach/plan') return 20_000;
   if (pathname === '/api/trophies') return 20_000;

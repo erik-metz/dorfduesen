@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import type { TerritoryData } from '../../../../lib/territory/types';
 
@@ -10,7 +10,12 @@ function project(p: number[]) {
   return [(p[0] + 180) / 360, (1 - Math.log(Math.tan(lat) + 1 / Math.cos(lat)) / Math.PI) / 2];
 }
 
-export function TerritoryPanel({ data }: { data: TerritoryData | undefined }) {
+export function TerritoryPanel({ data, loading = false, error, onRetry }: {
+  data: TerritoryData | undefined;
+  loading?: boolean;
+  error?: string | null;
+  onRetry?: () => void;
+}) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [width, setWidth] = useState(320);
   const [zoomDelta, setZoomDelta] = useState(0);
@@ -25,7 +30,12 @@ export function TerritoryPanel({ data }: { data: TerritoryData | undefined }) {
     const zoom = Math.max(1, Math.min(16, Math.floor(Math.log2(Math.min((width - 40) / (256 * Math.max(maxX - minX, 1e-8)), 240 / (256 * Math.max(maxY - minY, 1e-8)))))));
     return { center: [(minX + maxX) / 2, (minY + maxY) / 2], zoom };
   }, [data?.territories, width]);
-  if (!data) return null;
+  if (!data) return <View style={styles.panel}>
+    <Text style={styles.title}>Dein Revier</Text>
+    {loading ? <ActivityIndicator color="#fc7a3d" /> : null}
+    {error ? <Text style={styles.copy}>{error}</Text> : null}
+    {!loading && onRetry ? <Pressable onPress={onRetry} accessibilityRole="button"><Text style={styles.retry}>Erneut laden</Text></Pressable> : null}
+  </View>;
   const zoom = Math.max(1, Math.min(19, camera.zoom + zoomDelta));
   const scale = 256 * 2 ** zoom;
   const cx = camera.center[0] * scale + offset[0], cy = camera.center[1] * scale + offset[1];
@@ -41,6 +51,7 @@ export function TerritoryPanel({ data }: { data: TerritoryData | undefined }) {
   const changeZoom = (delta: number) => { const effective = Math.max(1, Math.min(19, zoom + delta)) - zoom; setZoomDelta(z => z + effective); setOffset(([x, y]) => [x * 2 ** effective, y * 2 ** effective]); };
   return <View style={styles.panel}>
     <Text style={styles.title}>Dein Revier</Text>
+    {error ? <View style={styles.error}><Text style={styles.copy}>{error}</Text>{onRetry ? <Pressable onPress={onRetry} accessibilityRole="button"><Text style={styles.retry}>Erneut laden</Text></Pressable> : null}</View> : null}
     <Text style={styles.area}>{km2(data.myAreaM2)}</Text>
     <Text style={styles.copy}>{data.season.key} · bis {new Date(new Date(data.season.end).getTime() - 1).toLocaleDateString('de-DE')} · Orange: du · Blau: andere</Text>
     <View onLayout={event => setWidth(event.nativeEvent.layout.width)} style={styles.map}>
@@ -71,6 +82,8 @@ export function TerritoryPanel({ data }: { data: TerritoryData | undefined }) {
 }
 const styles = StyleSheet.create({
   panel: { borderRadius: 20, borderWidth: 1, borderColor: '#7c2d12', backgroundColor: '#18181b', padding: 16, gap: 10 },
+  error: { gap: 5, borderWidth: 1, borderColor: '#3f3f46', borderRadius: 14, padding: 12, backgroundColor: '#202024' },
+  retry: { color: '#fb923c', fontSize: 12, fontWeight: '900' },
   title: { color: '#fafafa', fontSize: 24, fontWeight: '900' }, area: { color: '#fb923c', fontSize: 28, fontWeight: '900' },
   heading: { color: '#fafafa', fontSize: 14, fontWeight: '800', marginTop: 8 }, text: { color: '#fafafa', fontSize: 12 }, copy: { color: '#a1a1aa', fontSize: 11, lineHeight: 17 },
   map: { overflow: 'hidden', height: 300, backgroundColor: '#27272a', borderRadius: 12 }, controls: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
