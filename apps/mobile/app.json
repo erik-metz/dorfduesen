@@ -2,13 +2,14 @@
   "expo": {
     "name": "Dorfdüsen",
     "slug": "dorfduesen",
-    "version": "0.1.0",
+    "version": "1.0",
     "icon": "./store-assets/icons/app-icon-1024.png",
     "scheme": "dorfduesen",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "ios": {
       "appleTeamId": "GS338K2H7M",
+      "buildNumber": "1",
       "supportsTablet": true,
       "bundleIdentifier": "de.dorfduesen.app"
     },
@@ -56,7 +57,7 @@
         "@kingstinct/react-native-healthkit",
         {
           "NSHealthShareUsageDescription": "Dorfdüsen liest nur die Gesundheitsdaten, die du auswählst, um sie mit deiner Zustimmung in deinem Konto zu speichern und im persönlichen Dashboard anzuzeigen.",
-          "NSHealthUpdateUsageDescription": false,
+          "NSHealthUpdateUsageDescription": "Dorfdüsen schreibt keine Daten in Apple Health. Die App liest ausschließlich die von dir ausdrücklich ausgewählten Gesundheitsdaten, um sie mit deiner Einwilligung deinem Konto zuzuordnen und im Dashboard anzuzeigen.",
           "background": false
         }
       ],

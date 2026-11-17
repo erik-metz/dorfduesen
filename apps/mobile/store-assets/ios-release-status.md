@@ -68,9 +68,8 @@ anderen Rechner müssen Profil und passende Signing-Identität sicher vorhanden 
 - Vorgesehene URLs: `https://dorfduesen.de/datenschutz` und
   `https://dorfduesen.de/support` (nach Deployment öffentlich prüfen).
 
-Es wurde kein neuer Vertrag angenommen und kein Build erstellt, hochgeladen
-oder zur Prüfung eingereicht. Die früheren Browserfehler wurden beim Fortsetzen
-über die vom Nutzer geöffnete Developer-Seite überwunden.
+Es wurde kein neuer Vertrag angenommen. Siehe Schritt 3 für den Build- und
+Uploadstatus.
 
 ## Weitere Schritte
 
@@ -108,5 +107,41 @@ oder zur Prüfung eingereicht. Die früheren Browserfehler wurden beim Fortsetze
 - Prüferhinweise zu Sign in with Apple bleiben abhängig von der Apple-Ausnahme
   und der konkreten Review-Einschätzung.
 
-Weitere Schritte: HealthKit/Datenschutzangaben, Release-Build, TestFlight und
-Store-Material, anschließend Review und Veröffentlichung.
+## Schritt 3: Store-Material und Release-Build
+
+### In App Store Connect gespeichert
+
+- App-Name Dorfdüsen, Untertitel „Laufen. Fortschritt. Team.“ und Hauptkategorie
+  Health & Fitness.
+- Deutscher Werbetext, Beschreibung und Schlüsselwörter aus
+  `store-listing-de.md`; Support-URL ist `https://dorfduesen.de/support`.
+- Fünf iPhone-Screenshots hochgeladen. Die von Apple akzeptierten Maße der
+  gewählten iPhone-Gruppe sind 1206 × 2622 Pixel; skalierte Kopien liegen in
+  `screenshots/ios-6.3/`.
+- App-Datenschutzangaben wurden separat veröffentlicht (siehe Schritt 2).
+
+### Buildstatus
+
+- Expo-Version auf `1.0`, iOS-Buildnummer auf `1` gesetzt.
+- Release-Archiv `de.dorfduesen.app`, Version 1.0 (Build 1), mit Apple
+  Distribution signiert und von Xcode zu App Store Connect hochgeladen.
+- Stand 17. November 2026: App Store Connect zeigt den Uploadstatus
+  `Processing`; TestFlight listet den Build noch nicht.
+- Xcode meldete fehlende dSYM-Dateien für React, ReactNativeDependencies und
+  hermesvm. Der App-Build selbst wurde angenommen.
+- Für den Upload erforderliche `NSHealthUpdateUsageDescription` ergänzt. Die
+  Erklärung hält fest, dass Dorfdüsen HealthKit-Daten nur liest und nichts nach
+  Apple Health zurückschreibt.
+
+### Noch offen vor einer Prüfungseinreichung
+
+- HealthKit-App-Compliance: Apples Erklärung, ob Dorfdüsen ein reguliertes
+  Medizinprodukt ist, wurde nicht abgegeben.
+- Altersfreigabe-Fragebogen, Review-Kontakt/Anmeldeinformationen und weitere
+  erforderliche App-Compliance-Angaben sind noch zu bearbeiten.
+- Build-Verarbeitung abwarten und Version 1.0 den Store-Metadaten zuordnen.
+- Es wurde nicht auf „Add for Review“ geklickt; die App wurde nicht zur Prüfung
+  eingereicht.
+
+Nächster Schritt: App-Compliance und Altersfreigabe vervollständigen, danach den
+verarbeiteten Build prüfen und die Einreichung vorbereiten.
