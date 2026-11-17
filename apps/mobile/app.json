@@ -8,6 +8,7 @@
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "ios": {
+      "appleTeamId": "GS338K2H7M",
       "supportsTablet": true,
       "bundleIdentifier": "de.dorfduesen.app"
     },
