@@ -2,8 +2,6 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth/session';
 
-export const dynamic = 'force-dynamic';
-
 export async function DELETE(request: Request) {
   const headers = { 'Cache-Control': 'private, no-store' };
   const bearerToken = request.headers.get('authorization')?.match(/^Bearer\s+([A-Za-z0-9_-]{43})$/i)?.[1];
