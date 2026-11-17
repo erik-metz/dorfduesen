@@ -50,7 +50,10 @@ export default function PrivacyPage() {
         <h2 className={heading}>Kontakt und Änderungen</h2>
         <p>Bei Fragen zur App oder zu diesen Datenschutzhinweisen erreichst du Erik Metz unter <a className="text-orange-400 underline" href="mailto:metzmade@pm.me">metzmade@pm.me</a>. Aktualisierungen dieser Hinweise werden auf dieser Seite veröffentlicht.</p>
       </section>
-      <footer className="mt-10 border-t border-zinc-800 pt-5 text-xs text-zinc-500"><a className="underline" href="/support">Support</a></footer>
+      <footer className="mt-10 flex flex-wrap gap-x-5 gap-y-2 border-t border-zinc-800 pt-5 text-xs text-zinc-500">
+        <a className="underline" href="/impressum">Impressum</a>
+        <a className="underline" href="/support">Support</a>
+      </footer>
     </main>
   );
 }

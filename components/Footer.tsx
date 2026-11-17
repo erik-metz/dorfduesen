@@ -125,6 +125,11 @@ export function Footer({ club }: FooterProps) {
             <span>Biblis • Nordheim • Hessen</span>
           </div>
         </div>
+        <nav aria-label="Rechtliches" className="mt-5 flex flex-wrap justify-center gap-x-5 gap-y-2 text-xs text-zinc-500">
+          <Link href="/impressum" className="hover:text-white transition-colors">Impressum</Link>
+          <Link href="/datenschutz" className="hover:text-white transition-colors">Datenschutz</Link>
+          <Link href="/support" className="hover:text-white transition-colors">Support</Link>
+        </nav>
       </div>
     </footer>
   );
