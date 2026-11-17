@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Image, Linking, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Linking, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { useAuth } from '../../src/auth/AuthProvider';
 import { ActivityDetail } from '../../src/components/ActivityDetail';
@@ -57,7 +57,7 @@ function displayName(user: { firstname: string | null; lastname: string | null; 
 }
 
 export default function DashboardScreen() {
-  const { user, logout, apiFetch } = useAuth();
+  const { user, logout, deleteAccount, apiFetch } = useAuth();
   const params = useLocalSearchParams<{ userId?: string }>();
   const [tab, setTab] = useState<DashboardTab>('Aktivitäten');
   const [data, setData] = useState<DashboardData | null>(null);
@@ -249,6 +249,17 @@ export default function DashboardScreen() {
     finally { setSectionLoading(false); }
   }
 
+  function confirmAccountDeletion() {
+    Alert.alert(
+      'Konto dauerhaft löschen?',
+      'Dein Dorfdüsen-Konto, deine gespeicherten Aktivitäten, Gesundheitsdaten und Trainingsdaten werden gelöscht. Die Strava-Verbindung wird widerrufen, soweit Strava erreichbar ist. Diese Aktion kann nicht rückgängig gemacht werden.',
+      [
+        { text: 'Abbrechen', style: 'cancel' },
+        { text: 'Konto löschen', style: 'destructive', onPress: () => void deleteAccount().catch((deleteError) => Alert.alert('Löschen fehlgeschlagen', deleteError instanceof Error ? deleteError.message : 'Bitte versuche es erneut.')) },
+      ],
+    );
+  }
+
   return (
     <ScrollView style={styles.page} contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor="#fc7a3d" />}>
       {members.length > 1 ? <View style={styles.memberPanel}>
@@ -258,6 +269,11 @@ export default function DashboardScreen() {
           <Text numberOfLines={1} style={styles.memberText}>{member.name}</Text>{member.id === user?.id ? <Text style={styles.youBadge}>Du</Text> : null}
         </Pressable>)}</View>
       </View> : <View style={styles.memberHeading}><Text style={styles.memberHeadingText}>DEIN TRAINING</Text><Pressable accessibilityRole="button" onPress={() => void logout()}><Text style={styles.logout}>Abmelden</Text></Pressable></View>}
+      <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 16, alignItems: 'center' }}>
+        <Pressable accessibilityRole="link" onPress={() => void Linking.openURL('https://dorfduesen.de/datenschutz')}><Text style={styles.actionLink}>Datenschutz</Text></Pressable>
+        <Pressable accessibilityRole="link" onPress={() => void Linking.openURL('https://dorfduesen.de/support')}><Text style={styles.actionLink}>Support</Text></Pressable>
+        <Pressable accessibilityRole="button" onPress={confirmAccountDeletion} style={{ paddingVertical: 8, paddingHorizontal: 4 }}><Text style={styles.deleteAccount}>Konto löschen</Text></Pressable>
+      </View>
       {error ? <View style={styles.errorBox}><Text style={styles.errorText}>{error}</Text><Pressable onPress={() => void loadDashboard()}><Text style={styles.actionLink}>Erneut versuchen</Text></Pressable></View> : null}
       {loading && !data ? <ActivityIndicator color="#fc7a3d" size="large" style={{ marginTop: 40 }} /> : data ? <>
         <View style={styles.profileCard}>
@@ -428,7 +444,7 @@ function SectionContent({ tab, sectionData, arena, isReadOnly, sectionLoading, g
 
 const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: '#09090b' }, content: { padding: 16, gap: 18, paddingBottom: 44 },
-  small: { color: '#a1a1aa', fontSize: 12, lineHeight: 18 }, tiny: { color: '#71717a', fontSize: 10 }, logout: { color: '#fb7185', fontSize: 12, fontWeight: '700', padding: 8 },
+  small: { color: '#a1a1aa', fontSize: 12, lineHeight: 18 }, tiny: { color: '#71717a', fontSize: 10 }, logout: { color: '#fb7185', fontSize: 12, fontWeight: '700', padding: 8 }, deleteAccount: { color: '#f87171', fontSize: 11, fontWeight: '600' },
   memberPanel: { ...panel, padding: 14, gap: 12, backgroundColor: '#18181b' }, memberHeading: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 }, memberHeadingText: { color: '#d4d4d8', fontSize: 11, fontWeight: '800', letterSpacing: 0.8 }, memberGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 }, memberChip: { flexBasis: '48%', flexGrow: 1, minWidth: 140, minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 7, borderRadius: 12, borderWidth: 1, borderColor: '#27272a', paddingHorizontal: 10, backgroundColor: '#09090b' }, memberChipActive: { borderColor: '#fc7a3d', backgroundColor: '#fc5200' }, memberText: { color: '#e4e4e7', fontSize: 12, fontWeight: '700', flex: 1 }, youBadge: { color: '#fff', fontSize: 10, paddingHorizontal: 6, paddingVertical: 3, borderRadius: 5, backgroundColor: '#00000033' }, avatar: { width: 24, height: 24, borderRadius: 12 }, avatarPlaceholder: { width: 24, height: 24, borderRadius: 12, backgroundColor: '#3f3f46', alignItems: 'center', justifyContent: 'center' }, avatarLetter: { color: '#fafafa', fontWeight: '800' },
   profileCard: { ...panel, flexDirection: 'row', alignItems: 'center', gap: 14, padding: 18, borderRadius: 24, backgroundColor: '#18181b' }, profileAvatar: { width: 60, height: 60, borderRadius: 17, borderWidth: 2, borderColor: '#fc7a3d' }, profileAvatarPlaceholder: { alignItems: 'center', justifyContent: 'center', backgroundColor: '#09090b' }, profileInitial: { color: '#fb923c', fontSize: 26, fontWeight: '900' }, profileInfo: { flex: 1, gap: 4, minWidth: 0 }, profileMeta: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 }, verified: { color: '#fb923c', fontSize: 9, fontWeight: '900', letterSpacing: 0.5, paddingHorizontal: 8, paddingVertical: 4, backgroundColor: '#7c2d1233', borderRadius: 10, overflow: 'hidden' }, city: { color: '#a1a1aa', fontSize: 11 }, profileName: { color: '#fafafa', fontSize: 24, fontWeight: '900' }, athleteId: { color: '#a1a1aa', fontSize: 11 }, stravaLink: { color: '#fb923c', fontSize: 11, fontWeight: '800', marginTop: 2 },
   tabGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#27272a' }, tab: { width: '48%', flexGrow: 0, flexShrink: 0, minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingHorizontal: 8, paddingVertical: 10, borderRadius: 15, backgroundColor: '#18181b', borderWidth: 1, borderColor: '#27272a' }, tabActive: { backgroundColor: '#fc5200', borderColor: '#fc5200' }, tabIcon: { color: '#fb923c', fontSize: 15, fontWeight: '900' }, tabText: { color: '#a1a1aa', fontSize: 11, fontWeight: '800', flexShrink: 1 }, tabTextActive: { color: '#fff' }, tabBadge: { color: '#e4e4e7', fontSize: 9, fontWeight: '900', paddingHorizontal: 6, paddingVertical: 3, borderRadius: 8, backgroundColor: '#00000033', overflow: 'hidden' }, tabBadgeOrange: { backgroundColor: '#ea580c', color: '#fff' }, tabBadgeRed: { color: '#fff', fontSize: 9, fontWeight: '900', paddingHorizontal: 6, paddingVertical: 3, borderRadius: 8, backgroundColor: '#e11d48', overflow: 'hidden' },

@@ -9,7 +9,7 @@ Status: **Arbeitsentwurf**. Dieses Paket sammelt Store-Texte, Grafiken und echte
 - `screenshots/google-play/`: fünf echte Aufnahmen der Android-App aus dem Emulator, 1080 × 2160.
 - `screenshots/ios-6.9/`: sechs echte Aufnahmen der App aus dem iPhone-17-Pro-Max-Simulator, 1320 × 2868 (Dashboard, Aktivitäten, Physiologie, Trophäen, Arena und Login).
 - `store-listing-de.md`: Texte für die deutsche Store-Seite.
-- `privacy-policy-draft-de.md`: Datenschutztext als auszufüllender Entwurf.
+- `privacy-policy-draft-de.md`: Status, Quelle und verbleibende Prüfungen der Datenschutzhinweise.
 - `reviewer-notes-de.md`: Hinweise und Zugangsdaten, die für die Store-Prüfung vorzubereiten sind.
 - `release-checklist.md`: vor Einreichung zu erledigende Punkte.
 - `generate-assets.mjs`: Skript zur Erzeugung von Icons und Feature-Grafik.

@@ -80,8 +80,8 @@ Gesundheit & Fitness (im Store-Portal bestätigen).
 
 ## Noch einzutragen
 
-- Support-URL: `[SUPPORT-URL EINTRAGEN]`
-- Datenschutz-URL: `[ÖFFENTLICH ERREICHBARE DATENSCHUTZ-URL EINTRAGEN]`
+- Support-URL: `https://dorfduesen.de/support`
+- Datenschutz-URL: `https://dorfduesen.de/datenschutz`
 - Marketing-URL (optional): `[MARKETING-URL EINTRAGEN]`
 - Entwicklername und Kontakt: `[IM STORE-KONTO BESTÄTIGEN]`
 - Altersfreigabe und Inhaltsangaben: anhand der finalen App im jeweiligen Store-Portal beantworten.

@@ -26,6 +26,7 @@ type AuthContextValue = {
   error: string | null;
   login: () => Promise<void>;
   logout: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
   apiFetch: (path: string, init?: RequestInit) => Promise<Response>;
 };
 
@@ -263,8 +264,23 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }
   }, [clearResponseCache, user?.id]);
 
+  const deleteAccount = useCallback(async () => {
+    const response = await apiFetch('/api/mobile/account', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ confirm: true }),
+    });
+    const payload = await readJson(response);
+    if (!response.ok) throw new Error(typeof payload.error === 'string' ? payload.error : 'Das Konto konnte nicht gelöscht werden.');
+    clearResponseCache();
+    await SecureStore.deleteItemAsync(TOKEN_KEY);
+    setUser(null);
+    setError(null);
+    setStatus('anonymous');
+  }, [apiFetch, clearResponseCache]);
+
   return (
-    <AuthContext.Provider value={{ status, user, error, login, logout, apiFetch }}>
+    <AuthContext.Provider value={{ status, user, error, login, logout, deleteAccount, apiFetch }}>
       {children}
     </AuthContext.Provider>
   );

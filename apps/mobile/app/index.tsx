@@ -1,5 +1,5 @@
 import { Redirect } from 'expo-router';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useAuth } from '../src/auth/AuthProvider';
 
 export default function IndexScreen() {
@@ -27,6 +27,7 @@ export default function IndexScreen() {
         <Text style={styles.buttonText}>Mit Strava anmelden</Text>
       </Pressable>
       <Text style={styles.hint}>Die Anmeldung erfolgt sicher über Strava. Deine Strava-Zugangsdaten werden nicht von der App gespeichert.</Text>
+      <View style={styles.links}><Pressable accessibilityRole="link" onPress={() => void Linking.openURL('https://dorfduesen.de/datenschutz')}><Text style={styles.link}>Datenschutz</Text></Pressable><Pressable accessibilityRole="link" onPress={() => void Linking.openURL('https://dorfduesen.de/support')}><Text style={styles.link}>Support</Text></Pressable></View>
     </View>
   );
 }
@@ -44,5 +45,7 @@ const styles = StyleSheet.create({
   buttonText: { color: '#fff', fontWeight: '800', fontSize: 15 },
   error: { color: '#fca5a5', fontSize: 13, lineHeight: 19, marginBottom: 12, textAlign: 'center' },
   hint: { color: '#71717a', fontSize: 12, lineHeight: 18, marginTop: 14, textAlign: 'center' },
+  links: { flexDirection: 'row', justifyContent: 'center', gap: 22, marginTop: 26 },
+  link: { color: '#fb923c', fontSize: 12, textDecorationLine: 'underline' },
   muted: { color: '#a1a1aa', fontSize: 14 },
 });

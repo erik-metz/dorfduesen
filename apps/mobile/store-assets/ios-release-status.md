@@ -1,7 +1,6 @@
 # iOS-Veröffentlichung – Arbeitsstand
 
 Stand: 17. November 2026. Die technische Apple-Einrichtung aus Schritt 1 ist abgeschlossen.
-Der fachlich zu bestätigende Supportkontakt bleibt als offener Metadatenpunkt bestehen.
 
 ## Festgelegter Vertrieb
 
@@ -62,11 +61,12 @@ node -e 'const {IOSConfig}=require("@expo/config-plugins"); IOSConfig.Provisioni
 Das Profil und die Signing-Schlüssel gehören nicht ins Repository. Auf einem
 anderen Rechner müssen Profil und passende Signing-Identität sicher vorhanden sein.
 
-### Noch offene Metadaten
+### Metadaten
 
-- App-bezogenen öffentlichen Supportkontakt und Support-URL mit dem Anbieter
-  festlegen; keinen Kontakt erfinden oder private Kontaktdaten ungefragt veröffentlichen.
-  Dies muss mit den Datenschutz-/Supportseiten vor der Einreichung ergänzt werden.
+- Verantwortlicher und Kontakt für Datenschutz/Support vom Anbieter bestätigt:
+  Erik Metz, Schleegasse 7, 68647 Biblis, Germany; metzmade@pm.me.
+- Vorgesehene URLs: `https://dorfduesen.de/datenschutz` und
+  `https://dorfduesen.de/support` (nach Deployment öffentlich prüfen).
 
 Es wurde kein neuer Vertrag angenommen und kein Build erstellt, hochgeladen
 oder zur Prüfung eingereicht. Die früheren Browserfehler wurden beim Fortsetzen
@@ -74,8 +74,39 @@ oder zur Prüfung eingereicht. Die früheren Browserfehler wurden beim Fortsetze
 
 ## Weitere Schritte
 
-Nach der Einrichtung anhalten und die Freigabe für Schritt 2 einholen; den noch
-offenen Supportkontakt dabei transparent benennen.
-Schritt 2 umfasst Kontolöschung, Datenschutz-Verlinkung und Prüfung des Strava-Logins.
+## Schritt 2: Kontolöschung, Datenschutz und Login-Prüfung
+
+### Umgesetzt
+
+- Dashboard-Aktion „Dorfdüsen-Konto löschen“ mit ausdrücklicher Warnung und Bestätigung.
+- Authentifizierter Lösch-Endpunkt entfernt den Nutzer; durch die vorhandenen
+  Fremdschlüssel-Kaskaden werden Sitzungen, Strava-Zugangsdaten, Aktivitäten,
+  Trainings- und Gesundheitsdaten sowie weitere nutzerbezogene Datensätze gelöscht.
+- Löschung versucht zusätzlich den Strava-Refresh-Token mit Stravas empfohlenem
+  OAuth-Revoke-Endpunkt zu widerrufen.
+- Datenschutzhinweis-Entwurf und Prüfernotizen um die technisch geprüften
+  OAuth-Scopes, Sitzungsdauer und Löschaktion ergänzt.
+- Apple Guideline 4.8 geprüft: sie enthält eine Ausnahme für Clients, die Nutzer
+  zur Anmeldung bei einem Drittanbieterdienst benötigen, um dessen Inhalte
+  abzurufen. Die Strava-Anmeldung könnte darunter fallen; wegen weiterer
+  Club-, Trainings- und Health-Funktionen bleibt die konkrete Einordnung vor
+  Einreichung zu bestätigen.
+
+### Noch offen – Veröffentlichungsgate
+
+- Öffentliche Seiten und In-App-Links ergänzt; nach Deployment die Erreichbarkeit
+  dieser URLs prüfen und erst danach in App Store Connect eintragen.
+- Allgemeine Anbieterregionen, Drittlandverarbeitung und tarifabhängige
+  Retentionsregeln wurden anhand öffentlicher Herstellerunterlagen in den
+  Datenschutzhinweisen beschrieben. Die produktiv ausgewählte Vercel-Funktions-
+  und Neon-Datenbankregion ist je Projekt konfigurierbar und kann abweichen.
+- Die Rechtsgrundlagen und die Offenlegung von Club-Sichtbarkeit sowie der
+  optionalen Übermittlung von Trainingskennzahlen an xAI fachlich prüfen lassen.
+- xAI-Angaben zur 30-tägigen Standardaufbewahrung und Zero-Data-Retention sind
+  öffentlich dokumentiert; ob Zero-Data-Retention im verwendeten xAI-Team aktiv
+  ist, ist nicht aus dem Quellcode ersichtlich.
+- Prüferhinweise zu Sign in with Apple bleiben abhängig von der Apple-Ausnahme
+  und der konkreten Review-Einschätzung.
+
 Weitere Schritte: HealthKit/Datenschutzangaben, Release-Build, TestFlight und
 Store-Material, anschließend Review und Veröffentlichung.
