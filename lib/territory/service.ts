@@ -1,4 +1,4 @@
-import { isTerritoryBudgetError, TERRITORY_REPLAY_BUDGET_MS, TERRITORY_RETRY_SECONDS } from './budget';
+import { isTerritoryBudgetError, TERRITORY_REPLAY_BUDGET_MS, TERRITORY_RETRY_SECONDS, TerritoryBudgetExceededError } from './budget';
 import type { TerritoryData } from './types';
 import { createHash } from 'node:crypto';
 import { Prisma } from '@prisma/client';
@@ -7,9 +7,69 @@ import { getValidStravaToken } from '@/lib/strava/tokens';
 import { RetryAfterError } from 'inngest';
 import { evaluateLoop, reasons, replayClaims, RULES_VERSION, seasonRange, type Reason, type Shape } from './engine';
 
-// One bounded projection per warm server instance; validate against lightweight row metadata.
-type ProjectionCache = { key: string; value: Promise<ReturnType<typeof replayClaims>>; retryAt?: number };
+// In-process promise deduplication is only an optimization. The shared projection lives in Postgres.
+type TerritoryProjection = ReturnType<typeof replayClaims>;
+type ProjectionCache = { key: string; value: Promise<TerritoryProjection> };
 let projectionCache: ProjectionCache | null = null;
+
+function projectionFromJson(value: Prisma.JsonValue): TerritoryProjection {
+  return value as unknown as TerritoryProjection;
+}
+
+async function getProjection(seasonKey: string, inputHash: string, valid: Array<{ id: string; activityId: string; sourceHash: string; checkedAt: Date; endedAt: Date; activity: { userId: string } }>) {
+  const cached = await db.territoryProjectionCache.findUnique({ where: { seasonKey } });
+  if (cached?.inputHash === inputHash && cached.projection) return projectionFromJson(cached.projection);
+  if (cached?.failedInputHash === inputHash && cached.retryAt && cached.retryAt > new Date()) {
+    if (cached.projection) return projectionFromJson(cached.projection);
+    throw new TerritoryBudgetExceededError();
+  }
+
+  const cacheKey = `${seasonKey}:${inputHash}`;
+  if (projectionCache?.key === cacheKey) return projectionCache.value;
+  const value = db.$transaction(async tx => {
+    // Serialize cross-instance rebuilds for this season and re-check after acquiring the lock.
+    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${`territory-projection:${seasonKey}`}))`;
+    const latest = await tx.territoryProjectionCache.findUnique({ where: { seasonKey } });
+    if (latest?.inputHash === inputHash && latest.projection) return projectionFromJson(latest.projection);
+    if (latest?.failedInputHash === inputHash && latest.retryAt && latest.retryAt > new Date()) {
+      if (latest.projection) return projectionFromJson(latest.projection);
+      throw new TerritoryBudgetExceededError();
+    }
+
+    try {
+      const shapes = valid.length ? await tx.territoryClaim.findMany({
+        where: { id: { in: valid.map(row => row.id) } }, select: { id: true, geometry: true, checkedAt: true },
+      }) : [];
+      const metadata = new Map(valid.map(row => [row.id, row]));
+      const projection = replayClaims(shapes.flatMap(shape => {
+        const row = metadata.get(shape.id);
+        return row && shape.geometry && shape.checkedAt.getTime() === row.checkedAt.getTime() ? [{
+          id: row.activityId, userId: row.activity.userId, endedAt: row.endedAt.toISOString(), geometry: shape.geometry as unknown as Shape,
+        }] : [];
+      }), { budgetMs: TERRITORY_REPLAY_BUDGET_MS });
+      await tx.territoryProjectionCache.upsert({
+        where: { seasonKey },
+        create: { seasonKey, inputHash, projection: projection as unknown as Prisma.InputJsonValue },
+        update: { inputHash, projection: projection as unknown as Prisma.InputJsonValue, failedInputHash: null, retryAt: null },
+      });
+      return projection;
+    } catch (error) {
+      if (!isTerritoryBudgetError(error)) throw error;
+      const retryAt = new Date(Date.now() + TERRITORY_RETRY_SECONDS * 1000);
+      await tx.territoryProjectionCache.upsert({
+        where: { seasonKey },
+        create: { seasonKey, failedInputHash: inputHash, retryAt },
+        update: { failedInputHash: inputHash, retryAt },
+      });
+      if (latest?.projection) return projectionFromJson(latest.projection);
+      throw error;
+    }
+  }, { timeout: 8000, maxWait: 500 });
+  const entry: ProjectionCache = { key: cacheKey, value };
+  projectionCache = entry;
+  void value.catch(() => { if (projectionCache === entry) projectionCache = null; });
+  return value;
+}
 
 export type ActivitySource = { summaryPolyline: string | null; sportType: string; startDate: Date; elapsedTime: number; distance: number };
 export function sourceHash(activity: ActivitySource, rulesVersion = RULES_VERSION) {
@@ -91,34 +151,7 @@ export async function getTerritoryData(userId: string): Promise<TerritoryData> {
   const valid = current.filter(row => row.status === 'VALID');
   const key = createHash('sha256').update(JSON.stringify(valid.map(row => [row.id, row.sourceHash,
     row.checkedAt.toISOString(), row.endedAt.toISOString(), row.activity.userId]).sort((a, b) => a[0].localeCompare(b[0])))).digest('hex');
-  if (projectionCache?.retryAt && Date.now() >= projectionCache.retryAt) projectionCache = null;
-  if (projectionCache?.key !== key) {
-    const value = (async () => {
-      const shapes = valid.length ? await db.territoryClaim.findMany({
-        where: { id: { in: valid.map(row => row.id) } }, select: { id: true, geometry: true, checkedAt: true },
-      }) : [];
-      const metadata = new Map(valid.map(row => [row.id, row]));
-      return replayClaims(shapes.flatMap(shape => {
-        const row = metadata.get(shape.id);
-        // Do not mix metadata with a concurrently replaced geometry.
-        return row && shape.geometry && shape.checkedAt.getTime() === row.checkedAt.getTime() ? [{
-          id: row.activityId, userId: row.activity.userId, endedAt: row.endedAt.toISOString(), geometry: shape.geometry as unknown as Shape,
-        }] : [];
-      }), { budgetMs: TERRITORY_REPLAY_BUDGET_MS });
-    })();
-    const entry: ProjectionCache = { key, value };
-    projectionCache = entry;
-    void value.catch(error => {
-      if (projectionCache !== entry) return;
-      if (isTerritoryBudgetError(error)) {
-        // Keep this failed projection as a circuit breaker. An unchanged map must
-        // not spend the same CPU again on each visitor or manual refresh.
-        entry.retryAt = Date.now() + TERRITORY_RETRY_SECONDS * 1000;
-        console.warn('Territory projection paused after exceeding compute budget');
-      } else projectionCache = null;
-    });
-  }
-  const state = await projectionCache.value;
+  const state = await getProjection(season.key, key, valid);
   const names = new Map(rows.map(row => [row.activity.userId, [row.activity.user.firstname, row.activity.user.lastname].filter(Boolean).join(' ') || 'DorfDüse']));
   const leaderboard = new Map<string, { userId: string; name: string; areaM2: number; count: number }>();
   for (const t of state.territories) {

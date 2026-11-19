@@ -1,4 +1,5 @@
-export const TERRITORY_REPLAY_BUDGET_MS = 2000;
+// One bounded rebuild after changed claims; stable reads come from the shared Postgres snapshot.
+export const TERRITORY_REPLAY_BUDGET_MS = 6000;
 export const TERRITORY_RETRY_SECONDS = 600;
 
 export class TerritoryBudgetExceededError extends Error {

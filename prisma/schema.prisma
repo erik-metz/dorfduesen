@@ -425,3 +425,13 @@ model TerritorySettings {
   id        String   @id
   enabledAt DateTime @default(now()) @db.Timestamptz(3)
 }
+
+// Shared, durable projection snapshot so map requests do not replay geometry per Vercel instance.
+model TerritoryProjectionCache {
+  seasonKey      String   @id
+  inputHash      String?
+  projection     Json?
+  failedInputHash String?
+  retryAt        DateTime? @db.Timestamptz(3)
+  updatedAt      DateTime @updatedAt @db.Timestamptz(3)
+}

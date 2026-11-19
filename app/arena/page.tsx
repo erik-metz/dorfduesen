@@ -13,6 +13,7 @@ import { WeeklyChampions } from '@/components/arena/WeeklyChampions';
 import { MultiLeaderboard } from '@/components/arena/MultiLeaderboard';
 import { BadgesShowcase } from '@/components/arena/BadgesShowcase';
 import { NotificationToast } from '@/components/NotificationToast';
+import { getCurrentUser } from '@/lib/auth/session';
 
 export const metadata = {
   title: 'Düsen-Arena | Dorfdüsen Nordheim Leaderboard & Titel',
@@ -48,6 +49,7 @@ async function ArenaLiveData() {
   // The database-backed views are cached at request time, but must not be computed
   // while the production build is prerendering this route.
   await connection();
+  const user = await getCurrentUser();
   const [arenaData, recentActivities] = await Promise.all([
     getArenaData('week', 'all'),
     getRecentArenaActivities(),
@@ -62,7 +64,7 @@ async function ArenaLiveData() {
         activeAthletesCount={arenaData.activeAthletesCount}
       />
       <TeamChallengeBar challenge={arenaData.challenge} />
-      <TerritoryPanel />
+          <TerritoryPanel userId={user?.id ?? null} />
       <WeeklyChampions champions={arenaData.champions} />
       <MultiLeaderboard initialEntries={arenaData.leaderboard} />
       <RecentActivities activities={recentActivities} />
