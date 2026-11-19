@@ -1,6 +1,7 @@
 import * as Crypto from 'expo-crypto';
 import * as Linking from 'expo-linking';
 import * as SecureStore from 'expo-secure-store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as WebBrowser from 'expo-web-browser';
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type PropsWithChildren } from 'react';
 
@@ -28,6 +29,7 @@ type AuthContextValue = {
   logout: () => Promise<void>;
   deleteAccount: () => Promise<void>;
   apiFetch: (path: string, init?: RequestInit) => Promise<Response>;
+  getCachedJson: <T>(path: string) => Promise<T | null>;
 };
 
 type CachedResponse = { response: Response; expiresAt: number };
@@ -46,6 +48,8 @@ function cacheTtlForPath(pathname: string) {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 const TOKEN_KEY = 'dorfduesen_mobile_session';
+const USER_KEY = 'dorfduesen_mobile_cached_user';
+const DATA_CACHE_PREFIX = 'dorfduesen_mobile_cache_v1:';
 const PENDING_STATE_KEY = 'dorfduesen_mobile_oauth_state';
 const PENDING_VERIFIER_KEY = 'dorfduesen_mobile_pkce_verifier';
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL?.replace(/\/$/, '');
@@ -89,10 +93,16 @@ export function AuthProvider({ children }: PropsWithChildren) {
     });
     const payload = await readJson(response);
     if (!response.ok || payload.authenticated !== true || !payload.user) {
-      if (response.status === 401) await SecureStore.deleteItemAsync(TOKEN_KEY);
+      if (response.status === 401) {
+        await Promise.all([SecureStore.deleteItemAsync(TOKEN_KEY), SecureStore.deleteItemAsync(USER_KEY)]);
+        setUser(null);
+        setStatus('anonymous');
+      }
       throw new Error('Die Dorfdüsen-Sitzung ist ungültig oder abgelaufen.');
     }
-    setUser(payload.user as MobileUser);
+    const loadedUser = payload.user as MobileUser;
+    await SecureStore.setItemAsync(USER_KEY, JSON.stringify(loadedUser));
+    setUser(loadedUser);
     setStatus('authenticated');
   }, []);
 
@@ -147,16 +157,35 @@ export function AuthProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     let active = true;
     const restoreSession = async () => {
+      let hadCachedUser = false;
       try {
         const token = await SecureStore.getItemAsync(TOKEN_KEY);
         if (!active) return;
-        if (token) await loadUser(token);
+        if (token) {
+          const cachedUserJson = await SecureStore.getItemAsync(USER_KEY);
+          if (cachedUserJson) {
+            try {
+              const cachedUser = JSON.parse(cachedUserJson) as MobileUser;
+              if (cachedUser.id) {
+                hadCachedUser = true;
+                setUser(cachedUser);
+                setStatus('authenticated');
+                cacheUserId.current = cachedUser.id;
+              }
+            } catch {
+              await SecureStore.deleteItemAsync(USER_KEY);
+            }
+          }
+          await loadUser(token);
+        }
         else setStatus('anonymous');
       } catch (restoreError) {
         if (!active) return;
-        setUser(null);
-        setStatus('anonymous');
-        setError(errorMessage(restoreError));
+        // Keep a previously validated local session when the server is temporarily unreachable.
+        if (!hadCachedUser) {
+          setStatus('anonymous');
+          setError(errorMessage(restoreError));
+        }
       }
     };
 
@@ -215,12 +244,32 @@ export function AuthProvider({ children }: PropsWithChildren) {
         // Always clear the local session, even while offline.
       }
     }
+    const oldUserId = user?.id;
     clearResponseCache();
+    if (oldUserId) {
+      const keys = await AsyncStorage.getAllKeys();
+      await AsyncStorage.multiRemove(keys.filter((key) => key.startsWith(`${DATA_CACHE_PREFIX}${oldUserId}:`)));
+    }
+    await SecureStore.deleteItemAsync(USER_KEY);
     await SecureStore.deleteItemAsync(TOKEN_KEY);
     setUser(null);
     setError(null);
     setStatus('anonymous');
-  }, [clearResponseCache]);
+  }, [clearResponseCache, user?.id]);
+
+  const getCachedJson = useCallback(async <T,>(path: string): Promise<T | null> => {
+    const currentUserId = user?.id;
+    if (!currentUserId) return null;
+    try {
+      const raw = await AsyncStorage.getItem(`${DATA_CACHE_PREFIX}${currentUserId}:${path}`);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as { savedAt?: number; data?: T };
+      if (!parsed.savedAt || Date.now() - parsed.savedAt > 30 * 24 * 60 * 60_000) return null;
+      return parsed.data ?? null;
+    } catch {
+      return null;
+    }
+  }, [user?.id]);
 
   const apiFetch = useCallback(async (path: string, init: RequestInit = {}) => {
     if (!API_BASE_URL) throw new Error('EXPO_PUBLIC_API_URL ist nicht konfiguriert.');
@@ -258,6 +307,16 @@ export function AuthProvider({ children }: PropsWithChildren) {
           const oldestKey = responseCache.current.keys().next().value;
           if (oldestKey) responseCache.current.delete(oldestKey);
         }
+        const persistentCachePath = url.pathname === '/api/mobile/dashboard' || url.pathname === '/api/mobile/arena' || url.pathname === '/api/arena/territories';
+        if (persistentCachePath && user?.id) {
+          void response.clone().json().then(async (data) => {
+            const storageKey = `${DATA_CACHE_PREFIX}${user.id}:${path}`;
+            await AsyncStorage.setItem(storageKey, JSON.stringify({ savedAt: Date.now(), data }));
+            const keys = await AsyncStorage.getAllKeys();
+            const ownKeys = keys.filter((item) => item.startsWith(`${DATA_CACHE_PREFIX}${user.id}:`));
+            if (ownKeys.length > 12) await AsyncStorage.multiRemove(ownKeys.slice(0, ownKeys.length - 12));
+          }).catch(() => undefined);
+        }
       }
       return response;
     } finally {
@@ -274,14 +333,20 @@ export function AuthProvider({ children }: PropsWithChildren) {
     const payload = await readJson(response);
     if (!response.ok) throw new Error(typeof payload.error === 'string' ? payload.error : 'Das Konto konnte nicht gelöscht werden.');
     clearResponseCache();
+    const oldUserId = user?.id;
+    if (oldUserId) {
+      const keys = await AsyncStorage.getAllKeys();
+      await AsyncStorage.multiRemove(keys.filter((key) => key.startsWith(`${DATA_CACHE_PREFIX}${oldUserId}:`)));
+    }
+    await SecureStore.deleteItemAsync(USER_KEY);
     await SecureStore.deleteItemAsync(TOKEN_KEY);
     setUser(null);
     setError(null);
     setStatus('anonymous');
-  }, [apiFetch, clearResponseCache]);
+  }, [apiFetch, clearResponseCache, user?.id]);
 
   return (
-    <AuthContext.Provider value={{ status, user, error, login, logout, deleteAccount, apiFetch }}>
+    <AuthContext.Provider value={{ status, user, error, login, logout, deleteAccount, apiFetch, getCachedJson }}>
       {children}
     </AuthContext.Provider>
   );

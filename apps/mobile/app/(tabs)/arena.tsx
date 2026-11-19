@@ -1,6 +1,6 @@
 import { TerritoryPanel } from '../../src/components/TerritoryPanel';
 import type { TerritoryData } from '../../../../lib/territory/types';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../src/auth/AuthProvider';
@@ -38,13 +38,17 @@ async function responseJson<T>(response: Response): Promise<T> {
 }
 
 export default function ArenaScreen() {
-  const { apiFetch } = useAuth();
+  const { apiFetch, getCachedJson } = useAuth();
   const router = useRouter();
   const [period, setPeriod] = useState<ArenaData['filters']['period']>('week');
   const [sport, setSport] = useState<ArenaData['filters']['sport']>('all');
   const [sortBy, setSortBy] = useState<SortBy>('distance');
   const [data, setData] = useState<ArenaData | null>(null);
   const [territories, setTerritories] = useState<TerritoryData | null>(null);
+  const dataRef = useRef<ArenaData | null>(null);
+  const territoriesRef = useRef<TerritoryData | null>(null);
+  dataRef.current = data;
+  territoriesRef.current = territories;
   const [territoryLoading, setTerritoryLoading] = useState(true);
   const [territoryError, setTerritoryError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -52,28 +56,45 @@ export default function ArenaScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const loadArena = useCallback(async (showLoading = true, forceRefresh = false) => {
-    if (showLoading) setLoading(true);
+    const query = new URLSearchParams({ period, sport });
+    query.set('includeTerritories', 'false');
+    const path = `/api/mobile/arena?${query}`;
+    if (showLoading && !dataRef.current && !forceRefresh) {
+      const cached = await getCachedJson<ArenaData>(path);
+      if (cached) {
+        dataRef.current = cached;
+        setData(cached);
+        setLoading(false);
+      } else setLoading(true);
+    } else if (showLoading && !dataRef.current) setLoading(true);
     setError(null);
     try {
-      const query = new URLSearchParams({ period, sport });
-      query.set('includeTerritories', 'false');
-      const result = await responseJson<ArenaData>(await apiFetch(`/api/mobile/arena?${query}`, forceRefresh ? { cache: 'no-store' } : undefined));
+      const result = await responseJson<ArenaData>(await apiFetch(path, forceRefresh ? { cache: 'no-store' } : undefined));
+      dataRef.current = result;
       setData(result);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : 'Arena konnte nicht geladen werden.');
     } finally { setLoading(false); }
-  }, [apiFetch, period, sport]);
+  }, [apiFetch, getCachedJson, period, sport]);
 
   const loadTerritories = useCallback(async (forceRefresh = false) => {
-    setTerritoryLoading(true);
+    if (!territoriesRef.current && !forceRefresh) {
+      const cached = await getCachedJson<TerritoryData>('/api/arena/territories');
+      if (cached) {
+        territoriesRef.current = cached;
+        setTerritories(cached);
+        setTerritoryLoading(false);
+      } else setTerritoryLoading(true);
+    } else if (!territoriesRef.current) setTerritoryLoading(true);
     setTerritoryError(null);
     try {
       const result = await responseJson<TerritoryData>(await apiFetch('/api/arena/territories', forceRefresh ? { cache: 'no-store' } : undefined));
+      territoriesRef.current = result;
       setTerritories(result);
     } catch (loadError) {
       setTerritoryError(loadError instanceof Error ? loadError.message : 'Die Revierkarte ist gerade nicht verfügbar. Bitte später erneut versuchen.');
     } finally { setTerritoryLoading(false); }
-  }, [apiFetch]);
+  }, [apiFetch, getCachedJson]);
 
   useEffect(() => { void loadArena(); }, [loadArena]);
   useEffect(() => { void loadTerritories(); }, [loadTerritories]);

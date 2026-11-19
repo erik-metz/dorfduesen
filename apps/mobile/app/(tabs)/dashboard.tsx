@@ -57,10 +57,11 @@ function displayName(user: { firstname: string | null; lastname: string | null; 
 }
 
 export default function DashboardScreen() {
-  const { user, logout, deleteAccount, apiFetch } = useAuth();
+  const { user, logout, deleteAccount, apiFetch, getCachedJson } = useAuth();
   const params = useLocalSearchParams<{ userId?: string }>();
   const [tab, setTab] = useState<DashboardTab>('Aktivitäten');
   const [data, setData] = useState<DashboardData | null>(null);
+  const dataRef = useRef<DashboardData | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [membersLoaded, setMembersLoaded] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
@@ -78,18 +79,29 @@ export default function DashboardScreen() {
   const [goalDays, setGoalDays] = useState(2);
   const [goalType, setGoalType] = useState('GENERAL_FITNESS');
   const arenaPrefetched = useRef(false);
+  dataRef.current = data;
 
   useEffect(() => {
     if (params.userId) setSelectedUserId(params.userId);
   }, [params.userId]);
 
   const loadDashboard = useCallback(async (showLoading = true, forceRefresh = false) => {
-    if (showLoading) setLoading(true);
+    const params = new URLSearchParams({ sport });
+    if (selectedUserId && selectedUserId !== user?.id) params.set('userId', selectedUserId);
+    const path = `/api/mobile/dashboard?${params}`;
+    if (showLoading && !dataRef.current && !forceRefresh) {
+      const cached = await getCachedJson<DashboardData>(path);
+      if (cached) {
+        dataRef.current = cached;
+        setData(cached);
+        setGoalDays(cached.arena.weeklyGoal.nextWeekTargetActiveDays ?? 2);
+        setLoading(false);
+      } else setLoading(true);
+    } else if (showLoading && !dataRef.current) setLoading(true);
     setError(null);
     try {
-      const params = new URLSearchParams({ sport });
-      if (selectedUserId && selectedUserId !== user?.id) params.set('userId', selectedUserId);
-      const payload = await responseJson<DashboardData>(await apiFetch(`/api/mobile/dashboard?${params}`, forceRefresh ? { cache: 'no-store' } : undefined));
+      const payload = await responseJson<DashboardData>(await apiFetch(path, forceRefresh ? { cache: 'no-store' } : undefined));
+      dataRef.current = payload;
       setData(payload);
       setGoalDays(payload.arena.weeklyGoal.nextWeekTargetActiveDays ?? 2);
     } catch (loadError) {
@@ -98,7 +110,7 @@ export default function DashboardScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [apiFetch, selectedUserId, sport, user?.id]);
+  }, [apiFetch, getCachedJson, selectedUserId, sport, user?.id]);
 
   useEffect(() => { void loadDashboard(); }, [loadDashboard]);
   useEffect(() => {
@@ -111,7 +123,7 @@ export default function DashboardScreen() {
   }, [apiFetch]);
 
   useEffect(() => {
-    if (!data || loading || !membersLoaded || data.isReadOnly || arenaPrefetched.current ||
+    if (!data || loading || data.isReadOnly || arenaPrefetched.current ||
       (selectedUserId && selectedUserId !== user?.id) || (params.userId && params.userId !== user?.id)) return;
     arenaPrefetched.current = true;
     const warm = (path: string) => apiFetch(path)
@@ -121,7 +133,7 @@ export default function DashboardScreen() {
       warm('/api/mobile/arena?period=week&sport=all&includeTerritories=false'),
       warm('/api/arena/territories'),
     ]);
-  }, [apiFetch, data, loading, membersLoaded, params.userId, selectedUserId, user?.id]);
+  }, [apiFetch, data, loading, params.userId, selectedUserId, user?.id]);
 
   useEffect(() => {
     if (tab === 'Aktivitäten' || !data || data.isReadOnly && ['Physiologie', 'Coach', 'Hinweise'].includes(tab)) {
