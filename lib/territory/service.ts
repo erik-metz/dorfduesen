@@ -26,17 +26,18 @@ async function getProjection(seasonKey: string, inputHash: string, valid: Array<
 
   const cacheKey = `${seasonKey}:${inputHash}`;
   if (projectionCache?.key === cacheKey) return projectionCache.value;
-  const value = db.$transaction(async tx => {
-    // Serialize cross-instance rebuilds for this season and re-check after acquiring the lock.
-    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${`territory-projection:${seasonKey}`}))`;
-    const latest = await tx.territoryProjectionCache.findUnique({ where: { seasonKey } });
-    if (latest?.inputHash === inputHash && latest.projection) return projectionFromJson(latest.projection);
-    if (latest?.failedInputHash === inputHash && latest.retryAt && latest.retryAt > new Date()) {
-      if (latest.projection) return projectionFromJson(latest.projection);
-      throw new TerritoryBudgetExceededError();
-    }
-
+  const value = (async () => {
     try {
+      return await db.$transaction(async tx => {
+        // Serialize cross-instance rebuilds for this season and re-check after acquiring the lock.
+        await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${`territory-projection:${seasonKey}`}))`;
+        const latest = await tx.territoryProjectionCache.findUnique({ where: { seasonKey } });
+        if (latest?.inputHash === inputHash && latest.projection) return projectionFromJson(latest.projection);
+        if (latest?.failedInputHash === inputHash && latest.retryAt && latest.retryAt > new Date()) {
+          if (latest.projection) return projectionFromJson(latest.projection);
+          throw new TerritoryBudgetExceededError();
+        }
+
       const shapes = valid.length ? await tx.territoryClaim.findMany({
         where: { id: { in: valid.map(row => row.id) } }, select: { id: true, geometry: true, checkedAt: true },
       }) : [];
@@ -53,18 +54,21 @@ async function getProjection(seasonKey: string, inputHash: string, valid: Array<
         update: { inputHash, projection: projection as unknown as Prisma.InputJsonValue, failedInputHash: null, retryAt: null },
       });
       return projection;
+      }, { timeout: 8000, maxWait: 500 });
     } catch (error) {
       if (!isTerritoryBudgetError(error)) throw error;
       const retryAt = new Date(Date.now() + TERRITORY_RETRY_SECONDS * 1000);
-      await tx.territoryProjectionCache.upsert({
+      // This breaker must commit separately: throwing inside the projection transaction rolls it back.
+      await db.territoryProjectionCache.upsert({
         where: { seasonKey },
         create: { seasonKey, failedInputHash: inputHash, retryAt },
         update: { failedInputHash: inputHash, retryAt },
       });
+      const latest = await db.territoryProjectionCache.findUnique({ where: { seasonKey } });
       if (latest?.projection) return projectionFromJson(latest.projection);
       throw error;
     }
-  }, { timeout: 8000, maxWait: 500 });
+  })();
   const entry: ProjectionCache = { key: cacheKey, value };
   projectionCache = entry;
   void value.catch(() => { if (projectionCache === entry) projectionCache = null; });
