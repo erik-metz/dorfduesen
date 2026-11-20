@@ -30,6 +30,8 @@ model User {
   userBadges      UserBadge[]
   profileData     UserProfile?
   trainingPlans   TrainingPlan[]
+  coachConversations CoachConversation[]
+  coachChatQuota CoachChatQuota?
   healthMetrics   HealthMetric[]
   healthConnections MobileHealthConnection[]
   healthRecords   MobileHealthRecord[]
@@ -434,4 +436,37 @@ model TerritoryProjectionCache {
   failedInputHash String?
   retryAt        DateTime? @db.Timestamptz(3)
   updatedAt      DateTime @updatedAt @db.Timestamptz(3)
+}
+
+model CoachConversation {
+  id        String         @id @default(cuid())
+  userId    String
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  turns     CoachTurn[]
+
+  @@index([userId, updatedAt, id])
+}
+
+model CoachTurn {
+  id             String            @id
+  conversationId String
+  conversation   CoachConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  question       String
+  answer         String?
+  proposal       Json?
+  sources        Json?
+  status         String            @default("PENDING")
+  createdAt      DateTime          @default(now())
+
+  @@index([conversationId, createdAt, id])
+}
+
+model CoachChatQuota {
+  userId String @id
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  day    String
+  count  Int
 }

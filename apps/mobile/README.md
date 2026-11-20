@@ -49,3 +49,7 @@ npx expo prebuild --no-install --platform all
 ```
 
 Die Migration `20261022120000_mobile_health_data` legt die Datenbanktabellen an und wird wie andere Prisma-Migrationen mit `npx prisma migrate deploy` ausgerollt. Google Play verlangt vor Veröffentlichung eine Health-Apps-Deklaration, die zu den tatsächlich beantragten Health-Connect-Berechtigungen passt. Datenschutztext und Store-Datenangaben müssen vor Einreichung final abgestimmt werden.
+
+## Smart Coach
+
+Der Tab **Coach** bietet KI-Chat, gespeicherte Gespräche und Trainingspläne. Vor dem Rollout die Migration `20261120120000_mobile_coach` mit `npx prisma migrate deploy` anwenden und serverseitig `XAI_API_KEY` setzen. Optional lässt sich das Chat-Modell mit `XAI_COACH_CHAT_MODEL` konfigurieren. Die mobile App benötigt den neuen App-Code.

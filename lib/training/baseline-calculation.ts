@@ -17,9 +17,14 @@ export interface AthleteBaseline {
   hasSufficientData: boolean;
 }
 
+export type FitnessActivity = Pick<Activity,
+  'stravaId' | 'startDate' | 'sportType' | 'distance' | 'movingTime' | 'elapsedTime' |
+  'totalElevationGain' | 'averageHeartrate' | 'maxHeartrate'
+>;
+
 export function baselineFromActivities(
   userId: string,
-  source: Activity[],
+  source: FitnessActivity[],
   profile: Pick<UserProfile, "maxHeartrate" | "restingHeartrate"> | null,
   now: Date,
 ): AthleteBaseline {

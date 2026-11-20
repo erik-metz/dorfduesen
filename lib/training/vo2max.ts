@@ -1,4 +1,4 @@
-import type { Activity } from '@prisma/client';
+import type { FitnessActivity } from './baseline-calculation';
 
 export type MaxHrSource = 'profile' | 'age' | 'recorded' | 'default';
 export interface Vo2maxEstimate {
@@ -32,7 +32,7 @@ const median = (values: number[]) => {
  * Eligibility thresholds and smoothing are product heuristics, not validated accuracy bounds.
  */
 export function estimateVo2max(
-  activities: Activity[],
+  activities: FitnessActivity[],
   now: Date,
   maxHr: number,
   maxHrSource: MaxHrSource,

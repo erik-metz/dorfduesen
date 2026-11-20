@@ -1,3 +1,4 @@
+import { fetch as streamFetch } from 'expo/fetch';
 import * as Crypto from 'expo-crypto';
 import * as Linking from 'expo-linking';
 import * as SecureStore from 'expo-secure-store';
@@ -28,7 +29,7 @@ type AuthContextValue = {
   login: () => Promise<void>;
   logout: () => Promise<void>;
   deleteAccount: () => Promise<void>;
-  apiFetch: (path: string, init?: RequestInit) => Promise<Response>;
+  apiFetch: (path: string, init?: RequestInit, streaming?: boolean) => Promise<Response>;
   getCachedJson: <T>(path: string) => Promise<T | null>;
 };
 
@@ -280,7 +281,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }
   }, [user?.id]);
 
-  const apiFetch = useCallback(async (path: string, init: RequestInit = {}) => {
+  const apiFetch = useCallback(async (path: string, init: RequestInit = {}, streaming = false) => {
     if (!API_BASE_URL) throw new Error('EXPO_PUBLIC_API_URL ist nicht konfiguriert.');
     const token = await SecureStore.getItemAsync(TOKEN_KEY);
     if (!token) throw new Error('Deine Sitzung ist abgelaufen. Bitte melde dich erneut an.');
@@ -306,6 +307,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }
 
     const generation = cacheGeneration.current;
+    if (streaming) return streamFetch(url.toString(), { ...fetchOptions, headers });
+
     const request = fetch(url.toString(), { ...fetchOptions, headers });
     if (canShare) pendingRequests.current.set(key, request);
     try {

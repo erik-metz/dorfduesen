@@ -19,8 +19,9 @@ Platzhalter ersetzen; Zugangsdaten gehören nicht in Git.
 | `SESSION_SECRET` | Eigener zufälliger Schlüssel mit mindestens 32 Zeichen |
 | `CRON_SECRET` | Separater zufälliger Schlüssel mit mindestens 32 Zeichen für den HTTP-Cron-Endpunkt |
 | `INNGEST_EVENT_KEY`, `INNGEST_SIGNING_KEY` | In Produktion für Hintergrundjobs erforderlich |
-| `XAI_API_KEY` | Optional; ohne Schlüssel verwendet der Coach den algorithmischen Generator |
-| `XAI_MODEL` | Optionales Modell für den Coach |
+| `XAI_API_KEY` | Für den mobilen Coach-Chat erforderlich. Die Planerstellung verwendet ohne Schlüssel den algorithmischen Generator. |
+| `XAI_MODEL` | Optionales Standardmodell für den Coach |
+| `XAI_COACH_CHAT_MODEL` | Optionales Modell für die xAI Responses API mit Streaming und Function Calling. Standard ist `grok-4.3`. |
 
 Zufällige Schlüssel lassen sich mit `openssl rand -hex 32` erzeugen. Fehlende oder beispielhafte Session-Secrets werden abgelehnt; der Cron-Endpunkt ist ohne gültiges Secret deaktiviert (503). Ein Wechsel des Session-Schlüssels meldet bestehende Sitzungen ab.
 

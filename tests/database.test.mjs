@@ -204,3 +204,107 @@ test('database: parallel token refreshes use the single rotated token', { skip: 
     if (previousSecret === undefined) delete process.env.STRAVA_CLIENT_SECRET; else process.env.STRAVA_CLIENT_SECRET = previousSecret;
   }
 });
+
+test('database: mobile coach streams owned data, saves the reply and accepts a proposal once', { skip: !url }, async () => {
+  const [athlete, other] = await Promise.all([user(), user()]);
+  const [own, foreign] = await Promise.all([
+    db.activity.create({ data: { ...activityData(athlete.id, '2026-01-05T10:00:00Z'), manualDistance: 7500 } }),
+    db.activity.create({ data: activityData(other.id, '2026-01-05T10:00:00Z', 99000) }),
+  ]);
+  const { readCoachData } = loadTs('lib/coach/chat-data.ts', { '@/lib/db': { db } });
+  assert.equal((await readCoachData(athlete.id, { dataset: 'activity', id: foreign.stravaId })).data, null);
+  assert.equal((await readCoachData(athlete.id, { dataset: 'activity', id: own.stravaId })).data.distanceMeters, 7500);
+
+  const provider = 'APPLE_HEALTH';
+  const healthActivity = await db.activity.create({
+    data: {
+      ...activityData(athlete.id, '2026-01-05T10:00:00Z'),
+      stravaId: `health:${athlete.id}:${provider}:test`,
+      averageHeartrate: 145,
+    },
+  });
+  const healthRange = { dataset: 'weekly_training', from: '2026-01-05', to: '2026-01-11' };
+  assert.equal((await readCoachData(athlete.id, healthRange)).data.weeks[0].sessions, 1);
+  await db.mobileHealthConnection.create({
+    data: { userId: athlete.id, provider, consentedAt: new Date(), consentedTypes: ['workout'] },
+  });
+  assert.equal((await readCoachData(athlete.id, healthRange)).data.weeks[0].sessions, 2);
+  assert.equal((await readCoachData(athlete.id, { dataset: 'activity', id: healthActivity.id })).data.averageHeartrate, null);
+  await db.mobileHealthConnection.update({
+    where: { userId_provider: { userId: athlete.id, provider } }, data: { revokedAt: new Date() },
+  });
+  assert.equal((await readCoachData(athlete.id, { dataset: 'activity', id: healthActivity.id })).data, null);
+
+  let aiCalls = 0;
+  let dispatched = 0;
+  const mocks = {
+    '@/lib/db': { db },
+    '@/lib/auth/session': { getCurrentUser: async () => athlete },
+    '@/lib/inngest/client': { inngest: { send: async () => { dispatched++; } } },
+    'next/cache': { revalidateTag() {}, updateTag() {} },
+    'next/server': { NextResponse: { json: Response.json }, after: task => { void task(); } },
+    '@/lib/ai/xai': {
+      xai: { responses: { create: async function* ({ input, store }) {
+        assert.equal(store, false);
+        aiCalls++;
+        if (aiCalls === 1) {
+          yield { type: 'response.completed', response: { output: [
+            { call_id: 'weekly', type: 'function_call', name: 'read_training_data', arguments: '{"dataset":"weekly_training","from":"2026-01-05","to":"2026-01-11"}' },
+            { call_id: 'plan', type: 'function_call', name: 'propose_training_plan', arguments: '{"goalType":"5K","title":"Testplan","weeklyAvailability":3}' },
+          ] } };
+        } else {
+          const result = JSON.parse(input.find(item => item.type === 'function_call_output' && item.call_id === 'weekly').output);
+          assert.equal(result.weeks.length, 1);
+          assert.equal(result.weeks[0].sessions, 1);
+          assert.equal(result.weeks[0].meters, 7500);
+          yield { type: 'response.output_text.delta', delta: 'Du bist 7,5 km gelaufen.' };
+          yield { type: 'response.completed', response: { output: [] } };
+        }
+      } } },
+    },
+  };
+  const coach = loadTs('app/api/mobile/coach/route.ts', mocks);
+  const foreignCoach = loadTs('app/api/mobile/coach/route.ts', { ...mocks, '@/lib/auth/session': { getCurrentUser: async () => other } });
+  const base = 'https://example.com/api/mobile/coach';
+  const headers = { Authorization: 'Bearer ' + 'a'.repeat(43) };
+  const post = data => new Request(base, { method: 'POST', headers, body: JSON.stringify(data) });
+  const message = { requestId: crypto.randomUUID(), question: 'Wie lief die Woche? Erstelle mir einen 5-km-Plan.', consent: 'coach-xai-v1' };
+  const previousKey = process.env.XAI_API_KEY;
+  process.env.XAI_API_KEY = 'test';
+  try {
+    assert.equal((await coach.GET(new Request(base))).status, 401);
+    const streamed = await coach.POST(post(message));
+    assert.match(streamed.headers.get('content-type'), /application\/x-ndjson/);
+    const events = (await streamed.text()).trim().split('\n').map(JSON.parse);
+    const { conversation } = events[0];
+    const { turn } = events.at(-1);
+    assert.equal(turn.answer, 'Du bist 7,5 km gelaufen.');
+    assert.equal(turn.proposal.weeklyAvailability, 3);
+    const page = new Request(base + '?conversation=' + conversation.id, { headers });
+    assert.equal((await (await coach.GET(page)).json()).turns[0].status, 'COMPLETE');
+    assert.equal((await foreignCoach.GET(page)).status, 404);
+    assert.equal((await (await coach.POST(post(message))).json()).turn.id, turn.id);
+    assert.equal(aiCalls, 2);
+
+    const confirm = { action: 'confirm', turnId: turn.id };
+    assert.equal((await foreignCoach.POST(post(confirm))).status, 404);
+    const confirmations = await Promise.all([coach.POST(post(confirm)), coach.POST(post(confirm))]);
+    assert.ok(confirmations.every(response => response.ok));
+    const plans = await Promise.all(confirmations.map(response => response.json()));
+    assert.equal(plans[0].planId, plans[1].planId);
+    assert.equal(dispatched, 1);
+    const planPage = new Request(base + '?plan=' + plans[0].planId, { headers });
+    assert.equal((await coach.GET(planPage)).status, 200);
+    assert.equal((await foreignCoach.GET(planPage)).status, 404);
+
+    const remove = () => new Request(page.url, { method: 'DELETE', headers });
+    await foreignCoach.DELETE(remove());
+    assert.equal((await coach.GET(page)).status, 200);
+    await coach.DELETE(remove());
+    assert.equal((await coach.GET(page)).status, 404);
+    assert.equal((await db.coachChatQuota.findUnique({ where: { userId: athlete.id } })).count, 1);
+  } finally {
+    if (previousKey === undefined) delete process.env.XAI_API_KEY;
+    else process.env.XAI_API_KEY = previousKey;
+  }
+});

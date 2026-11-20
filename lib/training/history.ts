@@ -1,11 +1,11 @@
-import type { Activity, HealthMetric } from '@prisma/client';
-import { baselineFromActivities } from './baseline-calculation';
+import type { HealthMetric } from '@prisma/client';
+import { baselineFromActivities, type FitnessActivity } from './baseline-calculation';
 import { estimateVo2max } from './vo2max';
 import { getTrainingPaces } from './vdot';
 import { calculateHeartRateZones } from './zones';
 
 /** Reconstructed estimates, never historical measurements or past manual overrides. */
-export function calculateFitnessHistory(userId: string, activities: Activity[], metrics: Array<Pick<HealthMetric, 'date' | 'weightKg' | 'restingHeartrate'>>, now: Date) {
+export function calculateFitnessHistory(userId: string, activities: FitnessActivity[], metrics: Array<Pick<HealthMetric, 'date' | 'weightKg' | 'restingHeartrate'>>, now: Date) {
   return Array.from({ length: 26 }, (_, index) => {
     const date = new Date(now.getTime() - (25 - index) * 7 * 86400000);
     const priorMetrics = metrics.filter(m => m.date <= date).sort((a, b) => b.date.getTime() - a.date.getTime());

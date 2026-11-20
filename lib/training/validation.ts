@@ -1,6 +1,6 @@
 export class InputError extends Error {}
 type Body = Record<string, unknown>;
-interface CoachBody {
+export interface CoachBody {
   goalType?: string; title?: string; goalSubtype?: string; goalDescription?: string;
   notes?: string | null; preferredTerrain?: string;
   targetDate?: string; birthDate?: string; date?: string;
@@ -15,6 +15,10 @@ const goals = ['5K', '10K', 'HALF_MARATHON', 'MARATHON', 'GENERAL_FITNESS', 'BAS
 export async function readCoachBody(request: Request, kind: 'plan' | 'profile' | 'metric'): Promise<CoachBody> {
   let body: unknown;
   try { body = await request.json(); } catch { throw new InputError('Ungültiges JSON.'); }
+  return validateCoachBody(body, kind);
+}
+
+export function validateCoachBody(body: unknown, kind: 'plan' | 'profile' | 'metric'): CoachBody {
   if (!body || typeof body !== 'object' || Array.isArray(body)) throw new InputError('Ein JSON-Objekt ist erforderlich.');
   const value = body as Body;
   if (kind === 'plan' && (typeof value.goalType !== 'string' || !goals.includes(value.goalType))) throw new InputError('Ungültiger Zieltyp.');
