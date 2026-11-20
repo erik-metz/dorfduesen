@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { ActivityIndicator, Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Image, Linking, PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import type { TerritoryData } from '../../../../lib/territory/types';
 
@@ -20,6 +20,66 @@ export function TerritoryPanel({ data, loading = false, error, onRetry }: {
   const [width, setWidth] = useState(320);
   const [zoomDelta, setZoomDelta] = useState(0);
   const [offset, setOffset] = useState([0, 0]);
+  const cameraZoomRef = useRef(13);
+  const zoomRef = useRef(0);
+  const offsetRef = useRef<[number, number]>([0, 0]);
+  const mapRef = useRef<View>(null);
+  const mapOriginRef = useRef<[number, number]>([0, 0]);
+  const gestureRef = useRef<{ mode: 'pan' | 'pinch'; baseZoom: number; baseOffset: [number, number]; baseDx: number; baseDy: number; distance: number; focalX: number; focalY: number } | null>(null);
+  const updateView = (nextZoom: number, nextOffset: [number, number]) => {
+    zoomRef.current = nextZoom;
+    offsetRef.current = nextOffset;
+    setZoomDelta(nextZoom);
+    setOffset(nextOffset);
+  };
+  const panResponder = useMemo(() => PanResponder.create({
+    onStartShouldSetPanResponder: () => false,
+    onMoveShouldSetPanResponderCapture: (event, gesture) => event.nativeEvent.touches.length > 1 || Math.abs(gesture.dx) + Math.abs(gesture.dy) > 5,
+    onMoveShouldSetPanResponder: (event, gesture) => event.nativeEvent.touches.length > 1 || Math.abs(gesture.dx) + Math.abs(gesture.dy) > 5,
+    onPanResponderGrant: event => {
+      mapRef.current?.measureInWindow((x, y) => { mapOriginRef.current = [x, y]; });
+      const touches = event.nativeEvent.touches;
+      const currentOffset = offsetRef.current;
+      const currentZoom = zoomRef.current;
+      if (touches.length > 1) {
+        const [first, second] = touches;
+        const focalX = ((first.pageX + second.pageX) / 2) - mapOriginRef.current[0] - width / 2;
+        const focalY = ((first.pageY + second.pageY) / 2) - mapOriginRef.current[1] - 150;
+        gestureRef.current = { mode: 'pinch', baseZoom: currentZoom, baseOffset: currentOffset, baseDx: 0, baseDy: 0,
+          distance: Math.hypot(first.pageX - second.pageX, first.pageY - second.pageY), focalX, focalY };
+      } else {
+        gestureRef.current = { mode: 'pan', baseZoom: currentZoom, baseOffset: currentOffset, baseDx: 0, baseDy: 0, distance: 0, focalX: 0, focalY: 0 };
+      }
+    },
+    onPanResponderMove: (event, gesture) => {
+      const touches = event.nativeEvent.touches;
+      let state = gestureRef.current;
+      if (touches.length > 1) {
+        const [first, second] = touches;
+        const focalX = ((first.pageX + second.pageX) / 2) - mapOriginRef.current[0] - width / 2;
+        const focalY = ((first.pageY + second.pageY) / 2) - mapOriginRef.current[1] - 150;
+        const distance = Math.hypot(first.pageX - second.pageX, first.pageY - second.pageY);
+        if (!state || state.mode !== 'pinch') {
+          state = { mode: 'pinch', baseZoom: zoomRef.current, baseOffset: offsetRef.current, baseDx: gesture.dx, baseDy: gesture.dy, distance, focalX, focalY };
+          gestureRef.current = state;
+          return;
+        }
+        const nextZoom = Math.max(1, Math.min(19, cameraZoomRef.current + state.baseZoom + Math.log2(Math.max(distance, 1) / Math.max(state.distance, 1)))) - cameraZoomRef.current;
+        const scale = 2 ** (nextZoom - state.baseZoom);
+        updateView(nextZoom, [(state.focalX + state.baseOffset[0]) * scale - focalX, (state.focalY + state.baseOffset[1]) * scale - focalY]);
+        return;
+      }
+      if (!state || state.mode !== 'pan') {
+        state = { mode: 'pan', baseZoom: zoomRef.current, baseOffset: offsetRef.current, baseDx: gesture.dx, baseDy: gesture.dy, distance: 0, focalX: 0, focalY: 0 };
+        gestureRef.current = state;
+        return;
+      }
+      updateView(state.baseZoom, [state.baseOffset[0] - (gesture.dx - state.baseDx), state.baseOffset[1] - (gesture.dy - state.baseDy)]);
+    },
+    onPanResponderRelease: () => { gestureRef.current = null; },
+    onPanResponderTerminate: () => { gestureRef.current = null; },
+    onPanResponderTerminationRequest: () => false,
+  }), [width]);
   const [rules, setRules] = useState(false);
   const [tileError, setTileError] = useState(false);
   const camera = useMemo(() => {
@@ -30,6 +90,7 @@ export function TerritoryPanel({ data, loading = false, error, onRetry }: {
     const zoom = Math.max(1, Math.min(16, Math.floor(Math.log2(Math.min((width - 40) / (256 * Math.max(maxX - minX, 1e-8)), 240 / (256 * Math.max(maxY - minY, 1e-8)))))));
     return { center: [(minX + maxX) / 2, (minY + maxY) / 2], zoom };
   }, [data?.territories, width]);
+  cameraZoomRef.current = camera.zoom;
   if (!data) return <View style={styles.panel}>
     <Text style={styles.title}>Dein Revier</Text>
     {loading ? <ActivityIndicator color="#fc7a3d" /> : null}
@@ -37,25 +98,26 @@ export function TerritoryPanel({ data, loading = false, error, onRetry }: {
     {!loading && onRetry ? <Pressable onPress={onRetry} accessibilityRole="button"><Text style={styles.retry}>Erneut laden</Text></Pressable> : null}
   </View>;
   const zoom = Math.max(1, Math.min(19, camera.zoom + zoomDelta));
+  const tileZoom = Math.floor(zoom);
+  const tileScale = 2 ** (zoom - tileZoom);
   const scale = 256 * 2 ** zoom;
   const cx = camera.center[0] * scale + offset[0], cy = camera.center[1] * scale + offset[1];
   const left = cx - width / 2, top = cy - 150;
   const tiles: Array<{ x: number; y: number }> = [];
-  for (let x = Math.floor(left / 256); x <= Math.floor((left + width) / 256); x++) {
-    for (let y = Math.floor(top / 256); y <= Math.floor((top + 300) / 256); y++) {
-      if (x >= 0 && y >= 0 && x < 2 ** zoom && y < 2 ** zoom) tiles.push({ x, y });
+  for (let x = Math.floor(left / (256 * tileScale)); x <= Math.floor((left + width) / (256 * tileScale)); x++) {
+    for (let y = Math.floor(top / (256 * tileScale)); y <= Math.floor((top + 300) / (256 * tileScale)); y++) {
+      if (x >= 0 && y >= 0 && x < 2 ** tileZoom && y < 2 ** tileZoom) tiles.push({ x, y });
     }
   }
   const selected = data.territories.find(t => t.id === selectedId);
-  const move = (x: number, y: number) => setOffset(([ox, oy]) => [ox + x, oy + y]);
-  const changeZoom = (delta: number) => { const effective = Math.max(1, Math.min(19, zoom + delta)) - zoom; setZoomDelta(z => z + effective); setOffset(([x, y]) => [x * 2 ** effective, y * 2 ** effective]); };
+  const changeZoom = (delta: number) => { const nextZoom = Math.max(1, Math.min(19, zoom + delta)); const ratio = 2 ** (nextZoom - zoom); updateView(nextZoom - camera.zoom, [offset[0] * ratio, offset[1] * ratio]); };
   return <View style={styles.panel}>
     <Text style={styles.title}>Dein Revier</Text>
     {error ? <View style={styles.error}><Text style={styles.copy}>{error}</Text>{onRetry ? <Pressable onPress={onRetry} accessibilityRole="button"><Text style={styles.retry}>Erneut laden</Text></Pressable> : null}</View> : null}
     <Text style={styles.area}>{km2(data.myAreaM2)}</Text>
     <Text style={styles.copy}>{data.season.key} · bis {new Date(new Date(data.season.end).getTime() - 1).toLocaleDateString('de-DE')} · Orange: du · Blau: andere</Text>
-    <View onLayout={event => setWidth(event.nativeEvent.layout.width)} style={styles.map}>
-      {tiles.map(tile => <Image alt="" key={`${zoom}:${tile.x}:${tile.y}`} source={{ uri: `https://tile.openstreetmap.org/${zoom}/${tile.x}/${tile.y}.png` }} style={{ position: 'absolute', left: tile.x * 256 - left, top: tile.y * 256 - top, width: 256, height: 256 }} onError={() => setTileError(true)} />)}
+    <View ref={mapRef} {...panResponder.panHandlers} onLayout={event => setWidth(event.nativeEvent.layout.width)} style={styles.map} accessibilityLabel="Revierkarte. Mit einem Finger verschieben, mit zwei Fingern zoomen.">
+      {tiles.map(tile => <Image alt="" key={`${tileZoom}:${tile.x}:${tile.y}`} source={{ uri: `https://tile.openstreetmap.org/${tileZoom}/${tile.x}/${tile.y}.png` }} style={{ position: 'absolute', left: tile.x * 256 * tileScale - left, top: tile.y * 256 * tileScale - top, width: 256 * tileScale, height: 256 * tileScale }} onError={() => setTileError(true)} />)}
       <Svg width={width} height={300} accessibilityLabel="Revierkarte mit auswählbaren Gebieten">
         {data.territories.map(t => {
           const polygons = t.geometry.type === 'Polygon' ? [t.geometry.coordinates] : t.geometry.coordinates;
@@ -65,7 +127,7 @@ export function TerritoryPanel({ data, loading = false, error, onRetry }: {
         })}
       </Svg>
     </View>
-    <View style={styles.controls}>{[['＋', () => changeZoom(1)], ['−', () => changeZoom(-1)], ['←', () => move(-100, 0)], ['↑', () => move(0, -100)], ['↓', () => move(0, 100)], ['→', () => move(100, 0)], ['Alle', () => { setZoomDelta(0); setOffset([0, 0]); }]].map(([label, action]) => <Pressable key={String(label)} accessibilityRole="button" accessibilityLabel={String(label)} onPress={action as () => void} style={styles.button}><Text style={styles.text}>{String(label)}</Text></Pressable>)}</View>
+    <View style={styles.controls}>{[['＋', () => changeZoom(1)], ['−', () => changeZoom(-1)], ['Alle', () => updateView(0, [0, 0])]].map(([label, action]) => <Pressable key={String(label)} accessibilityRole="button" accessibilityLabel={String(label)} onPress={action as () => void} style={styles.button}><Text style={styles.text}>{String(label)}</Text></Pressable>)}</View>
     <Pressable onPress={() => void Linking.openURL('https://www.openstreetmap.org/copyright')}><Text style={styles.copy}>© OpenStreetMap-Mitwirkende</Text></Pressable>
     {tileError ? <Text style={styles.copy}>Hintergrundkarte nicht verfügbar. Gebiete werden weiterhin angezeigt.</Text> : null}
     {selected ? <View><Text style={styles.text}>{selected.ownerName} · {km2(selected.areaM2)}</Text><Text style={styles.copy}>{selected.lastActivityName} · Eingenommen: {new Date(selected.capturedAt).toLocaleString('de-DE')}</Text>{selected.history.map((e, i) => <Text key={i} style={styles.copy}>{e.fromName ?? 'Freie Fläche'} → {e.toName}</Text>)}</View> : null}
