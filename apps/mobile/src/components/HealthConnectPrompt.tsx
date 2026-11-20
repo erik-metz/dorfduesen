@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, ActivityIndicator, DeviceEventEmitter, Modal, Pressable, Text, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../auth/AuthProvider';
-import { connectDeviceHealth, DEFAULT_HEALTH_TYPES, deviceHealthProvider, healthCursorKey, HealthReadPermissionError, HEALTH_CONNECTION_CHANGED, importHealthData, withHealthTimeout } from '../health/healthSync';
+import { connectDeviceHealth, DEFAULT_HEALTH_TYPES, deviceHealthProvider, healthCursorKey, HealthReadPermissionError, HEALTH_CONNECTION_CHANGED, HEALTH_SYNC_COMPLETED, importHealthData, withHealthTimeout } from '../health/healthSync';
 
 const SYNC_INTERVAL_MS = 30 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -77,6 +77,7 @@ export function HealthConnectPrompt() {
           });
           if (signal.aborted) return;
           await AsyncStorage.setItem(cursorKey, String(startedAt));
+          if (!signal.aborted) DeviceEventEmitter.emit(HEALTH_SYNC_COMPLETED, userId);
         }
         if (!signal.aborted) setVisible(false);
       });

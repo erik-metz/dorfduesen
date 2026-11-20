@@ -23,10 +23,11 @@ type DashboardData = {
   arena: { weekKm: number; weekActivitiesCount: number; activeAthletesCount: number; weeklyGoal: { activeDays: number; targetActiveDays: number | null; nextWeekTargetActiveDays: number | null; nextWeekKey: string }; champions: Array<{ id: string; title: string; icon: string; isCurrentLeader: boolean }> };
 };
 type Member = { id: string; name: string; profile: string | null; city: string | null };
-type DashboardTab = 'Aktivitäten' | 'Physiologie' | 'Coach' | 'Trophäen' | 'Hinweise';
+type DashboardTab = 'Aktivitäten' | 'Physiologie' | 'Gesundheit' | 'Coach' | 'Trophäen' | 'Hinweise';
 
 const tabs: Array<{ key: DashboardTab; label: string; icon: string; badge?: string }> = [
   { key: 'Aktivitäten', label: 'Aktivitäten', icon: '👟' },
+  { key: 'Gesundheit', label: 'Gesundheit', icon: '♡' },
   { key: 'Physiologie', label: 'Physiologie & Zonen', icon: '♡' },
   { key: 'Trophäen', label: 'Trophäenschrank', icon: '🏆', badge: 'VITRINE' },
   { key: 'Coach', label: 'Smart Coach', icon: '✧', badge: 'KI' },
@@ -136,7 +137,7 @@ export default function DashboardScreen() {
   }, [apiFetch, data, loading, params.userId, selectedUserId, user?.id]);
 
   useEffect(() => {
-    if (tab === 'Aktivitäten' || !data || data.isReadOnly && ['Physiologie', 'Coach', 'Hinweise'].includes(tab)) {
+    if (tab === 'Aktivitäten' || tab === 'Gesundheit' || !data || data.isReadOnly && ['Physiologie', 'Gesundheit', 'Coach', 'Hinweise'].includes(tab)) {
       setSectionData(null);
       return;
     }
@@ -314,7 +315,7 @@ export default function DashboardScreen() {
           </View>
         </View>
         <View style={styles.tabGrid}>
-          {tabs.filter(item => !(data.isReadOnly && item.key === 'Hinweise')).map(item => <Pressable key={item.key} accessibilityRole="tab" accessibilityState={{ selected: tab === item.key }} style={[styles.tab, tab === item.key && styles.tabActive]} onPress={() => setTab(item.key)}>
+          {tabs.filter(item => !(data.isReadOnly && ['Gesundheit', 'Hinweise'].includes(item.key))).map(item => <Pressable key={item.key} accessibilityRole="tab" accessibilityState={{ selected: tab === item.key }} style={[styles.tab, tab === item.key && styles.tabActive]} onPress={() => setTab(item.key)}>
             <Text style={[styles.tabIcon, tab === item.key && styles.tabTextActive]}>{item.icon}</Text>
             <Text numberOfLines={1} style={[styles.tabText, tab === item.key && styles.tabTextActive]}>{item.key === 'Aktivitäten' ? 'Aktivitäten' : item.key === 'Trophäen' ? 'Trophäen' : item.label}</Text>
             {item.key === 'Aktivitäten' ? <Text style={styles.tabBadge}>{data.stats.activityCount}</Text> : item.badge ? <Text style={[styles.tabBadge, item.badge === 'KI' && styles.tabBadgeOrange]}>{item.badge}</Text> : item.key === 'Hinweise' && data.notifications.unreadCount > 0 && !data.isReadOnly ? <Text style={styles.tabBadgeRed}>{data.notifications.unreadCount} NEU</Text> : null}
@@ -347,13 +348,13 @@ export default function DashboardScreen() {
         </View> : null}
         {tab !== 'Aktivitäten' ? <View style={styles.section}>
           <View style={styles.spaceBetween}><Text style={styles.cardTitle}>{tab}</Text>{sectionLoading ? <ActivityIndicator color="#fc7a3d" /> : null}</View>
-          {data.isReadOnly && ['Physiologie', 'Coach', 'Hinweise'].includes(tab) ? <Text style={styles.copy}>Dieser Bereich ist nur für dein eigenes Profil verfügbar.</Text> : <>
+          {data.isReadOnly && ['Physiologie', 'Gesundheit', 'Coach', 'Hinweise'].includes(tab) ? <Text style={styles.copy}>Dieser Bereich ist nur für dein eigenes Profil verfügbar.</Text> : <>
             {tab === 'Trophäen' && !data.isReadOnly ? <View style={styles.weekCard}>
               <Text style={styles.cardTitle}>🎯 Vorgenommen. Durchgezogen.</Text><Text style={styles.copy}>Deine Woche. Dein Ziel. Wie oft willst du raus?</Text><Text style={styles.copy}>{data.arena.weeklyGoal.targetActiveDays ? `Diese Woche: ${data.arena.weeklyGoal.activeDays} von ${data.arena.weeklyGoal.targetActiveDays} aktiven Tagen geschafft.` : 'Diese Woche zählt jeder aktive Tag. Dein eigenes Ziel startet nächste Woche.'}</Text><Text style={styles.small}>Ab {data.arena.weeklyGoal.nextWeekKey.split('-').reverse().join('.')}:</Text>
               <View style={styles.inlineRow}>{[1, 2, 3, 4, 5, 6, 7].map(day => <Pressable key={day} accessibilityRole="button" accessibilityState={{ selected: goalDays === day }} style={[styles.dayOption, goalDays === day && styles.dayOptionActive]} onPress={() => setGoalDays(day)}><Text style={styles.dayText}>{day}</Text></Pressable>)}</View>
               <Pressable style={styles.primaryButton} onPress={() => void saveGoal()} disabled={sectionLoading}><Text style={styles.primaryButtonText}>{sectionLoading ? 'Speichert …' : 'Ziel festmachen'}</Text></Pressable><Text style={styles.tiny}>Bis Montag kannst du’s ändern. Danach steht’s. Ruhetage gehören dazu.</Text>
             </View> : null}
-            {sectionData ? <SectionContent tab={tab} sectionData={sectionData} arena={data.arena} isReadOnly={data.isReadOnly} sectionLoading={sectionLoading} goalDays={goalDays} setGoalDays={setGoalDays} weight={weight} setWeight={setWeight} restingHr={restingHr} setRestingHr={setRestingHr} goalType={goalType} setGoalType={setGoalType} addMetric={() => void addMetric()} requestPlan={() => void requestPlan()} refreshTrophies={() => void refreshTrophies()} savePhysiologyProfile={values => void savePhysiologyProfile(values)} saveCoachProfile={values => void saveCoachProfile(values)} markNotification={(id) => void markNotification(id)} /> : !sectionLoading ? <Text style={styles.copy}>{actionMessage ?? 'Keine Daten vorhanden.'}</Text> : null}
+            {tab === 'Gesundheit' ? <HealthDataPanel /> : sectionData ? <SectionContent tab={tab} sectionData={sectionData} arena={data.arena} isReadOnly={data.isReadOnly} sectionLoading={sectionLoading} goalDays={goalDays} setGoalDays={setGoalDays} weight={weight} setWeight={setWeight} restingHr={restingHr} setRestingHr={setRestingHr} goalType={goalType} setGoalType={setGoalType} addMetric={() => void addMetric()} requestPlan={() => void requestPlan()} refreshTrophies={() => void refreshTrophies()} savePhysiologyProfile={values => void savePhysiologyProfile(values)} saveCoachProfile={values => void saveCoachProfile(values)} markNotification={(id) => void markNotification(id)} /> : !sectionLoading ? <Text style={styles.copy}>{actionMessage ?? 'Keine Daten vorhanden.'}</Text> : null}
           </>}
         </View> : null}
       </> : null}
@@ -385,7 +386,6 @@ function SectionContent({ tab, sectionData, arena, isReadOnly, sectionLoading, g
   const [historyIndex, setHistoryIndex] = useState(25);
   const [trophyFilter, setTrophyFilter] = useState('ALL');
   const [selectedTrophy, setSelectedTrophy] = useState<Record<string, any> | null>(null);
-  const [healthConnected, setHealthConnected] = useState(false);
   if (tab === 'Physiologie') {
     const metrics = (sectionData.metrics ?? []) as DashboardData['physiology']['recentMetrics'];
     const profile = sectionData.profile as Record<string, unknown> | null;
@@ -410,7 +410,6 @@ function SectionContent({ tab, sectionData, arena, isReadOnly, sectionLoading, g
     const metricLabel = { color: '#a1a1aa', fontSize: 10, fontWeight: '800' as const, textTransform: 'uppercase' as const };
     return <View style={styles.stack}>
       <Text style={styles.copy}>Deine Leistungswerte, Gesundheitsmetriken und individuellen Trainingsbereiche.</Text>
-      {!healthConnected ? <HealthDataPanel initialConnected={healthConnected} onConnectionChange={setHealthConnected} /> : null}
       {sectionData.healthOverview ? <HealthOverviewPanel data={sectionData.healthOverview as HealthOverviewData} /> : null}
       <View style={styles.inlineRow}>
         {[
@@ -427,7 +426,6 @@ function SectionContent({ tab, sectionData, arena, isReadOnly, sectionLoading, g
       <View style={styles.weekCard}><Text style={styles.subheading}>Deine 5 Herzfrequenz-Zonen</Text><Text style={styles.tiny}>Pulsbereiche für gezielte aerobe und anaerobe Anpassung.</Text>{zones?.map((zone, index) => <View key={zone.zone ?? index} style={[styles.workout, { flexDirection: 'row', alignItems: 'center', gap: 10 }]}><Text style={styles.tabBadge}>Z{zone.zone ?? index + 1}</Text><View style={{ flex: 1 }}><Text style={styles.activityName}>{zone.name}</Text><Text style={styles.tiny}>{zone.description}</Text></View><Text style={styles.small}>{zone.minHr}–{zone.maxHr} bpm</Text></View>)}</View>
       <View style={styles.weekCard}><Text style={styles.subheading}>Körperdaten & Vital-Tracking</Text><Text style={styles.small}>Gewicht und Ruhepuls historisch erfassen. Die Werte fließen in Verlauf und Pulszonen ein.</Text><View style={styles.inlineRow}><TextInput style={styles.input} value={weight} onChangeText={setWeight} placeholder="Gewicht kg" placeholderTextColor="#71717a" keyboardType="decimal-pad" /><TextInput style={styles.input} value={restingHr} onChangeText={setRestingHr} placeholder="Ruhepuls bpm" placeholderTextColor="#71717a" keyboardType="number-pad" /></View><Pressable style={styles.primaryButton} onPress={addMetric}><Text style={styles.primaryButtonText}>Messwert speichern</Text></Pressable><Text style={styles.tiny}>Ruhepuls aktuell: {String(sectionData.calculatedRestingHeartrate ?? '–')} bpm · Maximalpuls: {String(sectionData.calculatedMaxHr ?? '–')} bpm</Text>
         {metrics.length ? <><View style={styles.inlineRow}>{[['NEUESTES GEWICHT', metrics.find(metric => metric.weightKg != null)?.weightKg ? `${metrics.find(metric => metric.weightKg != null)?.weightKg} kg` : '–'], ['NEUESTER RUHEPULS', metrics.find(metric => metric.restingHeartrate != null)?.restingHeartrate ? `${metrics.find(metric => metric.restingHeartrate != null)?.restingHeartrate} bpm` : '–'], ['ERFASSTE EINTRÄGE', String(metrics.length)]].map(([label, value]) => <View key={label} style={metricCard}><Text style={metricLabel}>{label}</Text><Text style={{ color: '#f4f4f5', fontSize: 18, fontWeight: '900' }}>{value}</Text></View>)}</View><Text style={styles.subheading}>Messhistorie · {metrics.length} Einträge</Text>{metrics.slice(0, 15).map(metric => <View key={metric.id} style={styles.spaceBetween}><Text style={styles.small}>{new Date(metric.date).toLocaleDateString('de-DE')}</Text><Text style={styles.small}>{metric.weightKg ? `${metric.weightKg} kg` : '–'} · {metric.restingHeartrate ? `${metric.restingHeartrate} bpm` : '–'}{metric.notes ? ` · ${metric.notes}` : ''}</Text></View>)}</> : <Text style={styles.small}>Noch keine manuellen Messwerte eingetragen.</Text>}</View>
-      {healthConnected ? <HealthDataPanel initialConnected={healthConnected} onConnectionChange={setHealthConnected} /> : null}
     </View>;
   }
   if (tab === 'Coach') {
@@ -437,6 +435,7 @@ function SectionContent({ tab, sectionData, arena, isReadOnly, sectionLoading, g
       {plan?.weeks?.map(week => <View key={week.id} style={styles.planWeek}><Text style={styles.subheading}>Woche {week.weekNumber} · {week.focusTitle ?? week.phase}</Text>{week.workouts.map(workout => <View key={workout.id} style={styles.workout}><Text style={styles.activityName}>{new Date(workout.scheduledDate).toLocaleDateString('de-DE')} · {workout.title}</Text><Text style={styles.small}>{workout.description}</Text><Text style={styles.tiny}>{workout.targetDistance ? `${workout.targetDistance} km` : ''}{workout.targetDistance && workout.targetDurationMinutes ? ' · ' : ''}{workout.targetDurationMinutes ? `${workout.targetDurationMinutes} min` : ''} · {workout.status}</Text></View>)}</View>)}
       {sectionData.generation ? <Text style={styles.small}>Planstatus: {String((sectionData.generation as { status?: string }).status)}</Text> : null}
       {!plan && <><Text style={styles.subheading}>Neuen Plan anfordern</Text><View style={styles.inlineRow}>{[['GENERAL_FITNESS', 'Allgemein'], ['5K', '5 km'], ['10K', '10 km'], ['HALF_MARATHON', 'Halbmarathon'], ['MARATHON', 'Marathon']].map(([value, label]) => <Pressable key={value} style={[styles.filter, goalType === value && styles.filterActive]} onPress={() => setGoalType(value)}><Text style={[styles.filterText, goalType === value && styles.filterTextActive]}>{label}</Text></Pressable>)}</View><Pressable style={styles.primaryButton} onPress={requestPlan}><Text style={styles.primaryButtonText}>Trainingsplan generieren</Text></Pressable></>}
+      <Text style={styles.copy}>Bei neuen Plänen berücksichtigt der Coach freigegebene Health-Workouts und Pulsdaten. Wenn mehrere aktuelle Erholungswerte vom persönlichen Verlauf abweichen, plant er einen ruhigeren Einstieg. Den Importstatus findest du unter Gesundheit.</Text>
       <Text style={styles.subheading}>Dein Trainingsprofil</Text>
       <Text style={styles.copy}>Verfügbarkeit: {String(profile?.weeklyAvailability ?? '–')} Tage/Woche · Terrain: {String(profile?.preferredTerrain ?? '–')}</Text>
       <Text style={styles.copy}>VDOT: {String(sectionData.calculatedVdot ?? '–')} · VO₂max: {String((sectionData.vo2max as { value?: number } | undefined)?.value ?? '–')}</Text>

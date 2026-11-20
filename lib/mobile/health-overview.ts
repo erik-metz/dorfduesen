@@ -188,6 +188,46 @@ function dailyValues(records: HealthRecordForOverview[], type: string) {
   return daily;
 }
 
+export const COACH_RECOVERY_TYPES = ['sleep', 'resting_heart_rate', 'heart_rate_variability'] as const;
+
+/** Use several days from the same device source and require independent signs. */
+export function needsGentlerTrainingStart(records: HealthRecordForOverview[], now: Date) {
+  const recentFrom = utcDay(new Date(now.getTime() - 2 * 86400000));
+  const today = utcDay(now);
+  let deviations = 0;
+  for (const type of COACH_RECOVERY_TYPES) {
+    const sources = new Map<string, HealthRecordForOverview[]>();
+    for (const record of records) {
+      if (record.recordType !== type) continue;
+      const source = JSON.stringify([record.provider, record.sourceId ?? record.sourceName]);
+      const samples = sources.get(source) ?? [];
+      samples.push(record);
+      sources.set(source, samples);
+    }
+
+    // Do not average Apple Health SDNN with Health Connect RMSSD, or compare different devices.
+    let mostComparable: { coverage: number; deviates: boolean } | null = null;
+    for (const samples of sources.values()) {
+      const recent: number[] = [];
+      const reference: number[] = [];
+      for (const [day, value] of dailyValues(samples, type)) {
+        if (day > today) continue;
+        (day >= recentFrom ? recent : reference).push(value);
+      }
+      if (recent.length < 2 || reference.length < 7) continue;
+      const current = median(recent)!;
+      const usual = median(reference)!;
+      const deviates = type === 'sleep'
+        ? current <= usual - 1
+        : type === 'resting_heart_rate' ? current >= usual + 5 : current <= usual * 0.8;
+      const coverage = recent.length * 100 + reference.length;
+      if (!mostComparable || coverage > mostComparable.coverage) mostComparable = { coverage, deviates };
+    }
+    if (mostComparable?.deviates) deviations++;
+  }
+  return deviations >= 2;
+}
+
 function weeklyHealthTrends(records: HealthRecordForOverview[], now: Date) {
   const currentWeek = new Date(`${mondayOf(now)}T00:00:00.000Z`);
   const weeks = Array.from({ length: 12 }, (_, index) => {

@@ -6,6 +6,8 @@ import { cacheTags, invalidateCacheTags } from '@/lib/cache-tags';
 import { reconcileHealthActivities } from '@/lib/mobile/health-activities';
 import { evaluateUserBadges } from '@/lib/arena/badge-engine';
 
+export const maxDuration = 15;
+
 export async function GET(request: Request) {
   await connection();
   const user = await getCurrentUser();
@@ -15,10 +17,13 @@ export async function GET(request: Request) {
   const recordType = searchParams.get('type');
   const from = searchParams.get('from');
   const to = searchParams.get('to');
-  const take = Math.min(500, Math.max(1, Number(searchParams.get('limit') ?? 200) || 200));
+  const take = Math.min(500, Math.max(1, Math.trunc(Number(searchParams.get('limit') ?? 200)) || 200));
+  const before = searchParams.get('before');
+  const beforeId = searchParams.get('beforeId');
+  const beforeDate = before ? parseDate(before) : null;
   const start = from ? parseDate(from) : null;
   const end = to ? parseDate(to) : null;
-  if ((provider && !isHealthProvider(provider)) || (recordType && !isHealthRecordType(recordType)) || (from && !start) || (to && !end) || (start && end && end < start)) {
+  if ((provider && !isHealthProvider(provider)) || (recordType && !isHealthRecordType(recordType)) || (from && !start) || (to && !end) || (start && end && end < start) || ((before || beforeId) && (!beforeDate || !beforeId || beforeId.length > 200))) {
     return NextResponse.json({ error: 'Filter sind ungültig.' }, { status: 400 });
   }
   const records = await db.mobileHealthRecord.findMany({
@@ -26,12 +31,19 @@ export async function GET(request: Request) {
       userId: user.id,
       ...(provider ? { provider } : {}),
       ...(recordType ? { recordType } : {}),
+      ...(beforeDate && beforeId ? { OR: [
+        { startAt: { lt: beforeDate } },
+        { startAt: beforeDate, id: { lt: beforeId } },
+      ] } : {}),
       ...(start || end ? { startAt: { ...(start ? { gte: start } : {}), ...(end ? { lte: end } : {}) } } : {}),
     },
-    orderBy: { startAt: 'desc' },
-    take,
+    orderBy: [{ startAt: 'desc' }, { id: 'desc' }],
+    take: take + 1,
   });
-  return NextResponse.json({ records }, { headers: { 'Cache-Control': 'private, no-store, max-age=0' } });
+  const page = records.slice(0, take);
+  const last = page.at(-1);
+  const next = records.length > take && last ? { before: last.startAt.toISOString(), beforeId: last.id } : null;
+  return NextResponse.json({ records: page, next }, { headers: { 'Cache-Control': 'private, no-store, max-age=0' } });
 }
 
 export async function DELETE(request: Request) {

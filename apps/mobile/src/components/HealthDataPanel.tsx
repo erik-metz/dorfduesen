@@ -1,38 +1,48 @@
 import { useCallback, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ActivityIndicator, Alert, DeviceEventEmitter, Pressable, Text, View } from 'react-native';
+import { HealthRecordList } from './HealthRecordList';
 import { useAuth } from '../auth/AuthProvider';
-import { connectDeviceHealth, deviceHealthProvider, HEALTH_CONNECTION_CHANGED, healthCursorKey, withHealthTimeout } from '../health/healthSync';
+import { connectDeviceHealth, deviceHealthProvider, HEALTH_CONNECTION_CHANGED, HEALTH_SYNC_COMPLETED, healthCursorKey, withHealthTimeout } from '../health/healthSync';
 
 const card = { backgroundColor: '#09090b', borderColor: '#3f3f46', borderWidth: 1, borderRadius: 14, padding: 14, gap: 10 } as const;
 
-type HealthConnection = { provider: string; consentedTypes: string[]; revokedAt: string | null };
+type HealthConnection = { provider: string; consentedTypes: string[]; revokedAt: string | null; lastSyncedAt: string | null };
+type HealthStatus = { connections: HealthConnection[]; storedRecordCount: number; recordTypes?: Array<{ type: string; count: number }> };
+const providerName = (provider: string) => provider === 'APPLE_HEALTH' ? 'Apple Health' : 'Health Connect';
 
-export function HealthDataPanel({ initialConnected = false, onConnectionChange }: { initialConnected?: boolean; onConnectionChange?: (connected: boolean) => void }) {
+export function HealthDataPanel() {
   const { apiFetch, user } = useAuth();
   const [busy, setBusy] = useState(false);
-  const [connected, setConnected] = useState(initialConnected);
+  const [status, setStatus] = useState<HealthStatus | null>(null);
+  const [localState, setLocalState] = useState<string | null>(null);
+  const [updated, setUpdated] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const userId = user?.id;
+  const connected = Boolean(localState && status?.connections.some(item => item.provider === deviceHealthProvider && !item.revokedAt && item.consentedTypes.length));
 
   const refresh = useCallback(async () => {
-    const response = await apiFetch('/api/mobile/health/status', { cache: 'no-store' });
-    if (!response.ok) return;
-    const payload = await response.json() as { connections?: HealthConnection[] };
-    const active = payload.connections?.find(connection => connection.provider === deviceHealthProvider && !connection.revokedAt && connection.consentedTypes.length > 0);
-    const nextConnected = Boolean(active && user && await AsyncStorage.getItem(healthCursorKey(user.id)));
-    setConnected(nextConnected);
-    onConnectionChange?.(nextConnected);
-  }, [apiFetch, onConnectionChange, user]);
+    if (!userId) return;
+    const [response, state] = await Promise.all([
+      apiFetch('/api/mobile/health/status?includeRecordTypes=1', { cache: 'no-store' }),
+      AsyncStorage.getItem(healthCursorKey(userId)).catch(() => null),
+    ]);
+    if (!response.ok) throw new Error('Der Health-Status konnte nicht geladen werden.');
+    const payload: HealthStatus = await response.json();
+    setLocalState(state);
+    setStatus(payload);
+  }, [apiFetch, userId]);
 
   useEffect(() => {
-    void refresh().catch(() => undefined);
-    const subscription = DeviceEventEmitter.addListener(HEALTH_CONNECTION_CHANGED, (userId: string) => {
-      if (user?.id !== userId) return;
-      setConnected(true);
-      onConnectionChange?.(true);
-    });
-    return () => subscription.remove();
-  }, [onConnectionChange, refresh, user?.id]);
+    const reload = () => void refresh().catch(() => setError('Der Health-Status konnte nicht geladen werden.'));
+    reload();
+    const subscriptions = [HEALTH_CONNECTION_CHANGED, HEALTH_SYNC_COMPLETED].map(event => DeviceEventEmitter.addListener(event, (accountId: string) => {
+      if (accountId !== userId) return;
+      reload();
+      if (event === HEALTH_SYNC_COMPLETED) setUpdated(value => value + 1);
+    }));
+    return () => subscriptions.forEach(subscription => subscription.remove());
+  }, [refresh, userId]);
 
   async function connect() {
     if (!user) return;
@@ -74,11 +84,27 @@ export function HealthDataPanel({ initialConnected = false, onConnectionChange }
   }
 
   return <View style={card}>
-    <Text style={{ color: '#f4f4f5', fontSize: 16, fontWeight: '800' }}>{connected ? 'Health' : 'Health verbinden'}</Text>
-    {!connected ? <Text style={{ color: '#a1a1aa', fontSize: 12, lineHeight: 18 }}>Kopple Apple Health oder Health Connect mit Dorfdüsen. Dein Gerät fragt nach den Datentypen. Mit der Kopplung erlaubst du auch die Speicherung der freigegebenen Daten in deinem Dorfdüsen-Konto. Importierte Workouts können in der Düsen-Arena erscheinen. Andere Gesundheitswerte bleiben privat.</Text> : null}
-    <Pressable accessibilityRole="button" disabled={busy} onPress={() => connected ? revoke() : void connect()} style={{ backgroundColor: connected ? '#27272a' : '#ea580c', borderColor: connected ? '#3f3f46' : '#ea580c', borderWidth: 1, borderRadius: 10, padding: 12, alignItems: 'center' }}>
-      {busy ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontWeight: '800' }}>{connected ? 'Health-Verbindung trennen' : 'Health koppeln'}</Text>}
+    <Text style={{ color: '#f4f4f5', fontSize: 16, fontWeight: '800' }}>Importstatus</Text>
+    {status ? <>
+      <Text style={{ color: '#fafafa', fontSize: 20, fontWeight: '800' }}>{status.storedRecordCount.toLocaleString('de-DE')} gespeicherte Datensätze</Text>
+      {status.connections.map(item => <Text key={item.provider} style={{ color: '#d4d4d8', fontSize: 13 }}>
+        {providerName(item.provider)} · {item.revokedAt ? 'Getrennt' : 'Freigabe gespeichert'}
+        {'\n'}Letzter abgeschlossener Sync: {item.lastSyncedAt ? new Date(item.lastSyncedAt).toLocaleString('de-DE') : 'noch keiner'}
+      </Text>)}
+      {localState === 'pending' && connected ? <Text style={{ color: '#fdba74', fontSize: 13 }}>Erster Import ausstehend oder läuft. Lass Dorfdüsen dafür geöffnet.</Text> : null}
+      {status.storedRecordCount === 0 ? <Text style={{ color: '#a1a1aa', fontSize: 13 }}>Sobald die App freigegebene Messwerte gespeichert hat, erscheinen sie hier.</Text> : null}
+    </> : !error ? <ActivityIndicator color="#fc7a3d" /> : null}
+    {status && !connected ? <Text style={{ color: '#a1a1aa', fontSize: 12, lineHeight: 18 }}>Kopple die Gesundheits-App dieses Geräts und erlaube Dorfdüsen, die freigegebenen Werte zu speichern. Importierte Workouts können in der Düsen-Arena erscheinen. Andere Gesundheitswerte bleiben privat.</Text> : null}
+    {status && deviceHealthProvider ? <Pressable accessibilityRole="button" disabled={busy} onPress={() => connected ? revoke() : void connect()} style={{ backgroundColor: connected ? '#27272a' : '#ea580c', padding: 12, borderRadius: 10, alignItems: 'center' }}>
+      {busy ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontWeight: '800' }}>{connected ? 'Health-Verbindung trennen' : `${providerName(deviceHealthProvider)} koppeln`}</Text>}
+    </Pressable> : null}
+    <Pressable accessibilityRole="button" onPress={() => {
+      setError(null);
+      void refresh().then(() => setUpdated(value => value + 1)).catch(() => setError('Der Health-Status konnte nicht geladen werden.'));
+    }} style={{ paddingVertical: 8 }}>
+      <Text style={{ color: '#fdba74', fontWeight: '700' }}>Anzeige aktualisieren</Text>
     </Pressable>
-    {error ? <Text accessibilityLiveRegion="assertive" style={{ color: '#fca5a5', fontSize: 12 }}>{error}</Text> : null}
+    {error ? <Text accessibilityLiveRegion="polite" style={{ color: '#fca5a5', fontSize: 12 }}>{error}</Text> : null}
+    {status && status.storedRecordCount > 0 ? <HealthRecordList revision={updated} types={status.recordTypes ?? []} /> : null}
   </View>;
 }

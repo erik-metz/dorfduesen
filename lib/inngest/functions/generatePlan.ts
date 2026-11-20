@@ -49,7 +49,7 @@ export const generatePlanFunction = inngest.createFunction(
       });
       invalidateCacheTags(cacheTags.userPlans(userId));
 
-      const stats = await calculateAthleteBaseline(userId);
+      const { stats, gentlerStart } = await calculateAthleteBaseline(userId);
 
       // Fetch or update user profile with latest VDOT & HR
       const profile = await db.userProfile.findUnique({
@@ -76,13 +76,14 @@ export const generatePlanFunction = inngest.createFunction(
         },
       });
 
-      return { stats, maxHr, restingHr, vdot };
+      return { stats, maxHr, restingHr, vdot, gentlerStart };
     });
 
     // STEP 2: Compute periodization framework (CPU)
     const skeleton = await step.run("build-periodization-skeleton", async () => {
       return buildPeriodizationSkeleton({
         baseline: baseline.stats,
+        gentlerStart: baseline.gentlerStart,
         goalType,
         goalSubtype,
         goalDescription,
@@ -128,7 +129,7 @@ export const generatePlanFunction = inngest.createFunction(
             data: {
               planId, weekNumber: week.weekNumber, phase: week.phase,
               targetDistance: week.targetDistance, isDeloadWeek: week.isDeloadWeek,
-              focusTitle: week.focusTitle,
+              focusTitle: baseline.gentlerStart && week.weekNumber === 1 ? skeleton.weeks[0].focusTitle : week.focusTitle,
               workouts: { create: week.workouts.map(wo => ({
                 scheduledDate: new Date(wo.date), sportType: wo.sportType || 'Run',
                 workoutType: wo.workoutType, title: wo.title, description: wo.description,

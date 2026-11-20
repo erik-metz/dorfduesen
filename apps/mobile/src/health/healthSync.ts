@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DeviceEventEmitter, Platform } from 'react-native';
+export const HEALTH_SYNC_COMPLETED = 'dorfduesen:health-sync-completed';
 export const HEALTH_CONNECTION_CHANGED = 'dorfduesen:health-connection-changed';
 
 export const deviceHealthProvider = Platform.OS === 'ios' ? 'APPLE_HEALTH' : Platform.OS === 'android' ? 'HEALTH_CONNECT' : null;

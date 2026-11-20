@@ -31,6 +31,7 @@ export interface PeriodizationPlanSkeleton {
 
 export interface PeriodizationInput {
   baseline: AthleteBaseline;
+  gentlerStart?: boolean;
   goalType: string; // 5K | 10K | HALF_MARATHON | MARATHON | GENERAL_FITNESS | BASE_BUILD | FITNESS_BUILD | SPEED_IMPROVE | WEIGHT_LOSS | ROUTINE
   targetDistanceKm?: number;
   goalSubtype?: string;
@@ -77,10 +78,11 @@ export function buildPeriodizationSkeleton(input: PeriodizationInput): Periodiza
   const longRunDay = (isFlexibleLongRun || input.preferredLongRunDay == null) ? 0 : input.preferredLongRunDay; // Default placeholder slot Sunday, but marked flexible
 
   // Starting volume based on user baseline
-  const startVolume = Math.max(input.baseline.averageWeeklyKm * 0.9, 10);
+  const plannedStartVolume = Math.max(input.baseline.averageWeeklyKm * 0.9, 10);
+  const startVolume = input.gentlerStart ? plannedStartVolume * 0.85 : plannedStartVolume;
   
   // Peak volume estimated based on goal
-  let targetPeakVolume = startVolume * 1.35;
+  let targetPeakVolume = plannedStartVolume * 1.35;
   if (input.goalType === "HALF_MARATHON") {
     targetPeakVolume = Math.max(targetPeakVolume, 38);
   } else if (input.goalType === "MARATHON") {
@@ -159,7 +161,7 @@ export function buildPeriodizationSkeleton(input: PeriodizationInput): Periodiza
 
     // Distribute mileage across days
     const daysDistribution = distributeDays(
-      weeklyKm,
+      w === 1 && input.gentlerStart ? plannedStartVolume : weeklyKm,
       daysAvailable,
       longRunDay,
       isFlexibleLongRun,
@@ -167,6 +169,18 @@ export function buildPeriodizationSkeleton(input: PeriodizationInput): Periodiza
       input.includeSundayRun ?? true,
       input.goalType
     );
+
+    if (w === 1 && input.gentlerStart) {
+      focusTitle = 'Ruhiger Einstieg mit lockeren Läufen';
+      for (const day of daysDistribution) {
+        if (day.dayOfWeek !== 0 || input.includeSundayRun === false) {
+          day.approximateKm = Math.round(day.approximateKm * 0.85 * 10) / 10;
+        }
+        if (day.workoutType === 'TEMPO' || day.workoutType === 'INTERVAL' || day.workoutType === 'LONGRUN') {
+          day.workoutType = 'EASY';
+        }
+      }
+    }
 
     weeks.push({
       weekNumber: w,
@@ -182,7 +196,7 @@ export function buildPeriodizationSkeleton(input: PeriodizationInput): Periodiza
     totalWeeks,
     startDate,
     targetDate: targetDate || new Date(),
-    startingWeeklyKm: Math.round(startVolume * 10) / 10,
+    startingWeeklyKm: input.gentlerStart ? weeks[0].targetKm : Math.round(startVolume * 10) / 10,
     peakWeeklyKm: Math.round(targetPeakVolume * 10) / 10,
     weeks,
   };
