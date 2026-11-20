@@ -30,7 +30,8 @@ async function getProjection(seasonKey: string, inputHash: string, valid: Array<
     try {
       return await db.$transaction(async tx => {
         // Serialize cross-instance rebuilds for this season and re-check after acquiring the lock.
-        await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${`territory-projection:${seasonKey}`}))`;
+        // PostgreSQL returns void here, which Prisma cannot deserialize.
+        await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${`territory-projection:${seasonKey}`}))::text`;
         const latest = await tx.territoryProjectionCache.findUnique({ where: { seasonKey } });
         if (latest?.inputHash === inputHash && latest.projection) return projectionFromJson(latest.projection);
         if (latest?.failedInputHash === inputHash && latest.retryAt && latest.retryAt > new Date()) {
