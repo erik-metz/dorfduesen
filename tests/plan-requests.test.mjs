@@ -17,17 +17,17 @@ test('generation quota survives deleting plans and blocks simultaneous requests'
       create: async ({ data }) => { pending = { ...data, id: 'new' }; return pending; },
     },
   };
-  const { reservePlan } = loadTs('lib/training/plan-requests.ts', {
+  const { reservePlan, DAILY_GENERATION_LIMIT } = loadTs('lib/training/plan-requests.ts', {
     '@/lib/db': { db: { $transaction: async fn => { locked = false; return fn(tx); } } },
   });
   const input = { title: 'Plan', goalType: '5K', startDate: new Date(), endDate: new Date(), totalWeeks: 8 };
   assert.equal((await reservePlan('user', input)).kind, 'created');
   assert.equal((await reservePlan('user', input)).kind, 'pending');
-  for (let i = 1; i < 5; i++) {
+  for (let i = 1; i < DAILY_GENERATION_LIMIT; i++) {
     pending = null; // deletion removes plans, not the attempt ledger
     assert.equal((await reservePlan('user', input)).kind, 'created');
   }
   pending = null;
   assert.equal((await reservePlan('user', input)).kind, 'limit');
-  assert.equal(attempts, 5);
+  assert.equal(attempts, DAILY_GENERATION_LIMIT);
 });

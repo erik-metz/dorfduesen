@@ -469,4 +469,16 @@ model CoachChatQuota {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   day    String
   count  Int
+  premiumCount Int @default(0)
+}
+
+model CoachModelCatalog {
+  id          Int      @id
+  data        Json?
+  nextRefresh DateTime
+}
+
+model CoachSpend {
+  month String @id
+  ticks BigInt
 }

@@ -20,8 +20,8 @@ Platzhalter ersetzen; Zugangsdaten gehören nicht in Git.
 | `CRON_SECRET` | Separater zufälliger Schlüssel mit mindestens 32 Zeichen für den HTTP-Cron-Endpunkt |
 | `INNGEST_EVENT_KEY`, `INNGEST_SIGNING_KEY` | In Produktion für Hintergrundjobs erforderlich |
 | `XAI_API_KEY` | Für den mobilen Coach-Chat erforderlich. Die Planerstellung verwendet ohne Schlüssel den algorithmischen Generator. |
-| `XAI_MODEL` | Optionales Standardmodell für den Coach |
-| `XAI_COACH_CHAT_MODEL` | Optionales Modell für die xAI Responses API mit Streaming und Function Calling. Standard ist `grok-4.3`. |
+| `XAI_MODEL` | Optionales Modell für die Trainingsplanerstellung und Aktivitätsanalyse. |
+| `XAI_COACH_MONTHLY_BUDGET_USD` | Gemeinsames xAI-Budget für Smart Coach und Trainingsplanerstellung pro Kalendermonat (Europe/Berlin). Standard sind 10 USD. |
 
 Zufällige Schlüssel lassen sich mit `openssl rand -hex 32` erzeugen. Fehlende oder beispielhafte Session-Secrets werden abgelehnt; der Cron-Endpunkt ist ohne gültiges Secret deaktiviert (503). Ein Wechsel des Session-Schlüssels meldet bestehende Sitzungen ab.
 

@@ -52,4 +52,4 @@ Die Migration `20261022120000_mobile_health_data` legt die Datenbanktabellen an 
 
 ## Smart Coach
 
-Der Tab **Coach** bietet KI-Chat, gespeicherte Gespräche und Trainingspläne. Vor dem Rollout die Migration `20261120120000_mobile_coach` mit `npx prisma migrate deploy` anwenden und serverseitig `XAI_API_KEY` setzen. Optional lässt sich das Chat-Modell mit `XAI_COACH_CHAT_MODEL` konfigurieren. Die mobile App benötigt den neuen App-Code.
+Der Tab **Coach** bietet KI-Chat, gespeicherte Gespräche und Trainingspläne. Vor dem Rollout die Migration `20261120120000_mobile_coach` mit `npx prisma migrate deploy` anwenden und die nachfolgende Migration `20261120130000_coach_models_and_budget` mit `npx prisma migrate deploy` anwenden. Serverseitig `XAI_API_KEY` setzen. Der Coach übernimmt verfügbare, kompatible Modelle aus dem xAI-Katalog. Änderungen am Modellkatalog greifen in Web und App nach der nächsten Aktualisierung. Spracheingabe braucht einen nativen Build mit Mikrofon- und Spracherkennungsberechtigungen.

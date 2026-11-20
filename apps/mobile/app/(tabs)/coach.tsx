@@ -5,9 +5,10 @@ import { Alert, AppState, KeyboardAvoidingView, Linking, Platform, Pressable, Sc
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../src/auth/AuthProvider';
+import { useCoachDictation } from '../../src/coach/useCoachDictation';
+import { COACH_CONSENT_VERSION as consentVersion, isCoachSettings, joinDictation, type CoachSettings, type CoachQuota } from '../../src/coach/contracts';
 
 const endpoint = '/api/mobile/coach';
-const consentVersion = 'coach-xai-v1';
 const examples = ['Wie hat sich mein Training in den letzten acht Wochen entwickelt?', 'Hilf mir, einen 10-km-Trainingsplan zu erstellen.'];
 const planStatuses: Record<string, string> = {
   QUEUED: 'Wartet', PROCESSING: 'Wird erstellt', ACTIVE: 'Fertig', PAUSED: 'Pausiert', COMPLETED: 'Abgeschlossen', FAILED: 'Fehlgeschlagen',
@@ -30,20 +31,20 @@ type Week = {
 };
 type ChatPage = { conversation: Conversation; turns: Turn[]; hasMore: boolean };
 type ConversationPage = { conversations: Conversation[]; hasMore: boolean };
-type SendEvent = { conversation?: Conversation; turn?: Turn; text?: string; error?: string };
-type PendingSend = { requestId: string; question: string; conversationId?: string };
+type SendEvent = { conversation?: Conversation; turn?: Turn; text?: string; error?: string; quota?: Partial<CoachQuota> };
+type PendingSend = { requestId: string; question: string; conversationId?: string; modelId?: string };
 
 function url(params: Record<string, string>) {
   return endpoint + '?' + Object.entries(params).map(([key, value]) => key + '=' + encodeURIComponent(value)).join('&');
 }
 
 class CoachHttpError extends Error {
-  constructor(message: string, readonly status: number) { super(message); }
+  constructor(message: string, readonly status: number, readonly quota?: CoachQuota) { super(message); }
 }
 
 async function readJson<T>(response: Response): Promise<T> {
   const data = await response.json().catch(() => null);
-  if (!response.ok || !data) throw new CoachHttpError(data?.error ?? 'Der Coach ist gerade nicht erreichbar.', response.status);
+  if (!response.ok || !data) throw new CoachHttpError(data?.error ?? 'Der Coach ist gerade nicht erreichbar.', response.status, data?.quota);
   return data as T;
 }
 
@@ -79,6 +80,10 @@ function CoachChat() {
   const [olderConversations, setOlderConversations] = useState(false);
   const [history, setHistory] = useState(false);
   const [draft, setDraft] = useState('');
+  const [settings, setSettings] = useState<CoachSettings>();
+  const [modelId, setModelId] = useState('');
+  const [showModels, setShowModels] = useState(false);
+  const [settingsError, setSettingsError] = useState(false);
   const [partial, setPartial] = useState('');
   const [pending, setPending] = useState<PendingSend>();
   const [busy, setBusy] = useState(true);
@@ -93,10 +98,62 @@ function CoachChat() {
   const consentKey = `coach-consent:${user?.id}`;
   const conversationKey = `coach-conversation:${user?.id}`;
   const conversationId = conversation?.id;
+  const modelKey = `coach-model:${user?.id}`;
+  const selected = settings?.models.find(model => model.id === modelId);
+  const standard = settings?.models.find(model => model.id === settings.defaultModelId);
+  const dictation = useCoachDictation(focused && consent && !history && !planView, text => {
+    setDraft(current => joinDictation(current, text));
+  });
+
+  const refreshSettings = useCallback(async (signal?: AbortSignal) => {
+    try {
+      const data = await readJson<unknown>(await apiFetch(url({ settings: '1' }), { signal }));
+      if (!isCoachSettings(data)) throw new Error('Die Modellauswahl ist noch nicht verfügbar.');
+      if (!signal?.aborted) { setSettings(data); setSettingsError(false); }
+    } catch {
+      if (!signal?.aborted) setSettingsError(true);
+    }
+  }, [apiFetch]);
+
+  useEffect(() => {
+    let active = true;
+    void AsyncStorage.getItem(modelKey).then(value => {
+      if (active && value) setModelId(value);
+    }).catch(() => {});
+    return () => { active = false; };
+  }, [modelKey]);
+
+  useEffect(() => {
+    if (!focused || !appActive || !consent) return;
+    const controller = new AbortController();
+    const timer = setTimeout(() => { void refreshSettings(controller.signal); }, 0);
+    return () => { clearTimeout(timer); controller.abort(); };
+  }, [appActive, consent, focused, refreshSettings]);
+
+  const resetsAt = settings?.quota.resetsAt;
+  useEffect(() => {
+    if (!resetsAt || !focused || !appActive) return;
+    const delay = Date.parse(resetsAt) - Date.now() + 1000;
+    if (delay <= 0) return;
+    const controller = new AbortController();
+    const timer = setTimeout(() => { void refreshSettings(controller.signal); }, delay);
+    return () => { clearTimeout(timer); controller.abort(); };
+  }, [refreshSettings, resetsAt, appActive, focused]);
+
+  const applyQuota = useCallback((quota: Partial<CoachQuota>) => {
+    setSettings(current => current ? { ...current, quota: { ...current.quota, ...quota } } : current);
+  }, []);
+
+  function selectModel(value: string) {
+    setModelId(value);
+    setShowModels(false);
+    void AsyncStorage.setItem(modelKey, value).catch(() => {});
+  }
 
   const showError = useCallback((cause: unknown) => {
+    if (cause instanceof CoachHttpError && cause.quota) applyQuota(cause.quota);
     setError(cause instanceof Error ? cause.message : 'Der Coach ist gerade nicht erreichbar.');
-  }, []);
+  }, [applyQuota]);
 
   const loadConversation = useCallback(async (id: string, before?: string) => {
     const page = await readJson<ChatPage>(await apiFetch(url({ conversation: id, ...(before ? { before } : {}) }), { cache: 'no-store' }));
@@ -196,8 +253,8 @@ function CoachChat() {
 
   async function send(retry?: PendingSend) {
     const question = retry?.question ?? draft.trim();
-    if (!question || !consent || busy || action.current) return;
-    const request = retry ?? { requestId: randomUUID(), question, conversationId };
+    if (!question || !consent || busy || dictation.listening || dictation.starting || action.current) return;
+    const request = retry ?? { requestId: randomUUID(), question, conversationId, modelId: selected?.id };
     action.current = true;
     setError('');
     setSending(true);
@@ -206,6 +263,7 @@ function CoachChat() {
     if (!retry) setDraft('');
     let finished = false;
     function event(data: SendEvent) {
+      if (data.quota) applyQuota(data.quota);
       if (data.conversation) {
         setConversation(data.conversation);
         void AsyncStorage.setItem(conversationKey, data.conversation.id).catch(() => {});
@@ -251,6 +309,7 @@ function CoachChat() {
         setPending(undefined);
         setDraft(question);
       }
+      if (cause instanceof CoachHttpError && cause.status === 422) void refreshSettings();
       showError(cause);
     }
     finally { setPartial(''); action.current = false; setSending(false); }
@@ -286,10 +345,11 @@ function CoachChat() {
 
   function confirmPlan(turn: Turn) {
     return perform(async () => {
-      const result = await readJson<{ planId: string; status: string }>(await apiFetch(endpoint, {
+      const result = await readJson<{ planId: string; status: string; quota?: CoachQuota }>(await apiFetch(endpoint, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'confirm', turnId: turn.id }),
       }));
+      if (result.quota) applyQuota(result.quota);
       applyTurn({ ...turn, plan: { id: result.planId, title: turn.proposal?.title ?? 'Trainingsplan', status: result.status, totalWeeks: 0 } });
     });
   }
@@ -385,7 +445,7 @@ function CoachChat() {
               {!['QUEUED', 'PROCESSING', 'FAILED'].includes(turn.plan.status) ? <Button label="Plan öffnen" primary disabled={busy} onPress={() => void openPlan(turn.plan!.id)} /> : null}
             </> : <>
               <Text style={styles.muted}>Sobald der neue Plan fertig ist, pausiert dein bisher aktiver Plan.</Text>
-              <Button label="Plan erstellen" primary disabled={busy || sending} onPress={() => void confirmPlan(turn)} />
+              <Button label="Plan erstellen" primary disabled={busy || sending || settings?.quota.plans === 0} onPress={() => void confirmPlan(turn)} />
             </>}
           </View> : null}
         </View>)}
@@ -395,10 +455,32 @@ function CoachChat() {
         {waiting && !sending && conversationId ? <Button label="Status aktualisieren" disabled={busy} onPress={() => void perform(async () => { await refreshPending(); })} /> : null}
         {error && !conversationId && !pending && !sending ? <Button label="Erneut laden" disabled={busy} onPress={() => { setError(''); void initialize(); }} /> : null}
       </ScrollView>
-      {consent ? <View style={styles.composer}>
-        <TextInput accessibilityLabel="Nachricht an den Coach" value={draft} onChangeText={setDraft} maxLength={3000}
+      {consent ? <View style={styles.composerArea}>
+        <View style={styles.row}>
+          <Button label={selected?.label ?? (standard ? `Automatisch · ${standard.label}` : 'Modell auswählen')}
+            disabled={sending || Boolean(pending) || !settings?.models.length} onPress={() => setShowModels(value => !value)} />
+          {settingsError || settings?.models.length === 0 ? <Button label="Modelle laden" onPress={() => void refreshSettings()} /> : null}
+        </View>
+        {showModels ? <ScrollView style={styles.modelList} contentContainerStyle={styles.modelOptions} keyboardShouldPersistTaps="handled">
+          <Button label="Automatisch · sparsam" primary={!selected} onPress={() => selectModel('')} />
+          {settings?.models.map(model => <Button key={model.id} label={model.label + (model.newest ? ' · Neu' : '') + (model.premium ? ' · Höhere Kosten' : '')}
+            primary={selected?.id === model.id} onPress={() => selectModel(model.id)} />)}
+        </ScrollView> : null}
+        {settings ? <Text style={styles.muted}>{settings.quota.messages} Nachrichten · {settings.quota.premiumMessages} mit teureren Modellen · {settings.quota.plans} Pläne übrig bis Mitternacht</Text> : null}
+        {settings && !settings.defaultModelId ? <Text style={styles.muted}>Die KI-Modelle sind gerade nicht verfügbar.</Text> : null}
+        {dictation.message ? <Text accessibilityLiveRegion="polite" style={styles.muted}>{dictation.message}</Text> : null}
+        {dictation.canDownload ? <Button label="Deutsch herunterladen" onPress={() => void dictation.download()} /> : null}
+        <View style={styles.composer}>
+          <TextInput accessibilityLabel="Nachricht an den Coach" value={joinDictation(draft, dictation.interim)} onChangeText={setDraft} editable={!dictation.listening} maxLength={3000}
           multiline placeholder="Deine Nachricht" placeholderTextColor="#a1a1aa" style={styles.input} />
-        <Button label="Senden" primary disabled={busy || sending || Boolean(pending) || !draft.trim()} onPress={() => void send()} />
+        <Pressable accessibilityRole="button" accessibilityLabel={dictation.listening ? 'Diktat beenden' : 'Nachricht diktieren'}
+          disabled={dictation.starting || busy || sending} onPress={() => void dictation.toggle()}
+          style={[styles.button, dictation.listening && styles.primary, (dictation.starting || busy || sending) && styles.disabled]}>
+          <Text style={dictation.listening ? styles.primaryText : styles.text}>{dictation.listening ? 'Stopp' : 'Diktieren'}</Text>
+        </Pressable>
+        <Button label="Senden" primary disabled={busy || sending || dictation.listening || dictation.starting || Boolean(pending) || !draft.trim()
+          || !settings?.defaultModelId || settings.quota.messages === 0 || Boolean(selected?.premium && settings.quota.premiumMessages === 0)} onPress={() => void send()} />
+        </View>
       </View> : null}
     </>}
   </KeyboardAvoidingView>;
@@ -423,7 +505,10 @@ const styles = StyleSheet.create({
   card: { backgroundColor: '#18181b', borderColor: '#3f3f46', borderWidth: 1, borderRadius: 12, padding: 14, gap: 8 },
   question: { alignSelf: 'flex-end', maxWidth: '92%', backgroundColor: '#42281e', color: '#fafafa', borderRadius: 14, padding: 12, fontSize: 16, lineHeight: 23 },
   answer: { backgroundColor: '#18181b', color: '#fafafa', borderRadius: 14, padding: 12, fontSize: 16, lineHeight: 24 },
-  composer: { flexDirection: 'row', gap: 8, alignItems: 'flex-end', padding: 12, borderTopColor: '#27272a', borderTopWidth: 1 },
+  composerArea: { padding: 12, gap: 6, borderTopColor: '#27272a', borderTopWidth: 1 },
+  composer: { flexDirection: 'row', gap: 8, alignItems: 'flex-end' },
+  modelList: { maxHeight: 150 },
+  modelOptions: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   input: { flex: 1, minHeight: 44, maxHeight: 120, color: '#fafafa', backgroundColor: '#18181b', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, fontSize: 16 },
   error: { color: '#fca5a5', paddingHorizontal: 16, paddingVertical: 8 },
 });

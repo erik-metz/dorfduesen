@@ -1,5 +1,7 @@
 import { dayKey, berlinMidnight, shiftDay } from '@/lib/time';
-import { xai, XAI_DEFAULT_MODEL } from "./xai";
+import { xai } from "./xai";
+import { getCoachModels } from "@/lib/coach/models";
+import { estimateCoachCost, reserveCoachSpend } from "@/lib/coach/spend";
 import { PeriodizationPlanSkeleton } from "../training/periodization";
 import { AthleteBaseline } from "../training/baseline";
 import { TrainingPaces, paceToSecondsPerKm } from "../training/vdot";
@@ -63,11 +65,16 @@ export async function generatePlanWithGrok(
   try {
     const prompt = buildGrokPrompt(context);
 
-    const response = await xai.chat.completions.create({
-      model: process.env.XAI_MODEL || XAI_DEFAULT_MODEL,
+    const configured = process.env.XAI_MODEL || "grok-4.3";
+    const planModelId = configured === "grok-3" ? "grok-4.3" : configured;
+    const models = await getCoachModels();
+    const model = models.find(item => item.id === planModelId || item.aliases.includes(planModelId));
+    if (!model) return generateAlgorithmicPlan(context);
+    const params = {
+      model: model.id,
       messages: [
         {
-          role: "system",
+          role: "system" as const,
           content: `Du bist der "DorfDüsen Smart Coach", ein professioneller, sportwissenschaftlicher Lauftrainer für den Lauf- und Radsportverein "DorfDüsen".
 Deine Aufgabe ist es, für die bereitgestellten Rahmendaten der Wochen detaillierte, präzise und motivierende Laufeinheiten zu erstellen.
 Wichtige Regeln:
@@ -78,13 +85,17 @@ Wichtige Regeln:
 5. Gib IMMER valides JSON zurück, das dem gewünschten Schema entspricht. Keine Erklärungen außerhalb von JSON.`,
         },
         {
-          role: "user",
+          role: "user" as const,
           content: prompt,
         },
       ],
-      response_format: { type: "json_object" },
+      response_format: { type: "json_object" as const },
       temperature: 0.3,
-    });
+      max_completion_tokens: 16000,
+    };
+    const settle = await reserveCoachSpend(estimateCoachCost(model, params, params.max_completion_tokens));
+    const response = await xai.chat.completions.create(params, { maxRetries: 0 });
+    await settle(response.usage);
 
     const content = response.choices[0]?.message?.content;
     if (!content) {
@@ -98,8 +109,8 @@ Wichtige Regeln:
     }
 
     throw new Error("Invalid JSON structure from xAI Grok");
-  } catch (err) {
-    console.error("[xAI Generator Error]", err);
+  } catch {
+    console.error("xAI plan generation unavailable; using algorithmic training plan");
     // Fallback to algorithmic generator so user's background job never gets permanently stuck
     return generateAlgorithmicPlan(context);
   }

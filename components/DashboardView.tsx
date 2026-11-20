@@ -570,7 +570,7 @@ export function DashboardView({
             </Link>
           </div>
         ) : (
-          <CoachDashboard />
+          <CoachDashboard userId={user.id} />
         )
       ) : mainTab === 'trophies' ? (
         <div className="space-y-6">

@@ -1,5 +1,7 @@
 'use client';
 
+import { CoachChat } from './CoachChat';
+
 import { ModalDialog } from '@/components/ModalDialog';
 
 import { FitnessHistory } from './FitnessHistory';
@@ -268,13 +270,13 @@ interface ProfileData {
   }>;
 }
 
-export function CoachDashboard({ physiologyOnly = false }: { physiologyOnly?: boolean }) {
+export function CoachDashboard({ physiologyOnly = false, userId }: { physiologyOnly?: boolean; userId?: string }) {
   const [plan, setPlan] = useState<Plan | null>(null);
   const [profileData, setProfileData] = useState<ProfileData | null>(null);
   const [metricsHistory, setMetricsHistory] = useState<HealthMetricItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
-  const [activeTab, setActiveTab] = useState<'plan' | 'philosophy' | 'new-plan'>('plan');
+  const [activeTab, setActiveTab] = useState<'chat' | 'plan' | 'philosophy' | 'new-plan'>(userId ? 'chat' : 'plan');
 
   // Generator form state
   const [goalCategory, setGoalCategory] = useState<'FITNESS_BUILD' | 'SPEED_IMPROVE' | 'WEIGHT_LOSS' | 'ROUTINE' | 'DISTANCE'>('FITNESS_BUILD');
@@ -287,7 +289,7 @@ export function CoachDashboard({ physiologyOnly = false }: { physiologyOnly?: bo
   const [weightKg, setWeightKg] = useState('');
   const [restingHr, setRestingHr] = useState('');
   const [generationsToday, setGenerationsToday] = useState(0);
-  const [dailyLimit, setDailyLimit] = useState(5);
+  const [dailyLimit, setDailyLimit] = useState(3);
   const [generationError, setGenerationError] = useState<string | null>(null);
 
   // Quick Health Log State
@@ -353,15 +355,17 @@ export function CoachDashboard({ physiologyOnly = false }: { physiologyOnly?: bo
     }
   }, []);
 
-  // Fetch plan & profile
+  // Defer the plan and physiology payloads while the user is chatting.
+  const showDashboardData = physiologyOnly || activeTab !== 'chat';
   useEffect(() => {
+    if (!showDashboardData || !loading) return;
     const initialFetch = setTimeout(() => { void loadData(); }, 0);
     return () => clearTimeout(initialFetch);
-  }, [loadData]);
+  }, [loadData, loading, showDashboardData]);
 
   // Poll while generating
   useEffect(() => {
-    if (!generating) return;
+    if (!generating || !showDashboardData) return;
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout>;
     let failures = 0;
@@ -395,7 +399,7 @@ export function CoachDashboard({ physiologyOnly = false }: { physiologyOnly?: bo
     };
     timer = setTimeout(poll, 3000);
     return () => { cancelled = true; clearTimeout(timer); };
-  }, [generating]);
+  }, [generating, showDashboardData]);
 
   const handleDeletePlan = async () => {
     setDeletingPlan(true);
@@ -580,7 +584,7 @@ export function CoachDashboard({ physiologyOnly = false }: { physiologyOnly?: bo
     }
   };
 
-  if (loading) {
+  if (loading && activeTab !== 'chat') {
     return (
       <div className="flex items-center justify-center min-h-[500px]">
         <div className="flex items-center gap-3 text-orange-500 font-bold">
@@ -625,6 +629,11 @@ export function CoachDashboard({ physiologyOnly = false }: { physiologyOnly?: bo
 
         {/* Tab switch */}
         <div className="flex flex-wrap max-w-full items-center gap-2 bg-zinc-900 border border-zinc-800 p-1 rounded-xl self-start md:self-auto">
+          {userId && <button
+            onClick={() => setActiveTab('chat')}
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${activeTab === 'chat'
+              ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20' : 'text-zinc-400 hover:text-white'}`}
+          >Chat</button>}
           <button
             onClick={() => setActiveTab('plan')}
             className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
@@ -678,6 +687,10 @@ export function CoachDashboard({ physiologyOnly = false }: { physiologyOnly?: bo
             </p>
           </div>
         </div>
+      )}
+
+      {!physiologyOnly && activeTab === 'chat' && userId && (
+        <CoachChat key={userId} userId={userId} onPlanChanged={() => setLoading(true)} onOpenPlan={() => setActiveTab('plan')} />
       )}
 
       {/* TAB 1: ACTIVE PLAN */}

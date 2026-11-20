@@ -1,0 +1,13 @@
+diff --git a/node_modules/expo-speech-recognition/ios/ExpoSpeechRecognizer.swift b/node_modules/expo-speech-recognition/ios/ExpoSpeechRecognizer.swift
+index b278425..61aa12c 100644
+--- a/node_modules/expo-speech-recognition/ios/ExpoSpeechRecognizer.swift
++++ b/node_modules/expo-speech-recognition/ios/ExpoSpeechRecognizer.swift
+@@ -218,4 +218,7 @@ actor ExpoSpeechRecognizer: ObservableObject {
+-    guard let recognizer, recognizer.isAvailable else {
++    // Honor local-only recognition for the requested locale before opening the microphone.
++    guard let recognizer, recognizer.isAvailable,
++      !options.requiresOnDeviceRecognition || recognizer.supportsOnDeviceRecognition
++    else {
+       errorHandler(RecognizerError.recognizerIsUnavailable)
+       reset(andEmitEnd: true)
+       return

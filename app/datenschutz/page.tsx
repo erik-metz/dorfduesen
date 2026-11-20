@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
@@ -11,9 +12,9 @@ const heading = 'pt-5 text-lg font-bold text-white';
 export default function PrivacyPage() {
   return (
     <main className="mx-auto w-full max-w-3xl px-5 py-12 sm:px-8">
-      <a href="/" className="text-sm font-semibold text-orange-400">← Dorfdüsen Nordheim</a>
+      <Link href="/" className="text-sm font-semibold text-orange-400">← Dorfdüsen Nordheim</Link>
       <h1 className="mt-7 text-3xl font-black tracking-tight text-white">Datenschutzhinweise</h1>
-      <p className="mt-3 text-sm text-zinc-400">Stand: 17. November 2026 · Dorfdüsen iOS-App und zugehörige App-Dienste</p>
+      <p className="mt-3 text-sm text-zinc-400">Stand: 20. November 2026 · Dorfdüsen-Website, App und zugehörige Dienste</p>
 
       <section className={sections}>
         <h2 className={heading}>Verantwortlicher</h2>
@@ -37,7 +38,7 @@ export default function PrivacyPage() {
         <p>Für Konto, Anmeldung und die von dir genutzten App-Funktionen verarbeiten wir Daten zur Bereitstellung des Dienstes (Art. 6 Abs. 1 lit. b DSGVO). Für Sicherheit und technischen Betrieb stützen wir erforderliche Verarbeitungen auf berechtigte Interessen (Art. 6 Abs. 1 lit. f DSGVO). Optionale Health-Daten werden nur nach deiner ausdrücklichen Einwilligung übertragen und verarbeitet (Art. 6 Abs. 1 lit. a und Art. 9 Abs. 2 lit. a DSGVO). Du kannst eine Einwilligung für die Zukunft widerrufen; die Rechtmäßigkeit der vorherigen Verarbeitung bleibt davon unberührt.</p>
 
         <h2 className={heading}>Dienstleister und KI-Trainingscoach</h2>
-        <p>Für Betrieb und Speicherung werden Vercel (Anwendungshosting), Neon (PostgreSQL-Datenbank) und Inngest (Hintergrundaufgaben) eingesetzt. Strava stellt die OAuth-Anmeldung und Aktivitätsdaten bereit. Wenn der KI-Trainingscoach verwendet wird, erhält xAI für die Planerstellung Trainingskennzahlen, Pace- und Herzfrequenzbereiche sowie Plan- und Zielangaben. Der Coach nutzt xAI, wenn der entsprechende Zugang aktiviert ist; andernfalls wird der Plan algorithmisch erstellt. xAI gibt an, API-Ein- und Ausgaben standardmäßig bis zu 30 Tage verschlüsselt für Sicherheits- und Missbrauchsprüfungen zu speichern, nicht zum Modelltraining zu verwenden und danach zu löschen. Eine teamweite Zero-Data-Retention-Einstellung kann diese Speicherung ändern.</p>
+        <p>Für Betrieb und Speicherung werden Vercel (Anwendungshosting), Neon (PostgreSQL-Datenbank) und Inngest (Hintergrundaufgaben) eingesetzt. Strava stellt die OAuth-Anmeldung und Aktivitätsdaten bereit. Wenn der KI-Trainingscoach verwendet wird, erhält xAI für die Planerstellung Trainingskennzahlen, Pace- und Herzfrequenzbereiche sowie Plan- und Zielangaben. Wenn du den KI-Chat aktivierst, erhält xAI deine Chatnachrichten und, je nach Frage, relevante Ausschnitte aus den im Coach verfügbaren Trainings-, Aktivitäts-, Gesundheits-, Arena- und Plandaten. Chatverläufe sind in deinem Konto gespeichert und können im Chat gelöscht werden. Bei lokaler Spracheingabe verarbeitet dein Gerät das Audio. Erst wenn du den Text absendest, wird er an den KI-Chat übermittelt. Für Trainingspläne nutzt der Coach xAI, wenn der entsprechende Zugang aktiviert ist; andernfalls wird der Plan algorithmisch erstellt. xAI gibt an, API-Ein- und Ausgaben standardmäßig bis zu 30 Tage verschlüsselt für Sicherheits- und Missbrauchsprüfungen zu speichern, nicht zum Modelltraining zu verwenden und danach zu löschen. Eine teamweite Zero-Data-Retention-Einstellung kann diese Speicherung ändern.</p>
         <p>Vercel verarbeitet Daten primär in den USA und kann Daten auch in anderen Ländern verarbeiten; die Ausführungsregion von Serverfunktionen kann je Projekt festgelegt werden. Neon betreibt seine Datenbankinfrastruktur auf AWS und Azure; die konkrete Datenbankregion wird je Neon-Projekt ausgewählt. Inngest Cloud verarbeitet Ereignisse und Workflow-Daten in den USA. Vercel, Neon und Inngest können technische Unterauftragnehmer einsetzen. Bei Übermittlungen außerhalb des EWR können je nach Anbieter und Vertrag geeignete Garantien wie EU-Standardvertragsklauseln gelten. Weiterführende Informationen: <a className="text-orange-400 underline" href="https://vercel.com/legal/dpa">Vercel DPA</a>, <a className="text-orange-400 underline" href="https://neon.tech/pdf/DPA.pdf">Neon DPA</a>, <a className="text-orange-400 underline" href="https://www.inngest.com/docs/platform-and-operations/cloud-architecture-and-security">Inngest Cloud-Architektur</a> und <a className="text-orange-400 underline" href="https://docs.x.ai/developers/faq/security">xAI API-Sicherheit</a>.</p>
 
         <h2 className={heading}>Speicherung und Kontolöschung</h2>

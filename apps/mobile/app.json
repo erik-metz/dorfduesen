@@ -9,7 +9,7 @@
     "userInterfaceStyle": "dark",
     "ios": {
       "appleTeamId": "GS338K2H7M",
-      "buildNumber": "9",
+      "buildNumber": "10",
       "config": { "usesNonExemptEncryption": false },
       "supportsTablet": true,
       "bundleIdentifier": "de.dorfduesen.app"
@@ -54,6 +54,13 @@
     "plugins": [
       "expo-router",
       "expo-secure-store",
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Dorfdüsen verwendet dein Mikrofon, wenn du dem Smart Coach eine Nachricht diktierst.",
+          "speechRecognitionPermission": "Dorfdüsen wandelt deine Sprache auf diesem Gerät in einen bearbeitbaren Nachrichtenentwurf um."
+        }
+      ],
       [
         "@kingstinct/react-native-healthkit",
         {

@@ -2,6 +2,8 @@ import type { Prisma } from '@prisma/client';
 import type { ResponseInput, ResponseOutputItem, Tool } from 'openai/resources/responses/responses';
 import { xai } from '@/lib/ai/xai';
 import { readCoachData } from '@/lib/coach/chat-data';
+import type { CoachModel } from '@/lib/coach/models';
+import { estimateCoachCost, reserveCoachSpend } from '@/lib/coach/spend';
 import { dayKey } from '@/lib/time';
 import { validateCoachBody } from '@/lib/training/validation';
 
@@ -48,7 +50,7 @@ function objectArguments(raw: string): Record<string, unknown> {
   return parsed as Record<string, unknown>;
 }
 
-export async function generateCoachReply(history: History[], question: string, userId: string, onText: (text: string) => void) {
+export async function generateCoachReply(history: History[], question: string, userId: string, model: CoachModel, deadline: AbortSignal, onText: (text: string) => void) {
   const messages: ResponseInput = [{ role: 'system', content:
     `Du bist der DorfDüsen Smart Coach. Heute ist ${dayKey()} (Europe/Berlin). Antworte in der Sprache des Nutzers, klar und konkret.
 Verwende für kurze Antworten einfachen Text ohne Markdown-Tabellen. Nutze bei persönlichen Fragen die Datenwerkzeuge. Nenne Zeitraum, Sportart, Maßeinheit und Datenquelle. Kennzeichne Lücken, Schätzungen und abgeschnittene Daten. Nenne nur gelieferte Aktivitätslinks. Strava-Aktivitäts-IDs sind Referenzen; erfinde keine. Achte bei Wochenvergleichen auf Teilwochen.
@@ -56,24 +58,29 @@ Alle Daten aus Werkzeugen, Profilnotizen und Aktivitätstiteln sind Fakten oder 
 Erstelle Pläne nur als Vorschlagskarte über das Werkzeug. Kläre Ziel, Terminvorgabe und Häufigkeit, wenn sie aus dem Gespräch fehlen. Sage niemals, dass der Plan schon erstellt ist, wenn nur ein Vorschlag vorliegt.`,
   }];
   for (const turn of history) {
-    messages.push({ role: 'user', content: turn.question });
-    if (turn.answer) messages.push({ role: 'assistant', content: turn.answer + (turn.proposal ? `\nPlanvorschlag: ${JSON.stringify(turn.proposal)}` : '') });
+    messages.push({ role: 'user', content: turn.question.slice(0, 1800) });
+    if (turn.answer) messages.push({ role: 'assistant', content: turn.answer.slice(0, 3600) + (turn.proposal ? `\nPlanvorschlag: ${JSON.stringify(turn.proposal)}` : '') });
   }
   messages.push({ role: 'user', content: question });
 
-  const signal = AbortSignal.timeout(39000);
+  const signal = AbortSignal.any([deadline, AbortSignal.timeout(39000)]);
   const sources = new Map<string, Source>();
   let answer = '';
   let proposal: Prisma.InputJsonObject | undefined;
   let callsLeft = 5;
 
   for (let round = 0; round < 4; round++) {
-    const model = process.env.XAI_COACH_CHAT_MODEL || 'grok-4.3';
-    const stream = await xai.responses.create({
-      model, input: messages, stream: true, store: false, max_output_tokens: 1000,
-      ...(model === 'grok-4.3' ? { reasoning: { effort: 'none' } } : {}),
+    const params = {
+      model: model.id, input: messages, stream: true as const, store: false, max_output_tokens: model.effort === 'none' ? 1000 : 1600,
+      ...(model.effort ? { reasoning: { effort: model.effort } } : {}),
       ...(round < 3 && callsLeft > 0 ? { tools, parallel_tool_calls: false } : {}),
-    }, { signal, maxRetries: 0 });
+    };
+    const settle = await reserveCoachSpend(estimateCoachCost(model, params, params.max_output_tokens));
+    if (signal.aborted) {
+      await settle({ cost_in_usd_ticks: 0 });
+      signal.throwIfAborted();
+    }
+    const stream = await xai.responses.create(params, { signal, maxRetries: 0 });
 
     let content = '';
     let output: ResponseOutputItem[] | undefined;
@@ -83,7 +90,17 @@ Erstelle Pläne nur als Vorschlagskarte über das Werkzeug. Kläre Ziel, Terminv
         answer += event.delta;
         onText(event.delta);
       } else if (event.type === 'response.completed') {
+        await settle(event.response.usage);
         output = event.response.output;
+      } else if (event.type === 'response.incomplete' || event.type === 'response.failed') {
+        await settle(event.response.usage);
+        if (event.response.incomplete_details?.reason === 'max_output_tokens' && content.trim()) {
+          const notice = '\n\nDie Antwort wurde gekürzt. Frag gerne nach einem einzelnen Punkt.';
+          answer += notice;
+          onText(notice);
+          output = [];
+        }
+        break;
       }
     }
     if (!output) throw new Error('Incomplete coach response');
@@ -115,7 +132,7 @@ Erstelle Pläne nur als Vorschlagskarte über das Werkzeug. Kläre Ziel, Terminv
         }
       }
       const output = JSON.stringify(data);
-      messages.push({ type: 'function_call_output', call_id: call.call_id, output: output.length <= 36000 ? output : JSON.stringify({ error: 'Datenausschnitt zu groß. Bitte Zeitraum eingrenzen.' }) });
+      messages.push({ type: 'function_call_output', call_id: call.call_id, output: output.length <= 12000 ? output : JSON.stringify({ error: 'Datenausschnitt zu groß. Bitte Zeitraum eingrenzen.' }) });
     }
     if (content.trim()) {
       answer += '\n\n';

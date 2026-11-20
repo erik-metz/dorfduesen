@@ -7,7 +7,8 @@
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "postinstall": "patch-package --error-on-fail"
   },
   "dependencies": {
     "@kingstinct/react-native-healthkit": "^16.2.0",
@@ -19,9 +20,11 @@
     "expo-linking": "~57.0.13",
     "expo-router": "~57.0.29",
     "expo-secure-store": "~57.0.4",
+    "expo-speech-recognition": "57.1.1",
     "expo-status-bar": "~57.0.1",
     "expo-system-ui": "~57.0.4",
     "expo-web-browser": "~57.0.3",
+    "patch-package": "8.0.1",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native": "0.86.3",

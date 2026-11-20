@@ -2,9 +2,8 @@ import { db } from '@/lib/db';
 import { berlinMidnight, dayKey, shiftDay } from '@/lib/time';
 import type { Prisma } from '@prisma/client';
 
-export const DAILY_GENERATION_LIMIT = 5;
-export function generationDay() {
-  const key = dayKey();
+export const DAILY_GENERATION_LIMIT = 3;
+export function generationDay(key = dayKey()) {
   return { gte: berlinMidnight(key), lt: berlinMidnight(shiftDay(key, 1)) };
 }
 
