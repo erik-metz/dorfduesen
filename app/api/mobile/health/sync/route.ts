@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { NextResponse, connection } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { Prisma } from '@prisma/client';
@@ -8,8 +9,11 @@ import { reconcileHealthActivities } from '@/lib/mobile/health-activities';
 import { evaluateUserBadges } from '@/lib/arena/badge-engine';
 import { cacheTags, invalidateCacheTags } from '@/lib/cache-tags';
 
+export const maxDuration = 20;
+
 const MAX_BODY_BYTES = 1_500_000;
 const MAX_BATCH_RECORDS = 500;
+const ACTIVITY_SIGNAL_TYPES = ['distance', 'walking_running_distance', 'cycling_distance', 'swimming_distance', 'heart_rate'];
 
 export async function POST(request: Request) {
   await connection();
@@ -77,7 +81,7 @@ export async function POST(request: Request) {
   }
 
   const now = new Date();
-  const saved = await db.$transaction(async (tx) => {
+  const result = await db.$transaction(async (tx) => {
     // Serialize writes with consent changes, including reconnects with a new scope.
     const active = await tx.$queryRaw<Array<{ id: string }>>`
       SELECT id FROM "MobileHealthConnection"
@@ -86,28 +90,62 @@ export async function POST(request: Request) {
       FOR UPDATE
     `;
     if (!active.length) return null;
-    for (const record of normalized) {
-      await tx.mobileHealthRecord.upsert({
-        where: { userId_provider_recordId: { userId: user.id, provider, recordId: record.recordId } },
-        create: { userId: user.id, provider, ...record },
-        update: { ...record },
-      });
-    }
-    if (deletedRecordIds.length) {
-      await tx.mobileHealthRecord.deleteMany({ where: { userId: user.id, provider, recordId: { in: deletedRecordIds as string[] } } });
-    }
-    if (complete) await tx.mobileHealthConnection.update({
-      where: { userId_provider: { userId: user.id, provider } },
-      data: { lastSyncedAt: now, ...(cursor === undefined ? {} : { syncCursor: cursor as object }) },
-    });
-    return normalized.length;
+    // A provider can repeat a record in one package. Keep the last value,
+    // matching the previous sequential upserts.
+    const uniqueRecords = [...new Map(normalized.map(record => [record.recordId, record])).values()];
+    const rows = uniqueRecords.map(record => ({ id: randomUUID(), ...record }));
+    const changed = rows.length ? await tx.$queryRaw<Array<{ recordType: string }>>`
+      INSERT INTO "MobileHealthRecord" AS stored (
+        id, "userId", provider, "recordId", "recordType", "startAt", "endAt",
+        value, "sourceName", "sourceId", "recordedAt", "updatedAt"
+      )
+      SELECT input.id, ${user.id}, ${provider}, input."recordId", input."recordType",
+        input."startAt", input."endAt", input.value, input."sourceName", input."sourceId",
+        input."recordedAt", ${now}
+      FROM jsonb_to_recordset(${JSON.stringify(rows)}::jsonb) AS input(
+        id text, "recordId" text, "recordType" text, "startAt" timestamp, "endAt" timestamp,
+        value jsonb, "sourceName" text, "sourceId" text, "recordedAt" timestamp
+      )
+      ON CONFLICT ("userId", provider, "recordId") DO UPDATE SET
+        "recordType" = EXCLUDED."recordType", "startAt" = EXCLUDED."startAt", "endAt" = EXCLUDED."endAt",
+        value = EXCLUDED.value, "sourceName" = EXCLUDED."sourceName", "sourceId" = EXCLUDED."sourceId",
+        "recordedAt" = EXCLUDED."recordedAt", "updatedAt" = EXCLUDED."updatedAt"
+      WHERE (stored."recordType", stored."startAt", stored."endAt", stored.value,
+             stored."sourceName", stored."sourceId", stored."recordedAt")
+        IS DISTINCT FROM (EXCLUDED."recordType", EXCLUDED."startAt", EXCLUDED."endAt", EXCLUDED.value,
+                          EXCLUDED."sourceName", EXCLUDED."sourceId", EXCLUDED."recordedAt")
+      RETURNING "recordType"
+    ` : [];
+    const deleted = deletedRecordIds.length
+      ? (await tx.mobileHealthRecord.deleteMany({ where: { userId: user.id, provider, recordId: { in: deletedRecordIds as string[] } } })).count
+      : 0;
+    return { saved: uniqueRecords.length, changed, deleted };
   });
-  if (saved === null) return NextResponse.json({ error: 'Die Gesundheitsfreigabe hat sich geändert.' }, { status: 403 });
-  const activityRecordsChanged = normalized.some(record => ['workout', 'distance', 'walking_running_distance', 'cycling_distance', 'swimming_distance', 'heart_rate'].includes(record.recordType)) || deletedRecordIds.length > 0;
-  if (complete || saved > 0 || deletedRecordIds.length > 0) {
+  if (result === null) return NextResponse.json({ error: 'Die Gesundheitsfreigabe hat sich geändert.' }, { status: 403 });
+  const { saved, changed, deleted } = result;
+  // Detect activity changes across all packages since the last completed sync.
+  // Everyday heart-rate and distance samples only matter if they overlap a workout.
+  const activityChanged = complete && (deleted > 0 || (await db.$queryRaw<[{ changed: boolean }]>`
+    SELECT EXISTS (
+      SELECT 1 FROM "MobileHealthRecord" AS sample
+      WHERE sample."userId" = ${user.id} AND sample.provider = ${provider}
+        ${link.lastSyncedAt ? Prisma.sql`AND sample."updatedAt" > ${link.lastSyncedAt}` : Prisma.empty}
+        AND (sample."recordType" = 'workout' OR (
+          sample."recordType" IN (${Prisma.join(ACTIVITY_SIGNAL_TYPES)})
+          AND EXISTS (
+            SELECT 1 FROM "MobileHealthRecord" AS workout
+            WHERE workout."userId" = sample."userId" AND workout.provider = sample.provider
+              AND workout."recordType" = 'workout'
+              AND workout."startAt" <= COALESCE(sample."endAt", sample."startAt") + interval '1 minute'
+              AND COALESCE(workout."endAt", workout."startAt" + interval '1 day') >= sample."startAt" - interval '1 minute'
+          )
+        ))
+    ) AS changed
+  `)[0]?.changed);
+  if (changed.length > 0 || deleted > 0) {
     invalidateCacheTags(cacheTags.userHealth(user.id), cacheTags.userProfile(user.id));
   }
-  if (complete && (activityRecordsChanged || body.refreshActivities === true)) {
+  if (activityChanged) {
     await reconcileHealthActivities(user.id);
     try {
       await evaluateUserBadges(user.id);
@@ -119,5 +157,15 @@ export async function POST(request: Request) {
     revalidatePath('/arena');
     revalidatePath('/dashboard');
   }
-  return NextResponse.json({ saved, deleted: deletedRecordIds.length, syncedAt: complete ? now.toISOString() : null });
+  if (complete) {
+    const updated = await db.mobileHealthConnection.updateMany({
+      where: {
+        userId: user.id, provider, revokedAt: null, consentedAt: link.consentedAt,
+        OR: [{ lastSyncedAt: null }, { lastSyncedAt: { lt: now } }],
+      },
+      data: { lastSyncedAt: now, ...(cursor === undefined ? {} : { syncCursor: cursor as object }) },
+    });
+    if (updated.count) invalidateCacheTags(cacheTags.userHealth(user.id));
+  }
+  return NextResponse.json({ saved, deleted, syncedAt: complete ? now.toISOString() : null });
 }

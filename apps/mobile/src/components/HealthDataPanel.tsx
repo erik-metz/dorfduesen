@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ActivityIndicator, Alert, DeviceEventEmitter, Pressable, Text, View } from 'react-native';
 import { useAuth } from '../auth/AuthProvider';
-import { connectDeviceHealth, deviceHealthProvider, HEALTH_CONNECTION_CHANGED, healthCursorKey } from '../health/healthSync';
+import { connectDeviceHealth, deviceHealthProvider, HEALTH_CONNECTION_CHANGED, healthCursorKey, withHealthTimeout } from '../health/healthSync';
 
 const card = { backgroundColor: '#09090b', borderColor: '#3f3f46', borderWidth: 1, borderRadius: 14, padding: 14, gap: 10 } as const;
 
@@ -38,7 +38,12 @@ export function HealthDataPanel({ initialConnected = false, onConnectionChange }
     if (!user) return;
     setBusy(true); setError(null);
     try {
-      await connectDeviceHealth(apiFetch, user.id);
+      const controller = new AbortController();
+      await withHealthTimeout(controller, 120_000, () => connectDeviceHealth(
+        (path, init) => apiFetch(path, { ...init, signal: controller.signal }),
+        user.id,
+        controller.signal,
+      ));
       await refresh();
     } catch (syncError) {
       setError(syncError instanceof Error ? syncError.message : 'Health konnte nicht verbunden werden.');

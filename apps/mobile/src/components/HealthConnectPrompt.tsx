@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AppState, ActivityIndicator, Modal, Pressable, Text, View } from 'react-native';
+import { AppState, ActivityIndicator, DeviceEventEmitter, Modal, Pressable, Text, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../auth/AuthProvider';
-import { connectDeviceHealth, DEFAULT_HEALTH_TYPES, deviceHealthProvider, healthCursorKey, HealthReadPermissionError, importHealthData } from '../health/healthSync';
+import { connectDeviceHealth, DEFAULT_HEALTH_TYPES, deviceHealthProvider, healthCursorKey, HealthReadPermissionError, HEALTH_CONNECTION_CHANGED, importHealthData, withHealthTimeout } from '../health/healthSync';
 
 const SYNC_INTERVAL_MS = 30 * 60 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
 const OVERLAP_MS = 2 * 60 * 60 * 1000;
 
 type Connection = { provider: string; consentedTypes: string[]; revokedAt: string | null };
@@ -41,40 +42,46 @@ export function HealthConnectPrompt() {
       setError(null);
     }
     try {
-      if (connect) {
-        await connectDeviceHealth(request, userId, signal);
-      } else {
-        const response = await request('/api/mobile/health/status', { cache: 'no-store' });
-        if (!response.ok || signal.aborted) return;
-        const { connections } = await response.json() as { connections?: Connection[] };
-        if (signal.aborted) return;
-        const connection = connections?.find(item => item.provider === provider);
-        if (connection?.revokedAt) {
-          await AsyncStorage.removeItem(cursorKey).catch(() => undefined);
-          return;
+      await withHealthTimeout(controller, connect ? 120_000 : 90_000, async () => {
+        if (connect) {
+          await connectDeviceHealth(request, userId, signal);
+        } else {
+          const localCursor = await AsyncStorage.getItem(cursorKey).catch(() => null);
+          if (signal.aborted) return;
+          const pending = localCursor === 'pending';
+          const storedCursor = Number(localCursor);
+          if (storedCursor > 0 && startedAt - storedCursor < SYNC_INTERVAL_MS) return;
+          if (!localCursor && dismissed.current) return;
+          const response = await request('/api/mobile/health/status', { cache: 'no-store' });
+          if (!response.ok || signal.aborted) return;
+          const { connections } = await response.json() as { connections?: Connection[] };
+          if (signal.aborted) return;
+          const connection = connections?.find(item => item.provider === provider);
+          if (connection?.revokedAt) {
+            await AsyncStorage.removeItem(cursorKey).catch(() => undefined);
+            return;
+          }
+          if (!connection || !connection.consentedTypes.length || (!pending && !(storedCursor > 0 && storedCursor <= startedAt))) {
+            if (!dismissed.current) setVisible(true);
+            return;
+          }
+          const types = DEFAULT_HEALTH_TYPES.filter(type => connection.consentedTypes.includes(type));
+          if (!types.length) return;
+          await importHealthData(request, types, {
+            since: new Date(pending ? startedAt - 7 * DAY_MS : Math.max(storedCursor - OVERLAP_MS, startedAt - 30 * DAY_MS)),
+            completeEmpty: pending,
+            requestPermissions: false,
+            saveConsent: false,
+            signal,
+            accountId: userId,
+          });
+          if (signal.aborted) return;
+          await AsyncStorage.setItem(cursorKey, String(startedAt));
         }
-        const storedCursor = Number(await AsyncStorage.getItem(cursorKey).catch(() => null));
-        if (signal.aborted) return;
-        if (!connection || !connection.consentedTypes.length || !(storedCursor > 0 && storedCursor <= startedAt)) {
-          if (!dismissed.current) setVisible(true);
-          return;
-        }
-        if (startedAt - storedCursor < SYNC_INTERVAL_MS) return;
-        const types = DEFAULT_HEALTH_TYPES.filter(type => connection.consentedTypes.includes(type));
-        if (!types.length) return;
-        await importHealthData(request, types, {
-          since: new Date(storedCursor - OVERLAP_MS),
-          requestPermissions: false,
-          saveConsent: false,
-          signal,
-          accountId: userId,
-        });
-        if (signal.aborted) return;
-        await AsyncStorage.setItem(cursorKey, String(startedAt));
-      }
-      if (!signal.aborted) setVisible(false);
+        if (!signal.aborted) setVisible(false);
+      });
     } catch (syncError) {
-      if (signal.aborted) return;
+      if (work.current !== controller) return;
       if (connect) setError(syncError instanceof Error ? syncError.message : 'Die Verbindung konnte nicht eingerichtet werden.');
       else if (syncError instanceof HealthReadPermissionError && !dismissed.current) setVisible(true);
       else console.warn('Automatischer Health-Import fehlgeschlagen.');
@@ -89,6 +96,15 @@ export function HealthConnectPrompt() {
   useEffect(() => {
     if (!cursorKey) return;
     void sync();
+    let startImport: ReturnType<typeof setTimeout> | undefined;
+    const connected = DeviceEventEmitter.addListener(HEALTH_CONNECTION_CHANGED, (accountId: string) => {
+      if (accountId !== userId) return;
+      clearTimeout(startImport);
+      startImport = setTimeout(() => {
+        lastAttempt.current = 0;
+        void sync();
+      }, 0);
+    });
     const subscription = AppState.addEventListener('change', state => {
       if (state === 'active') void sync();
     });
@@ -97,13 +113,15 @@ export function HealthConnectPrompt() {
     }, SYNC_INTERVAL_MS);
     return () => {
       subscription.remove();
+      connected.remove();
+      clearTimeout(startImport);
       clearInterval(timer);
       work.current?.abort();
       work.current = null;
       lastAttempt.current = 0;
       dismissed.current = false;
     };
-  }, [cursorKey, sync]);
+  }, [cursorKey, sync, userId]);
 
   function defer() {
     if (busy) return;
@@ -121,7 +139,7 @@ export function HealthConnectPrompt() {
         <Text style={{ color: '#a1a1aa', fontSize: 12, lineHeight: 18 }}>Du kannst die Kopplung später in Physiologie trennen. Bereits abgelehnte Freigaben änderst du direkt in {providerName}.</Text>
         {error ? <Text accessibilityLiveRegion="assertive" style={{ color: '#fca5a5', fontSize: 12 }}>{error}</Text> : null}
         <Pressable accessibilityRole="button" disabled={busy} onPress={() => void sync(true)} style={{ backgroundColor: '#ea580c', borderRadius: 12, minHeight: 48, justifyContent: 'center', alignItems: 'center' }}>
-          {busy ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontWeight: '800' }}>{providerName} koppeln</Text>}
+          {busy ? <><ActivityIndicator color="#fff" /><Text style={{ color: '#fff' }}>Verbindung wird eingerichtet …</Text></> : <Text style={{ color: '#fff', fontWeight: '800' }}>{providerName} koppeln</Text>}
         </Pressable>
         <Pressable accessibilityRole="button" disabled={busy} onPress={defer} style={{ minHeight: 44, justifyContent: 'center', alignItems: 'center' }}>
           <Text style={{ color: '#d4d4d8', fontWeight: '700' }}>Später</Text>
