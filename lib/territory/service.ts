@@ -153,8 +153,10 @@ export async function getTerritoryData(userId: string): Promise<TerritoryData> {
   });
   const current = rows.filter(row => row.sourceHash === sourceHash(row.activity, row.rulesVersion));
   const valid = current.filter(row => row.status === 'VALID');
+  // checkedAt changes during the daily Strava reconciliation even when the geometry is unchanged.
+  // Key by the actual replay inputs so that reconciliation does not invalidate the shared snapshot.
   const key = createHash('sha256').update(JSON.stringify(valid.map(row => [row.id, row.sourceHash,
-    row.checkedAt.toISOString(), row.endedAt.toISOString(), row.activity.userId]).sort((a, b) => a[0].localeCompare(b[0])))).digest('hex');
+    row.endedAt.toISOString(), row.activity.userId]).sort((a, b) => a[0].localeCompare(b[0])))).digest('hex');
   const state = await getProjection(season.key, key, valid);
   const names = new Map(rows.map(row => [row.activity.userId, [row.activity.user.firstname, row.activity.user.lastname].filter(Boolean).join(' ') || 'DorfDüse']));
   const leaderboard = new Map<string, { userId: string; name: string; areaM2: number; count: number }>();
