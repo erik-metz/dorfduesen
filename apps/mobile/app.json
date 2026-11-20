@@ -9,7 +9,7 @@
     "userInterfaceStyle": "dark",
     "ios": {
       "appleTeamId": "GS338K2H7M",
-      "buildNumber": "8",
+      "buildNumber": "9",
       "config": { "usesNonExemptEncryption": false },
       "supportsTablet": true,
       "bundleIdentifier": "de.dorfduesen.app"
