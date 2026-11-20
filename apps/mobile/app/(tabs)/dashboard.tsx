@@ -72,7 +72,12 @@ export default function DashboardScreen() {
   const [error, setError] = useState<string | null>(null);
   const [expandedActivity, setExpandedActivity] = useState<string | null>(null);
   const [activityDetail, setActivityDetail] = useState<Record<string, Record<string, unknown>>>({});
-  const [sectionData, setSectionData] = useState<Record<string, unknown> | null>(null);
+  const [sections, setSections] = useState<Record<string, Record<string, unknown>>>({});
+  const memberId = selectedUserId ?? user?.id;
+  const sectionKey = JSON.stringify([user?.id, memberId, tab]);
+  const sectionData = sections[sectionKey] ?? null;
+  const updateSection = (update: (current: Record<string, unknown> | null) => Record<string, unknown>) =>
+    setSections(current => ({ ...current, [sectionKey]: update(current[sectionKey] ?? null) }));
   const [sectionLoading, setSectionLoading] = useState(false);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [weight, setWeight] = useState('');
@@ -101,7 +106,7 @@ export default function DashboardScreen() {
     } else if (showLoading && !dataRef.current) setLoading(true);
     setError(null);
     try {
-      const payload = await responseJson<DashboardData>(await apiFetch(path, forceRefresh ? { cache: 'no-store' } : undefined));
+      const payload = await responseJson<DashboardData>(await apiFetch(path, forceRefresh ? { cache: 'reload' } : undefined));
       dataRef.current = payload;
       setData(payload);
       setGoalDays(payload.arena.weeklyGoal.nextWeekTargetActiveDays ?? 2);
@@ -116,12 +121,15 @@ export default function DashboardScreen() {
   useEffect(() => { void loadDashboard(); }, [loadDashboard]);
   useEffect(() => {
     let active = true;
+    void getCachedJson<{ members: Member[] }>('/api/mobile/members').then(result => {
+      if (active && result) { setMembers(result.members); setMembersLoaded(true); }
+    });
     void apiFetch('/api/mobile/members').then(response => responseJson<{ members: Member[] }>(response))
       .then(result => { if (active) setMembers(result.members); })
       .catch(() => undefined)
       .finally(() => { if (active) setMembersLoaded(true); });
     return () => { active = false; };
-  }, [apiFetch]);
+  }, [apiFetch, getCachedJson]);
 
   useEffect(() => {
     if (!data || loading || data.isReadOnly || arenaPrefetched.current ||
@@ -136,43 +144,55 @@ export default function DashboardScreen() {
     ]);
   }, [apiFetch, data, loading, params.userId, selectedUserId, user?.id]);
 
+  const dashboardMemberId = data?.user.id;
+  const isReadOnly = data?.isReadOnly;
+  const sectionPaths = useMemo(() => {
+    if (!dashboardMemberId || dashboardMemberId !== memberId) return [];
+    if (tab === 'Trophäen') return [isReadOnly ? `/api/trophies?userId=${encodeURIComponent(dashboardMemberId)}` : '/api/trophies'];
+    if (isReadOnly) return [];
+    if (tab === 'Physiologie') return ['/api/coach/metrics', '/api/coach/profile'];
+    if (tab === 'Coach') return ['/api/coach/plan', '/api/coach/profile'];
+    if (tab === 'Hinweise') return ['/api/notifications'];
+    return [];
+  }, [dashboardMemberId, isReadOnly, memberId, tab]);
+  const [refreshSection, setRefreshSection] = useState(0);
+  const lastSectionRefresh = useRef(0);
+
   useEffect(() => {
-    if (tab === 'Aktivitäten' || tab === 'Gesundheit' || !data || data.isReadOnly && ['Physiologie', 'Gesundheit', 'Coach', 'Hinweise'].includes(tab)) {
-      setSectionData(null);
-      return;
-    }
+    if (!sectionPaths.length) { setSectionLoading(false); return; }
     let active = true;
+    const force = refreshSection !== lastSectionRefresh.current;
+    lastSectionRefresh.current = refreshSection;
+    const setDataForSection = (result: Record<string, unknown>) => {
+      if (!active) return;
+      setSections(current => ({ ...current, [sectionKey]: result }));
+    };
     setSectionLoading(true);
     setActionMessage(null);
-    const load = async () => {
-      if (tab === 'Physiologie') {
-        const [metrics, profile] = await Promise.all([
-          responseJson<{ metrics: DashboardData['physiology']['recentMetrics'] }>(await apiFetch('/api/coach/metrics')),
-          responseJson<Record<string, unknown>>(await apiFetch('/api/coach/profile')),
-        ]);
-        return { metrics: metrics.metrics, ...profile };
+    void (async () => {
+      const snapshots = await Promise.all(sectionPaths.map(path => getCachedJson<Record<string, unknown>>(path)));
+      if (active && snapshots.every(item => item !== null)) {
+        setSections(current => current[sectionKey] ? current : { ...current, [sectionKey]: Object.assign({}, ...snapshots) });
       }
-      if (tab === 'Coach') {
-        const [plan, profile] = await Promise.all([
-          responseJson<Record<string, unknown>>(await apiFetch('/api/coach/plan')),
-          responseJson<Record<string, unknown>>(await apiFetch('/api/coach/profile')),
-        ]);
-        return { ...plan, ...profile };
+      try {
+        const responses = await Promise.all(sectionPaths.map(async path =>
+          responseJson<Record<string, unknown>>(await apiFetch(path, force ? { cache: 'reload' } : undefined))));
+        setDataForSection(Object.assign({}, ...responses));
+      } catch (loadError) {
+        if (active) setActionMessage(loadError instanceof Error ? loadError.message : 'Bereich konnte nicht geladen werden.');
+      } finally {
+        if (active) setSectionLoading(false);
       }
-      if (tab === 'Trophäen') {
-        const query = selectedUserId && selectedUserId !== user?.id ? `?userId=${encodeURIComponent(selectedUserId)}` : '';
-        return responseJson<Record<string, unknown>>(await apiFetch(`/api/trophies${query}`));
-      }
-      return responseJson<Record<string, unknown>>(await apiFetch('/api/notifications'));
-    };
-    void load().then(result => { if (active) setSectionData(result); })
-      .catch(loadError => { if (active) setActionMessage(loadError instanceof Error ? loadError.message : 'Bereich konnte nicht geladen werden.'); })
-      .finally(() => { if (active) setSectionLoading(false); });
+    })();
     return () => { active = false; };
-  }, [apiFetch, data, selectedUserId, tab, user?.id]);
+  }, [apiFetch, getCachedJson, refreshSection, sectionKey, sectionPaths]);
 
   const titleName = useMemo(() => data ? displayName(data.user) : user?.firstname || 'Dorfdüse', [data, user?.firstname]);
-  const refresh = () => { setRefreshing(true); void loadDashboard(false, true); };
+  const refresh = () => {
+    setRefreshing(true);
+    setRefreshSection(value => value + 1);
+    void loadDashboard(false, true);
+  };
 
   async function loadMore() {
     if (!data || data.pagination.page >= data.pagination.pageCount) return;
@@ -204,7 +224,7 @@ export default function DashboardScreen() {
       await responseJson(await apiFetch('/api/coach/metrics', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }));
       setWeight(''); setRestingHr(''); setActionMessage('Messwert gespeichert.');
       const metrics = await responseJson<{ metrics: DashboardData['physiology']['recentMetrics'] }>(await apiFetch('/api/coach/metrics'));
-      setSectionData(current => ({ ...(current ?? {}), metrics: metrics.metrics }));
+      updateSection(current => ({ ...(current ?? {}), metrics: metrics.metrics }));
       void loadDashboard(false);
     } catch (saveError) { setActionMessage(saveError instanceof Error ? saveError.message : 'Messwert konnte nicht gespeichert werden.'); }
     finally { setSectionLoading(false); }
@@ -231,7 +251,7 @@ export default function DashboardScreen() {
       }));
       setActionMessage('Dein Trainingsplan wird erstellt.');
       const plan = await responseJson<Record<string, unknown>>(await apiFetch('/api/coach/plan'));
-      setSectionData(current => ({ ...(current ?? {}), ...plan }));
+      updateSection(current => ({ ...(current ?? {}), ...plan }));
     } catch (planError) { setActionMessage(planError instanceof Error ? planError.message : 'Trainingsplan konnte nicht angefordert werden.'); }
     finally { setSectionLoading(false); }
   }
@@ -242,7 +262,7 @@ export default function DashboardScreen() {
       await responseJson(await apiFetch('/api/coach/profile', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(values) }));
       setActionMessage('Trainingsprofil gespeichert.');
       const profile = await responseJson<Record<string, unknown>>(await apiFetch('/api/coach/profile'));
-      setSectionData(current => ({ ...(current ?? {}), ...profile }));
+      updateSection(current => ({ ...(current ?? {}), ...profile }));
     } catch (saveError) { setActionMessage(saveError instanceof Error ? saveError.message : 'Trainingsprofil konnte nicht gespeichert werden.'); }
     finally { setSectionLoading(false); }
   }
@@ -252,7 +272,7 @@ export default function DashboardScreen() {
     try {
       await responseJson(await apiFetch('/api/coach/profile', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(values) }));
       const profile = await responseJson<Record<string, unknown>>(await apiFetch('/api/coach/profile'));
-      setSectionData(current => ({ ...(current ?? {}), ...profile }));
+      updateSection(current => ({ ...(current ?? {}), ...profile }));
       setActionMessage('Leistungsdaten und Pulszonen aktualisiert.');
     } catch (saveError) { setActionMessage(saveError instanceof Error ? saveError.message : 'Leistungsdaten konnten nicht gespeichert werden.'); }
     finally { setSectionLoading(false); }
@@ -262,7 +282,7 @@ export default function DashboardScreen() {
     try {
       await responseJson(await apiFetch('/api/notifications', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(notificationId ? { notificationId } : { all: true }) }));
       const notifications = await responseJson<Record<string, unknown>>(await apiFetch('/api/notifications'));
-      setSectionData(notifications);
+      updateSection(() => notifications);
       void loadDashboard(false);
     } catch (markError) { setActionMessage(markError instanceof Error ? markError.message : 'Benachrichtigungen konnten nicht aktualisiert werden.'); }
   }
@@ -272,7 +292,7 @@ export default function DashboardScreen() {
     try {
       await responseJson(await apiFetch('/api/trophies/evaluate', { method: 'POST' }));
       const trophies = await responseJson<Record<string, unknown>>(await apiFetch('/api/trophies'));
-      setSectionData(trophies);
+      updateSection(() => trophies);
       setActionMessage('Erfolge neu abgeglichen.');
     } catch (refreshError) { setActionMessage(refreshError instanceof Error ? refreshError.message : 'Trophäen konnten nicht abgeglichen werden.'); }
     finally { setSectionLoading(false); }
@@ -293,7 +313,7 @@ export default function DashboardScreen() {
     <ScrollView style={styles.page} contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor="#fc7a3d" />}>
       {members.length > 1 ? <View style={styles.memberPanel}>
         <View style={styles.memberHeading}><Text style={styles.memberHeadingText}>DORFDÜSEN TEAM ({members.length} ATHLETEN)</Text><Pressable accessibilityRole="button" onPress={() => void logout()}><Text style={styles.logout}>Abmelden</Text></Pressable></View>
-        <View style={styles.memberGrid}>{members.map(member => <Pressable key={member.id} accessibilityRole="button" accessibilityState={{ selected: (selectedUserId ?? user?.id) === member.id }} style={[styles.memberChip, (selectedUserId ?? user?.id) === member.id && styles.memberChipActive]} onPress={() => { setSelectedUserId(member.id === user?.id ? null : member.id); setTab('Aktivitäten'); setSectionData(null); }}>
+        <View style={styles.memberGrid}>{members.map(member => <Pressable key={member.id} accessibilityRole="button" accessibilityState={{ selected: (selectedUserId ?? user?.id) === member.id }} style={[styles.memberChip, (selectedUserId ?? user?.id) === member.id && styles.memberChipActive]} onPress={() => { setSelectedUserId(member.id === user?.id ? null : member.id); setTab('Aktivitäten'); }}>
           {member.profile ? <Image source={{ uri: member.profile }} style={styles.avatar} /> : <View style={styles.avatarPlaceholder}><Text style={styles.avatarLetter}>{member.name.slice(0, 1)}</Text></View>}
           <Text numberOfLines={1} style={styles.memberText}>{member.name}</Text>{member.id === user?.id ? <Text style={styles.youBadge}>Du</Text> : null}
         </Pressable>)}</View>
@@ -347,14 +367,14 @@ export default function DashboardScreen() {
           {data.pagination.page < data.pagination.pageCount ? <Pressable style={styles.secondaryButton} onPress={() => void loadMore()}><Text style={styles.secondaryButtonText}>Weitere Aktivitäten laden</Text></Pressable> : null}
         </View> : null}
         {tab !== 'Aktivitäten' ? <View style={styles.section}>
-          <View style={styles.spaceBetween}><Text style={styles.cardTitle}>{tab}</Text>{sectionLoading ? <ActivityIndicator color="#fc7a3d" /> : null}</View>
+          <View style={styles.spaceBetween}><Text style={styles.cardTitle}>{tab}</Text>{sectionLoading && !sectionData ? <ActivityIndicator color="#fc7a3d" /> : null}</View>
           {data.isReadOnly && ['Physiologie', 'Gesundheit', 'Coach', 'Hinweise'].includes(tab) ? <Text style={styles.copy}>Dieser Bereich ist nur für dein eigenes Profil verfügbar.</Text> : <>
             {tab === 'Trophäen' && !data.isReadOnly ? <View style={styles.weekCard}>
               <Text style={styles.cardTitle}>🎯 Vorgenommen. Durchgezogen.</Text><Text style={styles.copy}>Deine Woche. Dein Ziel. Wie oft willst du raus?</Text><Text style={styles.copy}>{data.arena.weeklyGoal.targetActiveDays ? `Diese Woche: ${data.arena.weeklyGoal.activeDays} von ${data.arena.weeklyGoal.targetActiveDays} aktiven Tagen geschafft.` : 'Diese Woche zählt jeder aktive Tag. Dein eigenes Ziel startet nächste Woche.'}</Text><Text style={styles.small}>Ab {data.arena.weeklyGoal.nextWeekKey.split('-').reverse().join('.')}:</Text>
               <View style={styles.inlineRow}>{[1, 2, 3, 4, 5, 6, 7].map(day => <Pressable key={day} accessibilityRole="button" accessibilityState={{ selected: goalDays === day }} style={[styles.dayOption, goalDays === day && styles.dayOptionActive]} onPress={() => setGoalDays(day)}><Text style={styles.dayText}>{day}</Text></Pressable>)}</View>
               <Pressable style={styles.primaryButton} onPress={() => void saveGoal()} disabled={sectionLoading}><Text style={styles.primaryButtonText}>{sectionLoading ? 'Speichert …' : 'Ziel festmachen'}</Text></Pressable><Text style={styles.tiny}>Bis Montag kannst du’s ändern. Danach steht’s. Ruhetage gehören dazu.</Text>
             </View> : null}
-            {tab === 'Gesundheit' ? <HealthDataPanel /> : sectionData ? <SectionContent tab={tab} sectionData={sectionData} arena={data.arena} isReadOnly={data.isReadOnly} sectionLoading={sectionLoading} goalDays={goalDays} setGoalDays={setGoalDays} weight={weight} setWeight={setWeight} restingHr={restingHr} setRestingHr={setRestingHr} goalType={goalType} setGoalType={setGoalType} addMetric={() => void addMetric()} requestPlan={() => void requestPlan()} refreshTrophies={() => void refreshTrophies()} savePhysiologyProfile={values => void savePhysiologyProfile(values)} saveCoachProfile={values => void saveCoachProfile(values)} markNotification={(id) => void markNotification(id)} /> : !sectionLoading ? <Text style={styles.copy}>{actionMessage ?? 'Keine Daten vorhanden.'}</Text> : null}
+            {tab === 'Gesundheit' && dashboardMemberId === memberId ? <HealthDataPanel key={sectionKey} refreshRevision={refreshSection} /> : sectionData ? <SectionContent key={sectionKey} tab={tab} sectionData={sectionData} arena={data.arena} isReadOnly={data.isReadOnly} sectionLoading={sectionLoading} goalDays={goalDays} setGoalDays={setGoalDays} weight={weight} setWeight={setWeight} restingHr={restingHr} setRestingHr={setRestingHr} goalType={goalType} setGoalType={setGoalType} addMetric={() => void addMetric()} requestPlan={() => void requestPlan()} refreshTrophies={() => void refreshTrophies()} savePhysiologyProfile={values => void savePhysiologyProfile(values)} saveCoachProfile={values => void saveCoachProfile(values)} markNotification={(id) => void markNotification(id)} /> : !sectionLoading ? <Text style={styles.copy}>{actionMessage ?? 'Keine Daten vorhanden.'}</Text> : null}
           </>}
         </View> : null}
       </> : null}

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ActivityIndicator, Alert, DeviceEventEmitter, Pressable, Text, View } from 'react-native';
 import { HealthRecordList } from './HealthRecordList';
@@ -11,38 +11,55 @@ type HealthConnection = { provider: string; consentedTypes: string[]; revokedAt:
 type HealthStatus = { connections: HealthConnection[]; storedRecordCount: number; recordTypes?: Array<{ type: string; count: number }> };
 const providerName = (provider: string) => provider === 'APPLE_HEALTH' ? 'Apple Health' : 'Health Connect';
 
-export function HealthDataPanel() {
-  const { apiFetch, user } = useAuth();
+const STATUS_PATH = '/api/mobile/health/status?includeRecordTypes=1';
+
+export function HealthDataPanel({ refreshRevision }: { refreshRevision: number }) {
+  const { apiFetch, getCachedJson, user } = useAuth();
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<HealthStatus | null>(null);
   const [localState, setLocalState] = useState<string | null>(null);
   const [updated, setUpdated] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const userId = user?.id;
+  const loadVersion = useRef(0);
+  const previousRevision = useRef(refreshRevision);
   const connected = Boolean(localState && status?.connections.some(item => item.provider === deviceHealthProvider && !item.revokedAt && item.consentedTypes.length));
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (force = false) => {
     if (!userId) return;
-    const [response, state] = await Promise.all([
-      apiFetch('/api/mobile/health/status?includeRecordTypes=1', { cache: 'no-store' }),
+    const version = ++loadVersion.current;
+    const [snapshot, state] = await Promise.all([
+      getCachedJson<HealthStatus>(STATUS_PATH),
       AsyncStorage.getItem(healthCursorKey(userId)).catch(() => null),
     ]);
+    if (version !== loadVersion.current) return;
+    setLocalState(state);
+    if (snapshot) setStatus(snapshot);
+    const response = await apiFetch(STATUS_PATH, force ? { cache: 'reload' } : undefined);
     if (!response.ok) throw new Error('Der Health-Status konnte nicht geladen werden.');
     const payload: HealthStatus = await response.json();
-    setLocalState(state);
-    setStatus(payload);
-  }, [apiFetch, userId]);
+    if (version === loadVersion.current) {
+      setStatus(payload);
+      setError(null);
+    }
+  }, [apiFetch, getCachedJson, userId]);
 
   useEffect(() => {
-    const reload = () => void refresh().catch(() => setError('Der Health-Status konnte nicht geladen werden.'));
-    reload();
+    const reload = (force = false) => void refresh(force).catch(() => setError('Der Health-Status konnte nicht geladen werden.'));
+    const force = previousRevision.current !== refreshRevision;
+    previousRevision.current = refreshRevision;
+    reload(force);
+    if (force) setUpdated(value => value + 1);
     const subscriptions = [HEALTH_CONNECTION_CHANGED, HEALTH_SYNC_COMPLETED].map(event => DeviceEventEmitter.addListener(event, (accountId: string) => {
       if (accountId !== userId) return;
-      reload();
+      reload(true);
       if (event === HEALTH_SYNC_COMPLETED) setUpdated(value => value + 1);
     }));
-    return () => subscriptions.forEach(subscription => subscription.remove());
-  }, [refresh, userId]);
+    return () => {
+      loadVersion.current += 1;
+      subscriptions.forEach(subscription => subscription.remove());
+    };
+  }, [refresh, refreshRevision, userId]);
 
   async function connect() {
     if (!user) return;
@@ -100,7 +117,7 @@ export function HealthDataPanel() {
     </Pressable> : null}
     <Pressable accessibilityRole="button" onPress={() => {
       setError(null);
-      void refresh().then(() => setUpdated(value => value + 1)).catch(() => setError('Der Health-Status konnte nicht geladen werden.'));
+      void refresh(true).then(() => setUpdated(value => value + 1)).catch(() => setError('Der Health-Status konnte nicht geladen werden.'));
     }} style={{ paddingVertical: 8 }}>
       <Text style={{ color: '#fdba74', fontWeight: '700' }}>Anzeige aktualisieren</Text>
     </Pressable>

@@ -32,16 +32,18 @@ type AuthContextValue = {
   getCachedJson: <T>(path: string) => Promise<T | null>;
 };
 
-type CachedResponse = { response: Response; expiresAt: number };
+type CachedResponse = { response: Response; expiresAt: number; savedAt: number };
+const MEMORY_CACHE_MAX_AGE = 30 * 60_000;
 
 function cacheTtlForPath(pathname: string) {
   if (pathname === '/api/mobile/members') return 5 * 60_000;
   if (pathname === '/api/mobile/arena') return 15_000;
   if (pathname === '/api/arena/territories') return 60_000;
   if (pathname === '/api/mobile/dashboard') return 10_000;
-  if (pathname === '/api/coach/metrics' || pathname === '/api/coach/profile' || pathname === '/api/coach/plan') return 20_000;
-  if (pathname === '/api/trophies') return 20_000;
-  if (pathname === '/api/notifications') return 8_000;
+  if (pathname === '/api/coach/profile' || pathname === '/api/coach/metrics' || pathname === '/api/trophies') return 120_000;
+  if (pathname === '/api/coach/plan') return 20_000;
+  if (pathname === '/api/notifications') return 30_000;
+  if (pathname === '/api/mobile/health/status' || pathname === '/api/mobile/health/records') return 60_000;
   if (/^\/api\/strava\/activities\/[^/]+$/.test(pathname)) return 60_000;
   return 0;
 }
@@ -261,6 +263,13 @@ export function AuthProvider({ children }: PropsWithChildren) {
     const currentUserId = user?.id;
     if (!currentUserId) return null;
     try {
+      if (API_BASE_URL) {
+        const key = `${currentUserId}:${new URL(path, `${API_BASE_URL}/`).toString()}`;
+        const cached = responseCache.current.get(key);
+        if (cached && Date.now() - cached.savedAt <= MEMORY_CACHE_MAX_AGE) {
+          return await cached.response.clone().json() as T;
+        }
+      }
       const raw = await AsyncStorage.getItem(`${DATA_CACHE_PREFIX}${currentUserId}:${path}`);
       if (!raw) return null;
       const parsed = JSON.parse(raw) as { savedAt?: number; data?: T };
@@ -288,21 +297,37 @@ export function AuthProvider({ children }: PropsWithChildren) {
     const key = `${user?.id ?? 'unknown'}:${url.toString()}`;
     const now = Date.now();
     const cached = canCache ? responseCache.current.get(key) : undefined;
-    if (cached && cached.expiresAt > now) return cached.response.clone();
-    if (cached) responseCache.current.delete(key);
-    if (canCache) {
+    if (cached && cacheDirective !== 'reload' && cached.expiresAt > now) return cached.response.clone();
+    if (cached && now - cached.savedAt > MEMORY_CACHE_MAX_AGE) responseCache.current.delete(key);
+    const canShare = canCache && !fetchOptions.signal;
+    if (canShare) {
       const pending = pendingRequests.current.get(key);
       if (pending) return (await pending).clone();
     }
 
     const generation = cacheGeneration.current;
     const request = fetch(url.toString(), { ...fetchOptions, headers });
-    if (canCache) pendingRequests.current.set(key, request);
+    if (canShare) pendingRequests.current.set(key, request);
     try {
       const response = await request;
-      if (method !== 'GET' && response.ok) clearResponseCache();
+      if (method !== 'GET' && response.ok) {
+        // Health uploads send several packages. Only the final package changes the views
+        // that an open dashboard needs to refresh.
+        let invalidated: string[] | null = null;
+        if (url.pathname === '/api/mobile/health/sync') {
+          const result = await response.clone().json().catch(() => null) as { syncedAt?: string | null } | null;
+          invalidated = result?.syncedAt ? ['/api/mobile/health/', '/api/coach/', '/api/mobile/dashboard', '/api/mobile/arena', '/api/trophies'] : [];
+        }
+        if (invalidated === null || invalidated.length) {
+          cacheGeneration.current += 1;
+          pendingRequests.current.clear();
+          for (const [cacheKey, value] of responseCache.current) {
+            if (invalidated === null || invalidated.some(prefix => cacheKey.includes(`${url.origin}${prefix}`))) value.expiresAt = 0;
+          }
+        }
+      }
       if (canCache && response.ok && generation === cacheGeneration.current) {
-        responseCache.current.set(key, { response: response.clone(), expiresAt: Date.now() + cacheTtlForPath(url.pathname) });
+        responseCache.current.set(key, { response: response.clone(), savedAt: Date.now(), expiresAt: Date.now() + cacheTtlForPath(url.pathname) });
         if (responseCache.current.size > 100) {
           const oldestKey = responseCache.current.keys().next().value;
           if (oldestKey) responseCache.current.delete(oldestKey);

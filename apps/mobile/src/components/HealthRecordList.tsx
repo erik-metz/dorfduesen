@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useAuth } from '../auth/AuthProvider';
 
@@ -60,36 +60,46 @@ function duration(record: HealthRecord) {
 }
 
 export function HealthRecordList({ revision, types }: { revision: number; types: Array<{ type: string; count: number }> }) {
-  const { apiFetch } = useAuth();
+  const { apiFetch, getCachedJson } = useAuth();
   const [open, setOpen] = useState(false);
   const [type, setType] = useState('');
   const [cursors, setCursors] = useState<Array<Cursor | null>>([null]);
-  const [page, setPage] = useState<Page | null>(null);
+  const [loaded, setLoaded] = useState<{ path: string; page: Page } | null>(null);
   const [failed, setFailed] = useState(false);
   const [retry, setRetry] = useState(0);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const cursor = cursors.at(-1);
+  const params = new URLSearchParams({ limit: '25' });
+  if (type) params.set('type', type);
+  if (cursor) {
+    params.set('before', cursor.before);
+    params.set('beforeId', cursor.beforeId);
+  }
+  const path = `/api/mobile/health/records?${params}`;
+  const page = loaded?.path === path ? loaded.page : null;
+  const previousRefresh = useRef({ revision, retry });
 
   useEffect(() => {
     if (!open) return;
-    const controller = new AbortController();
-    const params = new URLSearchParams({ limit: '25' });
-    if (type) params.set('type', type);
-    if (cursor) {
-      params.set('before', cursor.before);
-      params.set('beforeId', cursor.beforeId);
-    }
-    setPage(null);
+    let active = true;
+    const force = previousRefresh.current.revision !== revision || previousRefresh.current.retry !== retry;
+    previousRefresh.current = { revision, retry };
     setFailed(false);
-    void apiFetch(`/api/mobile/health/records?${params}`, { signal: controller.signal, cache: 'no-store' })
-      .then(async response => {
+    void (async () => {
+      const snapshot = await getCachedJson<Page>(path);
+      if (!active) return;
+      if (snapshot) setLoaded({ path, page: snapshot });
+      try {
+        const response = await apiFetch(path, force ? { cache: 'reload' } : undefined);
         if (!response.ok) throw new Error('Abruf fehlgeschlagen');
         const result: Page = await response.json();
-        if (!controller.signal.aborted) setPage(result);
-      })
-      .catch(() => { if (!controller.signal.aborted) setFailed(true); });
-    return () => controller.abort();
-  }, [apiFetch, cursor, open, retry, revision, type]);
+        if (active) setLoaded({ path, page: result });
+      } catch {
+        if (active) setFailed(true);
+      }
+    })();
+    return () => { active = false; };
+  }, [apiFetch, getCachedJson, open, path, retry, revision]);
 
   function filter(next: string) {
     setType(next);
