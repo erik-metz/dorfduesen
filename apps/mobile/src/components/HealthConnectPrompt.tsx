@@ -1,120 +1,129 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AppState, ActivityIndicator, Modal, Pressable, Platform, Text, View } from 'react-native';
-import * as SecureStore from 'expo-secure-store';
+import { AppState, ActivityIndicator, Modal, Pressable, Text, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../auth/AuthProvider';
-import { DEFAULT_HEALTH_TYPES, importHealthData } from '../health/healthSync';
+import { connectDeviceHealth, DEFAULT_HEALTH_TYPES, deviceHealthProvider, healthCursorKey, HealthReadPermissionError, importHealthData } from '../health/healthSync';
 
-function promptChoiceKey(userId: string) {
-  const safeUserId = userId.replace(/[^A-Za-z0-9._-]/g, '_') || 'user';
-  return `dorfduesen_health_prompt_v1_${safeUserId}`;
-}
+const SYNC_INTERVAL_MS = 30 * 60 * 1000;
+const OVERLAP_MS = 2 * 60 * 60 * 1000;
+
+type Connection = { provider: string; consentedTypes: string[]; revokedAt: string | null };
 
 export function HealthConnectPrompt() {
   const { apiFetch, user } = useAuth();
+  const userId = user?.id;
+  const provider = deviceHealthProvider;
+  const providerName = provider === 'APPLE_HEALTH' ? 'Apple Health' : 'Health Connect';
+  const cursorKey = userId && provider ? healthCursorKey(userId) : null;
   const [visible, setVisible] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const syncInProgress = useRef(false);
+  const work = useRef<AbortController | null>(null);
+  const lastAttempt = useRef(0);
+  const dismissed = useRef(false);
 
-  const checkConnectionAndSync = useCallback(async (cancelled?: () => boolean) => {
-    if (!user || syncInProgress.current) return;
-    syncInProgress.current = true;
-    try {
-      const response = await apiFetch('/api/mobile/health/status');
-      if (!response.ok || cancelled?.()) return;
-      const payload = await response.json() as { connections?: Array<{ provider: string; consentedTypes: string[]; revokedAt: string | null; lastSyncedAt: string | null }> };
-      const provider = Platform.OS === 'ios' ? 'APPLE_HEALTH' : Platform.OS === 'android' ? 'HEALTH_CONNECT' : null;
-      const activeConnection = payload.connections?.find(connection => connection.provider === provider && !connection.revokedAt && connection.consentedTypes.length > 0);
-      if (!activeConnection) return;
+  const sync = useCallback(async (connect = false) => {
+    if (!userId || !cursorKey || work.current || AppState.currentState === 'background') return;
+    const startedAt = Date.now();
+    if (!connect && startedAt - lastAttempt.current < SYNC_INTERVAL_MS) return;
 
-      const lastSyncedAt = activeConnection.lastSyncedAt ? Date.parse(activeConnection.lastSyncedAt) : 0;
-      const staleAfterMs = 15 * 60 * 1000;
-      if (Date.now() - lastSyncedAt < staleAfterMs) return;
+    const controller = new AbortController();
+    work.current = controller;
+    lastAttempt.current = startedAt;
+    const { signal } = controller;
+    const request: typeof apiFetch = (path, init) => {
+      if (signal.aborted) throw new Error('Health-Synchronisierung abgebrochen.');
+      return apiFetch(path, { ...init, signal });
+    };
 
-      // Re-read a day before the previous cursor to catch records completed
-      // shortly after the last app session. Stable native IDs make this safe
-      // to upsert without creating duplicate rows.
-      const overlapMs = 24 * 60 * 60 * 1000;
-      const defaultLookbackMs = Platform.OS === 'android' ? 30 * 24 * 60 * 60 * 1000 : 365 * 24 * 60 * 60 * 1000;
-      const since = lastSyncedAt ? new Date(lastSyncedAt - overlapMs) : new Date(Date.now() - defaultLookbackMs);
-      const permittedTypes = DEFAULT_HEALTH_TYPES.filter(type => activeConnection.consentedTypes.includes(type));
-      if (!permittedTypes.length) return;
-
-      await importHealthData(apiFetch, permittedTypes, { since, requestPermissions: false, saveConsent: false });
-    } catch (syncError) {
-      // A background refresh should never block navigation or show a modal.
-      console.warn('Automatischer Health-Import fehlgeschlagen.', syncError instanceof Error ? syncError.message : 'Unbekannter Fehler');
-    } finally {
-      syncInProgress.current = false;
+    if (connect) {
+      setBusy(true);
+      setError(null);
     }
-  }, [apiFetch, user]);
-
-  useEffect(() => {
-    if (!user) return;
-    let cancelled = false;
-    void (async () => {
-      try {
-        const response = await apiFetch('/api/mobile/health/status');
-        if (!response.ok) return;
-        const payload = await response.json() as { connections?: Array<{ provider: string; consentedTypes: string[]; revokedAt: string | null }> };
-        const provider = Platform.OS === 'ios' ? 'APPLE_HEALTH' : Platform.OS === 'android' ? 'HEALTH_CONNECT' : null;
-        const activeConnection = payload.connections?.some(connection => connection.provider === provider && !connection.revokedAt && connection.consentedTypes.length > 0);
-        if (!activeConnection) {
-          const choice = await SecureStore.getItemAsync(promptChoiceKey(user.id));
-          if (!cancelled && !choice) setVisible(true);
+    try {
+      if (connect) {
+        await connectDeviceHealth(request, userId, signal);
+      } else {
+        const response = await request('/api/mobile/health/status', { cache: 'no-store' });
+        if (!response.ok || signal.aborted) return;
+        const { connections } = await response.json() as { connections?: Connection[] };
+        if (signal.aborted) return;
+        const connection = connections?.find(item => item.provider === provider);
+        if (connection?.revokedAt) {
+          await AsyncStorage.removeItem(cursorKey).catch(() => undefined);
           return;
         }
-        await SecureStore.setItemAsync(promptChoiceKey(user.id), 'connected');
-        await checkConnectionAndSync(() => cancelled);
-      } catch {
-        // The regular physiology panel remains available if status cannot be loaded.
+        const storedCursor = Number(await AsyncStorage.getItem(cursorKey).catch(() => null));
+        if (signal.aborted) return;
+        if (!connection || !connection.consentedTypes.length || !(storedCursor > 0 && storedCursor <= startedAt)) {
+          if (!dismissed.current) setVisible(true);
+          return;
+        }
+        if (startedAt - storedCursor < SYNC_INTERVAL_MS) return;
+        const types = DEFAULT_HEALTH_TYPES.filter(type => connection.consentedTypes.includes(type));
+        if (!types.length) return;
+        await importHealthData(request, types, {
+          since: new Date(storedCursor - OVERLAP_MS),
+          requestPermissions: false,
+          saveConsent: false,
+          signal,
+          accountId: userId,
+        });
+        if (signal.aborted) return;
+        await AsyncStorage.setItem(cursorKey, String(startedAt));
       }
-    })();
-    return () => { cancelled = true; };
-  }, [apiFetch, checkConnectionAndSync, user]);
+      if (!signal.aborted) setVisible(false);
+    } catch (syncError) {
+      if (signal.aborted) return;
+      if (connect) setError(syncError instanceof Error ? syncError.message : 'Die Verbindung konnte nicht eingerichtet werden.');
+      else if (syncError instanceof HealthReadPermissionError && !dismissed.current) setVisible(true);
+      else console.warn('Automatischer Health-Import fehlgeschlagen.');
+    } finally {
+      if (work.current === controller) {
+        work.current = null;
+        if (connect) setBusy(false);
+      }
+    }
+  }, [apiFetch, cursorKey, provider, userId]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!cursorKey) return;
+    void sync();
     const subscription = AppState.addEventListener('change', state => {
-      if (state === 'active') void checkConnectionAndSync();
+      if (state === 'active') void sync();
     });
-    return () => subscription.remove();
-  }, [checkConnectionAndSync, user]);
+    const timer = setInterval(() => {
+      if (AppState.currentState === 'active') void sync();
+    }, SYNC_INTERVAL_MS);
+    return () => {
+      subscription.remove();
+      clearInterval(timer);
+      work.current?.abort();
+      work.current = null;
+      lastAttempt.current = 0;
+      dismissed.current = false;
+    };
+  }, [cursorKey, sync]);
 
-  async function defer() {
-    if (user) {
-      try { await SecureStore.setItemAsync(promptChoiceKey(user.id), 'deferred'); } catch { /* Dismissing the optional prompt must not block the app. */ }
-    }
+  function defer() {
+    if (busy) return;
+    dismissed.current = true;
     setVisible(false);
   }
 
-  async function connect() {
-    if (!user) return;
-    setBusy(true); setError(null);
-    try {
-      await importHealthData(apiFetch, DEFAULT_HEALTH_TYPES, { requestPermissions: true, saveConsent: true });
-      try { await SecureStore.setItemAsync(promptChoiceKey(user.id), 'connected'); } catch { /* A storage failure must not undo a successful Health import. */ }
-      setVisible(false);
-    } catch (connectError) {
-      setError(connectError instanceof Error ? connectError.message : 'Die Verbindung konnte nicht eingerichtet werden.');
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return <Modal visible={visible} transparent animationType="fade" onRequestClose={() => void defer()}>
+  return <Modal visible={visible} transparent animationType="fade" onRequestClose={defer}>
     <View style={{ flex: 1, justifyContent: 'center', padding: 24, backgroundColor: '#000b' }}>
       <View style={{ backgroundColor: '#18181b', borderColor: '#3f3f46', borderWidth: 1, borderRadius: 20, padding: 20, gap: 12 }}>
-        <Text style={{ color: '#fafafa', fontSize: 20, fontWeight: '900' }}>Health koppeln</Text>
+        <Text style={{ color: '#fafafa', fontSize: 20, fontWeight: '900' }}>{providerName} koppeln</Text>
         <Text style={{ color: '#d4d4d8', fontSize: 14, lineHeight: 21 }}>
-          Kopple Apple Health oder Health Connect mit Dorfdüsen, damit Trainings-, Schlaf- und Vitaldaten in deine persönliche Auswertung einfließen. Dein Gerät fragt dich, welche Daten freigegeben werden dürfen. Mit „Health koppeln“ stimmst du außerdem zu, dass diese Daten in deinem Dorfdüsen-Konto gespeichert werden. Health-Workouts erscheinen mit Sportart, Zeit und verfügbarer Distanz in deiner Aktivitätenliste und der Düsen-Arena. Andere Vital- und Gesundheitswerte bleiben privat.
+          Kopple {providerName} mit Dorfdüsen, damit Trainings-, Schlaf- und Vitaldaten in deine persönliche Auswertung einfließen. Dein Gerät fragt dich, welche Daten freigegeben werden dürfen. Mit „{providerName} koppeln“ stimmst du außerdem zu, dass diese Daten in deinem Dorfdüsen-Konto gespeichert werden. Health-Workouts erscheinen mit Sportart, Zeit und verfügbarer Distanz in deiner Aktivitätenliste und der Düsen-Arena. Andere Vital- und Gesundheitswerte bleiben privat.
         </Text>
-        <Text style={{ color: '#a1a1aa', fontSize: 12, lineHeight: 18 }}>Du kannst die Kopplung später in Physiologie wieder trennen.</Text>
+        <Text style={{ color: '#a1a1aa', fontSize: 12, lineHeight: 18 }}>Du kannst die Kopplung später in Physiologie trennen. Bereits abgelehnte Freigaben änderst du direkt in {providerName}.</Text>
         {error ? <Text accessibilityLiveRegion="assertive" style={{ color: '#fca5a5', fontSize: 12 }}>{error}</Text> : null}
-        <Pressable accessibilityRole="button" disabled={busy} onPress={() => void connect()} style={{ backgroundColor: '#ea580c', borderRadius: 12, minHeight: 48, justifyContent: 'center', alignItems: 'center' }}>
-          {busy ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontWeight: '800' }}>Health koppeln</Text>}
+        <Pressable accessibilityRole="button" disabled={busy} onPress={() => void sync(true)} style={{ backgroundColor: '#ea580c', borderRadius: 12, minHeight: 48, justifyContent: 'center', alignItems: 'center' }}>
+          {busy ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontWeight: '800' }}>{providerName} koppeln</Text>}
         </Pressable>
-        <Pressable accessibilityRole="button" disabled={busy} onPress={() => void defer()} style={{ minHeight: 44, justifyContent: 'center', alignItems: 'center' }}>
+        <Pressable accessibilityRole="button" disabled={busy} onPress={defer} style={{ minHeight: 44, justifyContent: 'center', alignItems: 'center' }}>
           <Text style={{ color: '#d4d4d8', fontWeight: '700' }}>Später</Text>
         </Pressable>
       </View>

@@ -1,4 +1,25 @@
-import { Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { DeviceEventEmitter, Platform } from 'react-native';
+export const HEALTH_CONNECTION_CHANGED = 'dorfduesen:health-connection-changed';
+
+export const deviceHealthProvider = Platform.OS === 'ios' ? 'APPLE_HEALTH' : Platform.OS === 'android' ? 'HEALTH_CONNECT' : null;
+
+export function healthCursorKey(userId: string) {
+  return `dorfduesen:health-sync:v1:${userId}:${deviceHealthProvider}`;
+}
+
+export async function connectDeviceHealth(
+  apiFetch: Parameters<typeof importHealthData>[0],
+  userId: string,
+  signal?: AbortSignal,
+) {
+  const startedAt = Date.now();
+  await importHealthData(apiFetch, DEFAULT_HEALTH_TYPES, { signal, accountId: userId });
+  checkAborted(signal);
+  await AsyncStorage.setItem(healthCursorKey(userId), String(startedAt));
+  DeviceEventEmitter.emit(HEALTH_CONNECTION_CHANGED, userId);
+}
+
 export type HealthRecordType =
   | 'workout' | 'step_count' | 'distance' | 'walking_running_distance' | 'cycling_distance' | 'swimming_distance' | 'floors_climbed'
   | 'active_energy' | 'basal_energy' | 'total_energy' | 'exercise_time' | 'stand_time' | 'heart_rate' | 'resting_heart_rate'
@@ -32,7 +53,7 @@ const iosQuantityTypes: Array<[string, HealthRecordType]> = [
   ['HKQuantityTypeIdentifierDistanceSwimming', 'swimming_distance'],
   ['HKQuantityTypeIdentifierActiveEnergyBurned', 'active_energy'],
   ['HKQuantityTypeIdentifierBasalEnergyBurned', 'basal_energy'],
-  ['HKQuantityTypeIdentifierAppleMoveTime', 'exercise_time'],
+  ['HKQuantityTypeIdentifierAppleExerciseTime', 'exercise_time'],
   ['HKQuantityTypeIdentifierFlightsClimbed', 'floors_climbed'],
   ['HKQuantityTypeIdentifierHeartRate', 'heart_rate'],
   ['HKQuantityTypeIdentifierRestingHeartRate', 'resting_heart_rate'],
@@ -72,56 +93,70 @@ const androidTypes: Array<[string, HealthRecordType]> = [
   ['MindfulnessSession', 'mindful_session'], ['MenstruationFlow', 'menstrual_flow'],
 ];
 
+export class HealthReadPermissionError extends Error {}
+
+function checkAborted(signal?: AbortSignal) {
+  if (signal?.aborted) throw new Error('Health-Synchronisierung abgebrochen.');
+}
+
 function idOf(value: unknown, fallback: string) {
   return typeof value === 'string' && value ? value : fallback;
 }
 
-async function readHealthKit(types: HealthRecordType[], since: Date, requestPermissions: boolean): Promise<{ records: HealthImportRecord[]; supportedTypes: HealthRecordType[] }> {
+async function readHealthKit(types: HealthRecordType[], since: Date, requestPermissions: boolean, signal?: AbortSignal): Promise<{ records: HealthImportRecord[]; supportedTypes: HealthRecordType[] }> {
   const hk = await import('@kingstinct/react-native-healthkit');
   if (!await hk.isHealthDataAvailable()) throw new Error('Apple Health ist auf diesem Gerät nicht verfügbar.');
   const quantityTypes = iosQuantityTypes.filter(([, type]) => types.includes(type));
   const categoryTypes = iosCategoryTypes.filter(([, type]) => types.includes(type));
   const supportedTypes = [...new Set([...quantityTypes.map(([, type]) => type), ...categoryTypes.map(([, type]) => type), ...(types.includes('workout') ? ['workout' as const] : [])])];
   const requested = [...new Set([...quantityTypes.map(([id]) => id), ...categoryTypes.map(([id]) => id), ...(types.includes('workout') ? ['HKWorkoutTypeIdentifier'] : [])])];
-  if (requestPermissions) await hk.requestAuthorization({ toRead: requested as never[] });
+  checkAborted(signal);
+  if (requestPermissions && !await hk.requestAuthorization({ toRead: requested as never[] })) {
+    throw new HealthReadPermissionError('Die Anfrage für Apple Health wurde nicht abgeschlossen.');
+  }
+  checkAborted(signal);
   const records: HealthImportRecord[] = [];
   for (const [identifier, recordType] of quantityTypes) {
+    checkAborted(signal);
     const samples = await hk.queryQuantitySamples(identifier as never, { limit: 0, ascending: false, filter: { date: { startDate: since } } });
     for (const sample of samples) records.push({
       recordId: sample.uuid,
       recordType,
       startAt: sample.startDate.toISOString(),
       endAt: sample.endDate.toISOString(),
-      value: { quantity: sample.quantity, unit: sample.unit, identifier, metadata: sample.metadata },
+      value: { quantity: sample.quantity, unit: sample.unit, identifier },
       sourceName: sample.sourceRevision?.source?.name ?? null,
       sourceId: sample.sourceRevision?.source?.bundleIdentifier ?? null,
     });
   }
   for (const [identifier, recordType] of categoryTypes) {
+    checkAborted(signal);
     const samples = await hk.queryCategorySamples(identifier as never, { limit: 0, ascending: false, filter: { date: { startDate: since } } });
-    for (const sample of samples) records.push({ recordId: sample.uuid, recordType, startAt: sample.startDate.toISOString(), endAt: sample.endDate.toISOString(), value: { value: sample.value, identifier, metadata: sample.metadata }, sourceName: sample.sourceRevision?.source?.name ?? null, sourceId: sample.sourceRevision?.source?.bundleIdentifier ?? null });
+    for (const sample of samples) records.push({ recordId: sample.uuid, recordType, startAt: sample.startDate.toISOString(), endAt: sample.endDate.toISOString(), value: { value: sample.value, identifier }, sourceName: sample.sourceRevision?.source?.name ?? null, sourceId: sample.sourceRevision?.source?.bundleIdentifier ?? null });
   }
   if (types.includes('workout')) {
+    checkAborted(signal);
     const workouts = await hk.queryWorkoutSamples({ limit: 0, ascending: false, filter: { date: { startDate: since } } });
     for (const workout of workouts) {
       const item = workout.toJSON();
-      records.push({ recordId: item.uuid, recordType: 'workout', startAt: item.startDate.toISOString(), endAt: item.endDate.toISOString(), value: { activityType: item.workoutActivityType, duration: item.duration, totalEnergyBurned: item.totalEnergyBurned, totalDistance: item.totalDistance, events: item.events, activities: item.activities }, sourceName: item.sourceRevision?.source?.name ?? null, sourceId: item.sourceRevision?.source?.bundleIdentifier ?? null });
+      records.push({ recordId: item.uuid, recordType: 'workout', startAt: item.startDate.toISOString(), endAt: item.endDate.toISOString(), value: { activityType: item.workoutActivityType, duration: item.duration, totalEnergyBurned: item.totalEnergyBurned, totalDistance: item.totalDistance }, sourceName: item.sourceRevision?.source?.name ?? null, sourceId: item.sourceRevision?.source?.bundleIdentifier ?? null });
       workout.dispose();
     }
   }
   return { records, supportedTypes };
 }
 
-async function readHealthConnect(types: HealthRecordType[], since: Date, requestPermissions: boolean): Promise<{ records: HealthImportRecord[]; supportedTypes: HealthRecordType[] }> {
+async function readHealthConnect(types: HealthRecordType[], since: Date, requestPermissions: boolean, signal?: AbortSignal): Promise<{ records: HealthImportRecord[]; supportedTypes: HealthRecordType[] }> {
   const hc = await import('react-native-health-connect');
   const available = await hc.initialize();
   if (!available) throw new Error('Health Connect ist auf diesem Gerät nicht verfügbar.');
   const mappings = androidTypes.filter(([, canonical]) => types.includes(canonical));
   const permissions = mappings.map(([recordType]) => ({ accessType: 'read' as const, recordType: recordType as never }));
+  checkAborted(signal);
   const granted = requestPermissions ? await hc.requestPermission(permissions) : await hc.getGrantedPermissions();
   const grantedTypes = new Set(granted.filter((permission) => permission.accessType === 'read').map((permission) => permission.recordType));
   const grantedMappings = mappings.filter(([recordType]) => grantedTypes.has(recordType as never));
-  if (!grantedMappings.length) throw new Error('Health Connect hat keinen der ausgewählten Datentypen freigegeben.');
+  if (!grantedMappings.length) throw new HealthReadPermissionError('Health Connect hat keinen der ausgewählten Datentypen freigegeben. Prüfe den Zugriff in den Health-Connect-Einstellungen.');
   // Health Connect limits historical reads to the most recent 30 days unless
   // the user separately grants history access.
   const earliestAllowed = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
@@ -131,6 +166,7 @@ async function readHealthConnect(types: HealthRecordType[], since: Date, request
   for (const [nativeType, recordType] of grantedMappings) {
     let pageToken: string | undefined;
     do {
+      checkAborted(signal);
       const result = await hc.readRecords(nativeType as never, { timeRangeFilter: { operator: 'between', startTime: querySince.toISOString(), endTime }, pageSize: 500, ...(pageToken ? { pageToken } : {}) });
       for (const item of result.records as unknown as Array<Record<string, unknown>>) {
         const metadata = (item.metadata && typeof item.metadata === 'object' ? item.metadata : {}) as Record<string, unknown>;
@@ -155,32 +191,40 @@ async function readHealthConnect(types: HealthRecordType[], since: Date, request
   return { records, supportedTypes: [...new Set(grantedMappings.map(([, type]) => type))] };
 }
 
-export async function readDeviceHealthData(types: HealthRecordType[], since = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000), requestPermissions = true) {
-  if (Platform.OS === 'ios') return { provider: 'APPLE_HEALTH' as const, ...await readHealthKit(types, since, requestPermissions) };
-  if (Platform.OS === 'android') return { provider: 'HEALTH_CONNECT' as const, ...await readHealthConnect(types, since, requestPermissions) };
+export async function readDeviceHealthData(types: HealthRecordType[], since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), requestPermissions = true, signal?: AbortSignal) {
+  if (Platform.OS === 'ios') return { provider: 'APPLE_HEALTH' as const, ...await readHealthKit(types, since, requestPermissions, signal) };
+  if (Platform.OS === 'android') return { provider: 'HEALTH_CONNECT' as const, ...await readHealthConnect(types, since, requestPermissions, signal) };
   throw new Error('Gesundheitsdaten werden nur in den nativen iOS- und Android-Apps unterstützt.');
 }
 
 export async function importHealthData(
   apiFetch: (path: string, init?: RequestInit) => Promise<Response>,
   types: HealthRecordType[],
-  options: { since?: Date; requestPermissions?: boolean; saveConsent?: boolean } = {},
+  options: { since?: Date; requestPermissions?: boolean; saveConsent?: boolean; signal?: AbortSignal; accountId?: string } = {},
 ) {
-  const { provider, records, supportedTypes } = await readDeviceHealthData(types, options.since, options.requestPermissions ?? true);
+  const { provider, records, supportedTypes } = await readDeviceHealthData(types, options.since, options.requestPermissions ?? true, options.signal);
+  checkAborted(options.signal);
   if (!supportedTypes.length) throw new Error('Die ausgewählten Datentypen werden auf diesem Gerät nicht unterstützt.');
   if (options.saveConsent !== false) {
     const consent = await apiFetch('/api/mobile/health/consent', {
       method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ provider, accepted: true, types: supportedTypes }),
+      body: JSON.stringify({ provider, accepted: true, types: supportedTypes, accountId: options.accountId }),
     });
     if (!consent.ok) throw new Error('Die Zustimmung konnte nicht gespeichert werden.');
   }
   let saved = 0;
-  const batches = records.length ? Array.from({ length: Math.ceil(records.length / 400) }, (_, index) => records.slice(index * 400, (index + 1) * 400)) : [[]];
-  for (const batch of batches) {
+  // Keep each write transaction short. An empty final batch also records a
+  // completed sync when the device has no samples in the requested period.
+  const batchSize = 50;
+  const activityTypes = new Set<HealthRecordType>(['workout', 'distance', 'walking_running_distance', 'cycling_distance', 'swimming_distance', 'heart_rate']);
+  const refreshActivities = records.some(record => activityTypes.has(record.recordType));
+  for (let offset = 0; offset < Math.max(records.length, 1); offset += batchSize) {
+    checkAborted(options.signal);
+    const batch = records.slice(offset, offset + batchSize);
+    const complete = offset + batchSize >= records.length;
     const response = await apiFetch('/api/mobile/health/sync', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ provider, records: batch }),
+      body: JSON.stringify({ provider, records: batch, complete, refreshActivities: complete && refreshActivities, accountId: options.accountId }),
     });
     if (!response.ok) {
       const payload = await response.json().catch(() => ({})) as { error?: string };

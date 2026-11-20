@@ -26,6 +26,9 @@ export async function POST(request: Request) {
   } catch {
     return NextResponse.json({ error: 'Ungültiges Synchronisierungspaket.' }, { status: 400 });
   }
+  if (body.accountId !== undefined && body.accountId !== user.id) {
+    return NextResponse.json({ error: 'Das angemeldete Konto hat sich geändert.' }, { status: 403 });
+  }
   const provider = body.provider;
   const records = body.records;
   const deletedRecordIds = body.deletedRecordIds ?? [];
@@ -64,6 +67,10 @@ export async function POST(request: Request) {
       recordedAt,
     });
   }
+  const complete = body.complete ?? true;
+  if (typeof complete !== 'boolean') {
+    return NextResponse.json({ error: 'Synchronisierungsstatus ungültig.' }, { status: 400 });
+  }
   const cursor = body.cursor === undefined ? undefined : body.cursor;
   if (cursor !== undefined && (!isJsonObject(cursor) || !isSafeJson(cursor, 8_000))) {
     return NextResponse.json({ error: 'Synchronisierungscursor ungültig.' }, { status: 400 });
@@ -71,6 +78,14 @@ export async function POST(request: Request) {
 
   const now = new Date();
   const saved = await db.$transaction(async (tx) => {
+    // Serialize writes with consent changes, including reconnects with a new scope.
+    const active = await tx.$queryRaw<Array<{ id: string }>>`
+      SELECT id FROM "MobileHealthConnection"
+      WHERE "userId" = ${user.id} AND provider = ${provider}
+        AND "revokedAt" IS NULL AND "consentedAt" = ${link.consentedAt}
+      FOR UPDATE
+    `;
+    if (!active.length) return null;
     for (const record of normalized) {
       await tx.mobileHealthRecord.upsert({
         where: { userId_provider_recordId: { userId: user.id, provider, recordId: record.recordId } },
@@ -81,17 +96,18 @@ export async function POST(request: Request) {
     if (deletedRecordIds.length) {
       await tx.mobileHealthRecord.deleteMany({ where: { userId: user.id, provider, recordId: { in: deletedRecordIds as string[] } } });
     }
-    await tx.mobileHealthConnection.update({
+    if (complete) await tx.mobileHealthConnection.update({
       where: { userId_provider: { userId: user.id, provider } },
       data: { lastSyncedAt: now, ...(cursor === undefined ? {} : { syncCursor: cursor as object }) },
     });
     return normalized.length;
   });
+  if (saved === null) return NextResponse.json({ error: 'Die Gesundheitsfreigabe hat sich geändert.' }, { status: 403 });
   const activityRecordsChanged = normalized.some(record => ['workout', 'distance', 'walking_running_distance', 'cycling_distance', 'swimming_distance', 'heart_rate'].includes(record.recordType)) || deletedRecordIds.length > 0;
-  if (saved > 0 || deletedRecordIds.length > 0) {
+  if (complete || saved > 0 || deletedRecordIds.length > 0) {
     invalidateCacheTags(cacheTags.userHealth(user.id), cacheTags.userProfile(user.id));
   }
-  if (activityRecordsChanged) {
+  if (complete && (activityRecordsChanged || body.refreshActivities === true)) {
     await reconcileHealthActivities(user.id);
     try {
       await evaluateUserBadges(user.id);
@@ -103,5 +119,5 @@ export async function POST(request: Request) {
     revalidatePath('/arena');
     revalidatePath('/dashboard');
   }
-  return NextResponse.json({ saved, deleted: deletedRecordIds.length, syncedAt: now.toISOString() });
+  return NextResponse.json({ saved, deleted: deletedRecordIds.length, syncedAt: complete ? now.toISOString() : null });
 }

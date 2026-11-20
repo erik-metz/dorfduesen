@@ -25,6 +25,9 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: 'Ungültige Anfrage.' }, { status: 400 });
   }
 
+  if (body.accountId !== undefined && body.accountId !== user.id) {
+    return NextResponse.json({ error: 'Das angemeldete Konto hat sich geändert.' }, { status: 403 });
+  }
   if (!isHealthProvider(body.provider) || typeof body.accepted !== 'boolean') {
     return NextResponse.json({ error: 'Provider oder Einwilligungsstatus fehlt.' }, { status: 400 });
   }
