@@ -9,6 +9,14 @@ Stand: 21. November 2026.
 - Paketname: `de.dorfduesen.app`; Kategorie-Vorschlag: Gesundheit & Fitness.
 - Support-/Datenschutz-URLs: `https://dorfduesen.de/support`, `https://dorfduesen.de/datenschutz`.
 
+## Play Console
+
+- Privates Entwicklerkonto „MetzMade“; App-ID `4973801011669673435`.
+- Ein früherer Entwurf mit dem Platzhalter-Paket `com.dorfduesen.myapp` wurde gelöscht und die
+  App am 21. November 2026 neu mit `de.dorfduesen.app`, Deutsch, App, kostenlos angelegt.
+- Interner Test: Release `1 (1.0)` hochgeladen und veröffentlicht (Play App Signing aktiv,
+  Downloadgröße ca. 27 MB). Noch keine Tester eingetragen.
+
 ## Signierung (Play App Signing)
 
 - Google verwaltet den App-Signaturschlüssel (Play App Signing). Lokal gibt es nur den
