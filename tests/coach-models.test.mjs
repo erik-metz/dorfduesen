@@ -47,6 +47,7 @@ test('catalog requests share a refresh lease, including when xAI is unavailable'
     concurrent: true,
   });
   assert.equal(calls, 1);
+  assert.ok(nextRefresh.getTime() >= Date.now() + 23 * 60 * 60_000);
   assert.equal(models[0].id, 'grok-4.3');
 });
 
@@ -68,3 +69,44 @@ async function loadCatalog({ read, write, call, concurrent }) {
     else process.env.XAI_API_KEY = previousKey;
   }
 }
+
+test('Coach clients reuse persisted settings and share one daily refresh', async () => {
+  const createCache = () => loadTs('apps/mobile/src/coach/settings-cache.ts');
+  const storage = new Map();
+  const adapter = { read: key => storage.get(key), write: (key, value) => storage.set(key, value) };
+  const models = [{ id: 'grok-5', label: 'Grok 5', premium: false, newest: true }];
+  const settings = { models, defaultModelId: models[0].id,
+    quota: { messages: 40, premiumMessages: 10, plans: 3, resetsAt: new Date(Date.now() + 60_000).toISOString() } };
+  const key = 'coach-settings-v1:test';
+  const displayed = [];
+  const show = (value, fresh) => displayed.push([value.defaultModelId, fresh]);
+  let calls = 0;
+  const fetchSettings = async () => { calls++; return settings; };
+
+  const { refreshDailyCoachSettings } = createCache();
+  const [next] = await Promise.all([
+    refreshDailyCoachSettings(key, adapter, fetchSettings, show),
+    refreshDailyCoachSettings(key, adapter, fetchSettings, show),
+  ]);
+  assert.equal(calls, 1);
+  assert.ok(next > Date.now() + 23 * 60 * 60_000);
+
+  await createCache().refreshDailyCoachSettings(key, adapter, fetchSettings, show);
+  assert.equal(calls, 1, 'reopening the app respects the saved refresh time');
+  assert.deepEqual(displayed.at(-1), ['grok-5', false]);
+
+  storage.set(key, JSON.stringify({ attemptedAt: Date.now() - 25 * 60 * 60_000, settings }));
+  const reread = createCache().refreshDailyCoachSettings;
+  await reread(key, adapter, async () => { calls++; throw new Error('Offline'); }, show);
+  await createCache().refreshDailyCoachSettings(key, adapter, fetchSettings, show);
+  assert.equal(calls, 2, 'an unavailable server does not trigger a second attempt');
+  assert.deepEqual(displayed.at(-1), ['grok-5', false]);
+});
+
+test('new daily quota does not inherit counters from the previous day', () => {
+  const { currentCoachQuota, mergeCoachQuota } = loadTs('apps/mobile/src/coach/settings-cache.ts');
+  const expired = { plans: 0, resetsAt: new Date(Date.now() - 1000).toISOString() };
+  const next = { messages: 39, resetsAt: new Date(Date.now() + 60_000).toISOString() };
+  assert.equal(currentCoachQuota(expired), undefined);
+  assert.equal(mergeCoachQuota(expired, next).plans, undefined);
+});

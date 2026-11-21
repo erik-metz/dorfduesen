@@ -3,11 +3,16 @@ import { randomUUID } from 'expo-crypto';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, AppState, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Svg, { Path, Polygon, Rect } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../src/auth/AuthProvider';
 import { useCoachDictation } from '../../src/coach/useCoachDictation';
-import { COACH_CONSENT_VERSION as consentVersion, isCoachSettings, joinDictation, type CoachSettings, type CoachQuota } from '../../src/coach/contracts';
+import { COACH_CONSENT_VERSION as consentVersion, joinDictation, type CoachSettings, type CoachQuota } from '../../src/coach/contracts';
 
+import { coachQuotaLabel, currentCoachQuota, mergeCoachQuota, refreshDailyCoachSettings } from '../../src/coach/settings-cache';
+import { xaiPolygons, xaiViewBox } from '../../src/coach/xai-mark';
+
+const settingsStorage = { read: AsyncStorage.getItem, write: AsyncStorage.setItem };
 const endpoint = '/api/mobile/coach';
 const examples = ['Wie hat sich mein Training in den letzten acht Wochen entwickelt?', 'Hilf mir, einen 10-km-Trainingsplan zu erstellen.'];
 const planStatuses: Record<string, string> = {
@@ -83,7 +88,8 @@ function CoachChat() {
   const [settings, setSettings] = useState<CoachSettings>();
   const [modelId, setModelId] = useState('');
   const [showModels, setShowModels] = useState(false);
-  const [settingsError, setSettingsError] = useState(false);
+  const [quota, setQuota] = useState<Partial<CoachQuota>>();
+  const remaining = currentCoachQuota(quota);
   const [partial, setPartial] = useState('');
   const [pending, setPending] = useState<PendingSend>();
   const [busy, setBusy] = useState(true);
@@ -105,16 +111,6 @@ function CoachChat() {
     setDraft(current => joinDictation(current, text));
   });
 
-  const refreshSettings = useCallback(async (signal?: AbortSignal) => {
-    try {
-      const data = await readJson<unknown>(await apiFetch(url({ settings: '1' }), { signal }));
-      if (!isCoachSettings(data)) throw new Error('Die Modellauswahl ist noch nicht verfügbar.');
-      if (!signal?.aborted) { setSettings(data); setSettingsError(false); }
-    } catch {
-      if (!signal?.aborted) setSettingsError(true);
-    }
-  }, [apiFetch]);
-
   useEffect(() => {
     let active = true;
     void AsyncStorage.getItem(modelKey).then(value => {
@@ -123,25 +119,35 @@ function CoachChat() {
     return () => { active = false; };
   }, [modelKey]);
 
+  const accountId = user?.id;
   useEffect(() => {
-    if (!focused || !appActive || !consent) return;
-    const controller = new AbortController();
-    const timer = setTimeout(() => { void refreshSettings(controller.signal); }, 0);
-    return () => { clearTimeout(timer); controller.abort(); };
-  }, [appActive, consent, focused, refreshSettings]);
+    if (!focused || !appActive || !consent || !accountId) return;
+    const key = `coach-settings-v1:${accountId}`;
+    let stopped = false;
+    let timer: ReturnType<typeof setTimeout>;
+    async function refresh() {
+      const next = await refreshDailyCoachSettings(key, settingsStorage,
+        async signal => readJson<unknown>(await apiFetch(url({ settings: '1' }), { cache: 'no-store', signal })),
+        (value, fresh) => {
+          if (stopped) return;
+          setSettings(value);
+          setQuota(current => fresh || !currentCoachQuota(current) ? currentCoachQuota(value.quota) : current);
+        });
+      if (!stopped) timer = setTimeout(() => { void refresh(); }, Math.max(0, next - Date.now()));
+    }
+    timer = setTimeout(() => { void refresh(); }, 0);
+    return () => { stopped = true; clearTimeout(timer); };
+  }, [accountId, apiFetch, appActive, consent, focused]);
 
-  const resetsAt = settings?.quota.resetsAt;
+  const resetsAt = quota?.resetsAt;
   useEffect(() => {
-    if (!resetsAt || !focused || !appActive) return;
-    const delay = Date.parse(resetsAt) - Date.now() + 1000;
-    if (delay <= 0) return;
-    const controller = new AbortController();
-    const timer = setTimeout(() => { void refreshSettings(controller.signal); }, delay);
-    return () => { clearTimeout(timer); controller.abort(); };
-  }, [refreshSettings, resetsAt, appActive, focused]);
+    if (!resetsAt || !appActive) return;
+    const timer = setTimeout(() => setQuota(current => currentCoachQuota(current)), Math.max(0, Date.parse(resetsAt) - Date.now() + 10));
+    return () => clearTimeout(timer);
+  }, [appActive, resetsAt]);
 
-  const applyQuota = useCallback((quota: Partial<CoachQuota>) => {
-    setSettings(current => current ? { ...current, quota: { ...current.quota, ...quota } } : current);
+  const applyQuota = useCallback((next: Partial<CoachQuota>) => {
+    setQuota(current => mergeCoachQuota(current, next));
   }, []);
 
   function selectModel(value: string) {
@@ -258,6 +264,7 @@ function CoachChat() {
     action.current = true;
     setError('');
     setSending(true);
+    setShowModels(false);
     setPending(request);
     setPartial('');
     if (!retry) setDraft('');
@@ -309,7 +316,7 @@ function CoachChat() {
         setPending(undefined);
         setDraft(question);
       }
-      if (cause instanceof CoachHttpError && cause.status === 422) void refreshSettings();
+      if (cause instanceof CoachHttpError && cause.status === 422) selectModel('');
       showError(cause);
     }
     finally { setPartial(''); action.current = false; setSending(false); }
@@ -445,7 +452,7 @@ function CoachChat() {
               {!['QUEUED', 'PROCESSING', 'FAILED'].includes(turn.plan.status) ? <Button label="Plan öffnen" primary disabled={busy} onPress={() => void openPlan(turn.plan!.id)} /> : null}
             </> : <>
               <Text style={styles.muted}>Sobald der neue Plan fertig ist, pausiert dein bisher aktiver Plan.</Text>
-              <Button label="Plan erstellen" primary disabled={busy || sending || settings?.quota.plans === 0} onPress={() => void confirmPlan(turn)} />
+              <Button label="Plan erstellen" primary disabled={busy || sending || remaining?.plans === 0} onPress={() => void confirmPlan(turn)} />
             </>}
           </View> : null}
         </View>)}
@@ -456,30 +463,55 @@ function CoachChat() {
         {error && !conversationId && !pending && !sending ? <Button label="Erneut laden" disabled={busy} onPress={() => { setError(''); void initialize(); }} /> : null}
       </ScrollView>
       {consent ? <View style={styles.composerArea}>
-        <View style={styles.row}>
-          <Button label={selected?.label ?? (standard ? `Automatisch · ${standard.label}` : 'Modell auswählen')}
-            disabled={sending || Boolean(pending) || !settings?.models.length} onPress={() => setShowModels(value => !value)} />
-          {settingsError || settings?.models.length === 0 ? <Button label="Modelle laden" onPress={() => void refreshSettings()} /> : null}
+        <View style={styles.modelToolbar}>
+          <Pressable accessibilityRole="button" accessibilityLabel="xAI-Modell auswählen"
+            accessibilityValue={{ text: selected?.label ?? 'Automatisch · sparsam' }}
+            accessibilityState={{ expanded: showModels, disabled: sending || Boolean(pending) }}
+            disabled={sending || Boolean(pending)} onPress={() => setShowModels(open => !open)}
+            style={[styles.button, styles.modelTrigger, (sending || pending) && styles.disabled]}>
+            <Svg width={18} height={20} viewBox={xaiViewBox} accessible={false}>
+              {xaiPolygons.map(points => <Polygon key={points} points={points} fill="#fafafa" />)}
+            </Svg>
+            <Svg width={16} height={16} viewBox="0 0 24 24" accessible={false}>
+              <Path d={showModels ? 'm6 15 6-6 6 6' : 'm6 9 6 6 6-6'} stroke="#fafafa" strokeWidth={2}
+                strokeLinecap="round" strokeLinejoin="round" fill="none" />
+            </Svg>
+          </Pressable>
+          {remaining ? <Text style={[styles.muted, styles.quota]}>{coachQuotaLabel(remaining)}</Text> : null}
         </View>
-        {showModels ? <ScrollView style={styles.modelList} contentContainerStyle={styles.modelOptions} keyboardShouldPersistTaps="handled">
-          <Button label="Automatisch · sparsam" primary={!selected} onPress={() => selectModel('')} />
-          {settings?.models.map(model => <Button key={model.id} label={model.label + (model.newest ? ' · Neu' : '') + (model.premium ? ' · Höhere Kosten' : '')}
-            primary={selected?.id === model.id} onPress={() => selectModel(model.id)} />)}
+        {showModels ? <ScrollView style={styles.modelList} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
+          {[{ id: '', label: standard ? `Automatisch · sparsam (${standard.label})` : 'Automatisch · sparsam' },
+            ...(settings?.models.map(model => ({
+              id: model.id, label: model.label + (model.newest ? ' · Neu' : '') + (model.premium ? ' · Höhere Kosten' : ''),
+            })) ?? [])].map(model => {
+            const active = model.id === (selected?.id ?? '');
+            return <Pressable key={model.id} accessibilityRole="button" accessibilityState={{ selected: active }}
+              style={styles.modelOption} onPress={() => selectModel(model.id)}>
+              <Text style={[styles.modelLabel, active && styles.accent]}>{model.label}</Text>
+              {active ? <Svg width={16} height={16} viewBox="0 0 24 24" accessible={false}>
+                <Path d="m5 12 4 4L19 6" stroke="#fc945f" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" fill="none" />
+              </Svg> : null}
+            </Pressable>;
+          })}
         </ScrollView> : null}
-        {settings ? <Text style={styles.muted}>{settings.quota.messages} Nachrichten · {settings.quota.premiumMessages} mit teureren Modellen · {settings.quota.plans} Pläne übrig bis Mitternacht</Text> : null}
-        {settings && !settings.defaultModelId ? <Text style={styles.muted}>Die KI-Modelle sind gerade nicht verfügbar.</Text> : null}
         {dictation.message ? <Text accessibilityLiveRegion="polite" style={styles.muted}>{dictation.message}</Text> : null}
         {dictation.canDownload ? <Button label="Deutsch herunterladen" onPress={() => void dictation.download()} /> : null}
         <View style={styles.composer}>
-          <TextInput accessibilityLabel="Nachricht an den Coach" value={joinDictation(draft, dictation.interim)} onChangeText={setDraft} editable={!dictation.listening} maxLength={3000}
-          multiline placeholder="Deine Nachricht" placeholderTextColor="#a1a1aa" style={styles.input} />
-        <Pressable accessibilityRole="button" accessibilityLabel={dictation.listening ? 'Diktat beenden' : 'Nachricht diktieren'}
-          disabled={dictation.starting || busy || sending} onPress={() => void dictation.toggle()}
-          style={[styles.button, dictation.listening && styles.primary, (dictation.starting || busy || sending) && styles.disabled]}>
-          <Text style={dictation.listening ? styles.primaryText : styles.text}>{dictation.listening ? 'Stopp' : 'Diktieren'}</Text>
-        </Pressable>
-        <Button label="Senden" primary disabled={busy || sending || dictation.listening || dictation.starting || Boolean(pending) || !draft.trim()
-          || !settings?.defaultModelId || settings.quota.messages === 0 || Boolean(selected?.premium && settings.quota.premiumMessages === 0)} onPress={() => void send()} />
+          <TextInput accessibilityLabel="Nachricht an den Coach" value={joinDictation(draft, dictation.interim)} onChangeText={setDraft}
+            editable={!dictation.listening} maxLength={3000} multiline placeholder="Deine Nachricht" placeholderTextColor="#a1a1aa" style={styles.input} />
+          <Pressable accessibilityRole="button" accessibilityLabel={dictation.listening ? 'Diktat beenden' : 'Nachricht diktieren'}
+            accessibilityState={{ selected: dictation.listening, disabled: dictation.starting || busy || sending }}
+            disabled={dictation.starting || busy || sending} onPress={() => void dictation.toggle()}
+            style={[styles.button, styles.dictationButton, dictation.listening && styles.primary, (dictation.starting || busy || sending) && styles.disabled]}>
+            <Svg width={20} height={20} viewBox="0 0 24 24" accessible={false}>
+              {dictation.listening ? <Rect x={6} y={6} width={12} height={12} rx={1} fill="#171717" /> : <>
+                <Rect x={9} y={2} width={6} height={13} rx={3} stroke="#fafafa" strokeWidth={2} fill="none" />
+                <Path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3" stroke="#fafafa" strokeWidth={2} strokeLinecap="round" fill="none" />
+              </>}
+            </Svg>
+          </Pressable>
+          <Button label="Senden" primary disabled={busy || sending || dictation.listening || dictation.starting || Boolean(pending) || !draft.trim()
+            || remaining?.messages === 0 || Boolean(selected?.premium && remaining?.premiumMessages === 0)} onPress={() => void send()} />
         </View>
       </View> : null}
     </>}
@@ -507,8 +539,13 @@ const styles = StyleSheet.create({
   answer: { backgroundColor: '#18181b', color: '#fafafa', borderRadius: 14, padding: 12, fontSize: 16, lineHeight: 24 },
   composerArea: { padding: 12, gap: 6, borderTopColor: '#27272a', borderTopWidth: 1 },
   composer: { flexDirection: 'row', gap: 8, alignItems: 'flex-end' },
-  modelList: { maxHeight: 150 },
-  modelOptions: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  modelToolbar: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  modelTrigger: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  quota: { flex: 1 },
+  modelList: { maxHeight: 200, borderRadius: 10, borderWidth: 1, borderColor: '#3f3f46', backgroundColor: '#18181b' },
+  modelOption: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44, paddingHorizontal: 12, paddingVertical: 8 },
+  modelLabel: { flex: 1, color: '#fafafa', fontSize: 15 },
+  dictationButton: { width: 44, alignItems: 'center', paddingHorizontal: 0 },
   input: { flex: 1, minHeight: 44, maxHeight: 120, color: '#fafafa', backgroundColor: '#18181b', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, fontSize: 16 },
   error: { color: '#fca5a5', paddingHorizontal: 16, paddingVertical: 8 },
 });

@@ -138,7 +138,7 @@ export async function coachPost(request: Request, userId: string | undefined) {
   const standard = chooseDefault(models);
   if (!standard) return json({ error: 'Die KI-Modelle sind gerade nicht verfügbar. Bitte versuche es später erneut.' }, 503);
   const model = body.modelId == null ? standard : models.find(item => item.id === body.modelId);
-  if (!model) return json({ error: 'Dieses Modell ist nicht mehr verfügbar. Bitte aktualisiere die Modellauswahl.' }, 422);
+  if (!model) return json({ error: 'Dieses Modell ist nicht mehr verfügbar. Wähle ein anderes Modell oder nutze „Automatisch · sparsam“.' }, 422);
   const premium = isPremium(model, standard);
 
   const reservation = await db.$transaction(async tx => {

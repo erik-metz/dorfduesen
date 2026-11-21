@@ -1,11 +1,17 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
-import { Mic, Square } from 'lucide-react';
-import { COACH_CONSENT_VERSION, isCoachSettings, joinDictation, type CoachQuota, type CoachSettings } from '@/apps/mobile/src/coach/contracts';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { ChevronDown, Mic, Square } from 'lucide-react';
+import { COACH_CONSENT_VERSION, joinDictation, type CoachQuota, type CoachSettings } from '@/apps/mobile/src/coach/contracts';
+import { coachQuotaLabel, currentCoachQuota, mergeCoachQuota, refreshDailyCoachSettings } from '@/apps/mobile/src/coach/settings-cache';
+import { xaiPolygons, xaiViewBox } from '@/apps/mobile/src/coach/xai-mark';
 import { useBrowserDictation } from './useBrowserDictation';
 
 const endpoint = '/api/coach/chat';
+const settingsStorage = {
+  read: (key: string) => localStorage.getItem(key),
+  write: (key: string, value: string) => localStorage.setItem(key, value),
+};
 const button = 'rounded-lg bg-zinc-800 px-3 py-2 text-sm font-semibold text-zinc-100 hover:bg-zinc-700 disabled:opacity-50';
 const primary = 'rounded-lg bg-orange-500 px-3 py-2 text-sm font-bold text-zinc-950 hover:bg-orange-400 disabled:opacity-50';
 const field = 'min-w-0 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100';
@@ -48,7 +54,8 @@ export function CoachChat({ userId, onPlanChanged, onOpenPlan }: {
   const modelKey = `coach-model:${userId}`;
   const [consent, setConsent] = useState(false);
   const [settings, setSettings] = useState<CoachSettings>();
-  const [settingsError, setSettingsError] = useState(false);
+  const [quota, setQuota] = useState<Partial<CoachQuota>>();
+  const remaining = currentCoachQuota(quota);
   const [modelId, setModelId] = useState('');
   const [conversation, setConversation] = useState<Conversation>();
   const [list, setList] = useState<ConversationList>();
@@ -74,46 +81,51 @@ export function CoachChat({ userId, onPlanChanged, onOpenPlan }: {
     return () => clearTimeout(timer);
   }, [consentKey, modelKey]);
 
-  const refreshSettings = useCallback(async (signal?: AbortSignal) => {
-    try {
-      const data = await read<unknown>(await fetch(url({ settings: '1' }), { signal }));
-      if (!isCoachSettings(data)) throw new Error('Die Modellauswahl ist noch nicht verfügbar.');
-      if (!signal?.aborted) { setSettings(data); setSettingsError(false); }
-    } catch {
-      if (!signal?.aborted) setSettingsError(true);
-    }
-  }, []);
-
   useEffect(() => {
     if (!consent) return;
-    const controller = new AbortController();
-    function refreshVisible() {
-      if (!document.hidden) void refreshSettings(controller.signal);
+    const key = `coach-settings-v1:${userId}`;
+    let stopped = false;
+    let timer: ReturnType<typeof setTimeout>;
+    let running = false;
+    async function refreshVisible() {
+      if (document.hidden || stopped || running) return;
+      clearTimeout(timer);
+      running = true;
+      try {
+        const next = await refreshDailyCoachSettings(key, settingsStorage,
+          async signal => read<unknown>(await fetch(url({ settings: '1' }), { signal })),
+          (value, fresh) => {
+            if (stopped) return;
+            setSettings(value);
+            setQuota(current => fresh || !currentCoachQuota(current) ? currentCoachQuota(value.quota) : current);
+          },
+          navigator.locks ? async (name, refresh) => await navigator.locks.request(name, refresh) : undefined);
+        if (!stopped) timer = setTimeout(() => { void refreshVisible(); }, Math.max(0, next - Date.now()));
+      } catch { /* Settings refresh again when the Coach becomes visible. */ }
+      finally { running = false; }
     }
-    refreshVisible();
+    timer = setTimeout(() => { void refreshVisible(); }, 0);
     document.addEventListener('visibilitychange', refreshVisible);
     return () => {
-      controller.abort();
+      stopped = true;
+      clearTimeout(timer);
       document.removeEventListener('visibilitychange', refreshVisible);
     };
-  }, [consent, refreshSettings]);
+  }, [consent, userId]);
 
   function remember(key: string, value: string) {
     try { localStorage.setItem(key, value); } catch { /* Preferences may be blocked by the browser. */ }
   }
 
-  const resetsAt = settings?.quota.resetsAt;
+  const resetsAt = quota?.resetsAt;
   useEffect(() => {
     if (!resetsAt) return;
-    const delay = Date.parse(resetsAt) - Date.now() + 1000;
-    if (delay <= 0) return;
-    const controller = new AbortController();
-    const timer = setTimeout(() => { if (!document.hidden) void refreshSettings(controller.signal); }, delay);
-    return () => { clearTimeout(timer); controller.abort(); };
-  }, [refreshSettings, resetsAt]);
+    const timer = setTimeout(() => setQuota(current => currentCoachQuota(current)), Math.max(0, Date.parse(resetsAt) - Date.now() + 10));
+    return () => clearTimeout(timer);
+  }, [resetsAt]);
 
-  function applyQuota(quota: Partial<CoachQuota>) {
-    setSettings(current => current ? { ...current, quota: { ...current.quota, ...quota } } : current);
+  function applyQuota(next: Partial<CoachQuota>) {
+    setQuota(current => mergeCoachQuota(current, next));
   }
 
   async function perform(work: () => Promise<void>, onError?: (error: unknown) => void) {
@@ -170,7 +182,6 @@ export function CoachChat({ userId, onPlanChanged, onOpenPlan }: {
         if (!response.headers.get('content-type')?.includes('application/x-ndjson')) {
           const { turn } = await read<{ turn: Turn }>(response);
           await openConversation(turn.conversationId);
-          void refreshSettings();
           setPending(undefined);
           return;
         }
@@ -208,7 +219,10 @@ export function CoachChat({ userId, onPlanChanged, onOpenPlan }: {
       if (cause instanceof CoachError && (cause.status < 500 || cause.status === 503)) {
         setPending(undefined);
         setDraft(request.question);
-        if (cause.status === 422) void refreshSettings();
+        if (cause.status === 422) {
+          setModelId('');
+          remember(modelKey, '');
+        }
       }
     });
   }
@@ -216,8 +230,8 @@ export function CoachChat({ userId, onPlanChanged, onOpenPlan }: {
   function submit(event: FormEvent) {
     event.preventDefault();
     const question = draft.trim();
-    if (!question || !standard || pending || busy || dictation.listening || dictation.starting
-        || !settings?.quota.messages || (selected?.premium && !settings.quota.premiumMessages)) return;
+    if (!question || pending || busy || dictation.listening || dictation.starting
+        || remaining?.messages === 0 || (selected?.premium && remaining?.premiumMessages === 0)) return;
     void send({ question, requestId: crypto.randomUUID(), conversationId: conversation?.id, modelId: selected?.id });
   }
 
@@ -296,7 +310,7 @@ export function CoachChat({ userId, onPlanChanged, onOpenPlan }: {
                 ['QUEUED', 'PROCESSING'].includes(turn.plan.status) ? 'Der Plan wird erstellt.' :
                   turn.plan.status === 'ACTIVE' ? <button type="button" className={button} onClick={onOpenPlan}>Zum Trainingsplan</button> :
                     'Diesen Trainingsplan hast du bereits erstellt.'}
-            </p> : <button type="button" className={primary} disabled={controlsLocked || settings?.quota.plans === 0}
+            </p> : <button type="button" className={primary} disabled={controlsLocked || remaining?.plans === 0}
               onClick={() => void confirmPlan(turn)}>Plan erstellen</button>}
           </div>}
         </div>)}
@@ -308,37 +322,38 @@ export function CoachChat({ userId, onPlanChanged, onOpenPlan }: {
       </div>
       <form onSubmit={submit} className="space-y-2 border-t border-zinc-800 pt-3">
         <div className="flex flex-wrap items-center gap-2">
-          <label className="flex flex-wrap items-center gap-2 text-sm text-zinc-300">
-            Modell
-            <select className={field} value={selected?.id ?? ''} disabled={busy || Boolean(pending) || !standard} onChange={event => {
-              setModelId(event.target.value);
-              remember(modelKey, event.target.value);
-            }}>
+          <label className="relative inline-flex min-h-10 items-center gap-2 rounded-lg bg-zinc-800 px-3 text-white focus-within:ring-2 focus-within:ring-orange-500"
+            title={selected?.label ?? 'Automatisch · sparsam'}>
+            <svg viewBox={xaiViewBox} width={18} height={20} aria-hidden="true" fill="currentColor">
+              {xaiPolygons.map(points => <polygon key={points} points={points} />)}
+            </svg>
+            <ChevronDown size={16} aria-hidden />
+            <select className="absolute inset-0 h-full w-full cursor-pointer opacity-0 disabled:cursor-default"
+              aria-label="xAI-Modell auswählen" value={selected?.id ?? ''} disabled={busy || Boolean(pending)} onChange={event => {
+                setModelId(event.target.value);
+                remember(modelKey, event.target.value);
+              }}>
               <option value="">{standard ? `Automatisch · sparsam (${standard.label})` : 'Automatisch · sparsam'}</option>
               {settings?.models.map(model => <option key={model.id} value={model.id}>
                 {model.label}{model.newest ? ' · Neu' : ''}{model.premium ? ' · Höhere Kosten' : ''}
               </option>)}
             </select>
           </label>
-          {(settingsError || settings?.models.length === 0) && <button type="button" className={button}
-            onClick={() => void refreshSettings()}>Modelle laden</button>}
+          {remaining && <p className="text-xs text-zinc-400">{coachQuotaLabel(remaining)}</p>}
         </div>
-        {settings && <p className="text-xs text-zinc-400">
-          {settings.quota.messages} Nachrichten · {settings.quota.premiumMessages} mit teureren Modellen · {settings.quota.plans} Pläne übrig bis Mitternacht
-        </p>}
-        {settings && !standard && <p className="text-sm text-zinc-400">Die KI-Modelle sind gerade nicht verfügbar.</p>}
         <textarea className={`${field} block w-full resize-y`} aria-label="Nachricht an den Coach" placeholder="Deine Nachricht" rows={3}
           value={joinDictation(draft, dictation.interim)} maxLength={3000} readOnly={dictation.listening} onChange={event => setDraft(event.target.value)} />
         {dictation.message && <p role="status" className="text-sm text-zinc-300">{dictation.message}</p>}
         <div className="flex flex-wrap items-center justify-end gap-2">
           {dictation.canDownload && <button type="button" className={button} onClick={() => void dictation.download()}>Deutsch herunterladen</button>}
           <button type="button" className={`${button} inline-flex items-center gap-2`} aria-pressed={dictation.listening}
+            aria-label={dictation.listening ? 'Diktat beenden' : 'Nachricht diktieren'}
+            title={dictation.listening ? 'Diktat beenden' : 'Nachricht diktieren'}
             disabled={dictation.starting || busy} onClick={() => void dictation.toggle()}>
             {dictation.listening ? <Square size={16} aria-hidden /> : <Mic size={16} aria-hidden />}
-            {dictation.listening ? 'Stopp' : 'Diktieren'}
           </button>
-          <button className={primary} type="submit" disabled={controlsLocked || Boolean(pending) || !draft.trim() || !standard
-            || !settings?.quota.messages || Boolean(selected?.premium && !settings.quota.premiumMessages)}>Senden</button>
+          <button className={primary} type="submit" disabled={controlsLocked || Boolean(pending) || !draft.trim()
+            || remaining?.messages === 0 || Boolean(selected?.premium && remaining?.premiumMessages === 0)}>Senden</button>
         </div>
       </form>
     </>}

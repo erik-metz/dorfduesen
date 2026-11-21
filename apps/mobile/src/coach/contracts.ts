@@ -1,3 +1,4 @@
+export const COACH_MODEL_REFRESH_INTERVAL = 24 * 60 * 60 * 1000;
 export const COACH_CHAT_DAILY_LIMIT = 40;
 export const COACH_PREMIUM_DAILY_LIMIT = 10;
 export const COACH_CONSENT_VERSION = 'coach-xai-v1';

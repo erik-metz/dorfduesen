@@ -1,6 +1,7 @@
 import type { ReasoningEffort } from 'openai/resources/shared';
 import { xai } from '@/lib/ai/xai';
 import { db } from '@/lib/db';
+import { COACH_MODEL_REFRESH_INTERVAL } from '@/apps/mobile/src/coach/contracts';
 import { estimateCoachCost, reserveCoachSpend, type ModelPrices } from '@/lib/coach/spend';
 
 export type CoachModel = ModelPrices & {
@@ -21,9 +22,7 @@ type XaiModel = {
 };
 
 const cacheId = 1;
-const freshness = 6 * 60 * 60 * 1000;
-const retryDelay = 60 * 60 * 1000;
-const maxStaleAge = 24 * 60 * 60 * 1000;
+const maxStaleAge = 2 * COACH_MODEL_REFRESH_INTERVAL;
 
 function price(value: unknown) {
   return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : null;
@@ -111,9 +110,9 @@ export async function getCoachModels(): Promise<CoachModel[]> {
   const previous = saved.data as Catalog | null;
   const cached = previous && now - previous.updatedAt <= maxStaleAge ? previous.models : [];
   if (saved.nextRefresh.getTime() > now) return cached;
-  const lease = new Date(now + 20000);
+  const nextRefresh = new Date(now + COACH_MODEL_REFRESH_INTERVAL);
   const held = await db.coachModelCatalog.updateMany({
-    where: { id: cacheId, nextRefresh: saved.nextRefresh }, data: { nextRefresh: lease },
+    where: { id: cacheId, nextRefresh: saved.nextRefresh }, data: { nextRefresh },
   });
   if (!held.count) return cached;
 
@@ -137,14 +136,12 @@ export async function getCoachModels(): Promise<CoachModel[]> {
       checked[model.id] = `${await probe(model) ? 'yes' : 'no'}:${model.version}`;
     }));
     const available = models.filter(model => checked[model.id] === `yes:${model.version}`);
-    const hasUnchecked = models.some(model => !checked[model.id]);
     const result = await db.coachModelCatalog.updateMany({
-      where: { id: cacheId, nextRefresh: lease },
-      data: { data: { models: available, checked, updatedAt: now }, nextRefresh: new Date(now + (hasUnchecked ? retryDelay : freshness)) },
+      where: { id: cacheId, nextRefresh },
+      data: { data: { models: available, checked, updatedAt: now } },
     });
     return result.count ? available : cached;
   } catch {
-    await db.coachModelCatalog.updateMany({ where: { id: cacheId, nextRefresh: lease }, data: { nextRefresh: new Date(now + retryDelay) } });
     return cached;
   }
 }
