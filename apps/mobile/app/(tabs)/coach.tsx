@@ -1,13 +1,13 @@
 import { useIsFocused } from 'expo-router/react-navigation';
 import { randomUUID } from 'expo-crypto';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, AppState, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, AppState, Keyboard, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import Svg, { Path, Rect } from 'react-native-svg';
+import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../src/auth/AuthProvider';
 import { useCoachDictation } from '../../src/coach/useCoachDictation';
-import { COACH_CONSENT_VERSION as consentVersion, joinDictation, type CoachSettings, type CoachQuota } from '../../src/coach/contracts';
+import { COACH_CHAT_DAILY_LIMIT, COACH_CONSENT_VERSION as consentVersion, joinDictation, type CoachSettings, type CoachQuota } from '../../src/coach/contracts';
 
 import { coachQuotaLabel, currentCoachQuota, mergeCoachQuota, refreshDailyCoachSettings } from '../../src/coach/settings-cache';
 
@@ -88,6 +88,7 @@ function CoachChat() {
   const [settings, setSettings] = useState<CoachSettings>();
   const [modelId, setModelId] = useState('');
   const [showModels, setShowModels] = useState(false);
+  const [showQuota, setShowQuota] = useState(false);
   const [quota, setQuota] = useState<Partial<CoachQuota>>();
   const remaining = currentCoachQuota(quota);
   const [partial, setPartial] = useState('');
@@ -266,9 +267,11 @@ function CoachChat() {
     setError('');
     setSending(true);
     setShowModels(false);
+    setShowQuota(false);
     setPending(request);
     setPartial('');
     if (!retry) setDraft('');
+    Keyboard.dismiss();
     let finished = false;
     function event(data: SendEvent) {
       if (data.quota) applyQuota(data.quota);
@@ -439,7 +442,7 @@ function CoachChat() {
         {turns.map(turn => <View key={turn.id} style={styles.exchange}>
           <Text style={styles.question}>{turn.question}</Text>
           {turn.answer ? <Text selectable style={styles.answer}>{turn.answer}</Text> : null}
-          {turn.status === 'PENDING' ? <Text style={styles.muted}>Der Coach antwortet …</Text> : null}
+          {turn.status === 'PENDING' && !sending ? <Text style={styles.muted}>Der Coach antwortet …</Text> : null}
           {turn.status === 'FAILED' ? <Button label="Nachricht erneut schreiben" disabled={busy || sending} onPress={() => setDraft(turn.question)} /> : null}
           {turn.sources?.map(source => /^https:\/\/www\.strava\.com\/activities\/\d+$/.test(source.url) ? (
             <Button key={source.url} label={source.label + ' · Strava'} onPress={() => void Linking.openURL(source.url).catch(showError)} />
@@ -467,7 +470,13 @@ function CoachChat() {
         {error && !conversationId && !pending && !sending ? <Button label="Erneut laden" disabled={busy} onPress={() => { setError(''); void initialize(); }} /> : null}
       </ScrollView>
       {consent ? <View style={styles.composerArea}>
-        {remaining ? <Text style={styles.muted}>{coachQuotaLabel(remaining)}</Text> : null}
+        {showQuota && remaining ? <View style={styles.quotaDetails}>
+          <Text style={styles.subheading}>Heute noch frei</Text>
+          {remaining.messages !== undefined ? <Text style={styles.text}>{remaining.messages} von {COACH_CHAT_DAILY_LIMIT} Nachrichten</Text> : null}
+          {remaining.premiumMessages !== undefined ? <Text style={styles.text}>{remaining.premiumMessages} davon mit teureren Modellen</Text> : null}
+          {remaining.plans !== undefined ? <Text style={styles.text}>{remaining.plans} Trainingspläne</Text> : null}
+          <Text style={styles.muted}>Wird um Mitternacht zurückgesetzt.</Text>
+        </View> : null}
         {showModels ? <ScrollView style={styles.modelList} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
           {settings?.models.map(model => {
             const active = model.id === activeModel?.id;
@@ -487,17 +496,21 @@ function CoachChat() {
           editable={!dictation.listening} maxLength={3000} multiline placeholder="Deine Nachricht" placeholderTextColor="#a1a1aa" onFocus={() => setComposerFocused(true)} onBlur={() => setComposerFocused(false)}
           style={[styles.input, composerFocused && styles.inputFocused]} />
         <View style={styles.composerActions}>
-          <Pressable accessibilityRole="button" accessibilityLabel="KI-Modell auswählen"
-            accessibilityValue={{ text: activeModel?.label ?? 'Modell' }}
-            accessibilityState={{ expanded: showModels, disabled: !activeModel || sending || Boolean(pending) }}
-            disabled={!activeModel || sending || Boolean(pending)} onPress={() => setShowModels(open => !open)}
-            style={[styles.button, styles.modelTrigger, (sending || pending) && styles.disabled]}>
-            <Text style={styles.modelTriggerLabel} numberOfLines={1}>{activeModel?.label ?? 'Modell'}</Text>
-            <Svg width={12} height={12} viewBox="0 0 24 24" accessible={false}>
-              <Path d={showModels ? 'm6 15 6-6 6 6' : 'm6 9 6 6 6-6'} stroke="#fafafa" strokeWidth={2}
-                strokeLinecap="round" strokeLinejoin="round" fill="none" />
-            </Svg>
-          </Pressable>
+          <View style={styles.leftActions}>
+            <Pressable accessibilityRole="button" accessibilityLabel="KI-Modell auswählen"
+              accessibilityValue={{ text: activeModel?.label ?? 'Modell' }}
+              accessibilityState={{ expanded: showModels, disabled: !activeModel || sending || Boolean(pending) }}
+              disabled={!activeModel || sending || Boolean(pending)} onPress={() => { setShowQuota(false); setShowModels(open => !open); }}
+              style={[styles.button, styles.modelTrigger, (sending || pending) && styles.disabled]}>
+              <Text style={styles.modelTriggerLabel} numberOfLines={1}>{activeModel?.label ?? 'Modell'}</Text>
+              <Svg width={12} height={12} viewBox="0 0 24 24" accessible={false}>
+                <Path d={showModels ? 'm6 15 6-6 6 6' : 'm6 9 6 6 6-6'} stroke="#fafafa" strokeWidth={2}
+                  strokeLinecap="round" strokeLinejoin="round" fill="none" />
+              </Svg>
+            </Pressable>
+            {remaining?.messages !== undefined ? <QuotaRing left={remaining.messages} label={coachQuotaLabel(remaining)}
+              expanded={showQuota} onPress={() => { setShowModels(false); setShowQuota(open => !open); }} /> : null}
+          </View>
           <View style={styles.messageActions}>
             <Pressable accessibilityRole="button" accessibilityLabel={dictation.listening ? 'Diktat beenden' : 'Nachricht diktieren'}
               accessibilityState={{ selected: dictation.listening, disabled: dictation.starting || busy || sending }}
@@ -524,6 +537,22 @@ function CoachChat() {
   </KeyboardAvoidingView>;
 }
 
+function QuotaRing({ left, label, expanded, onPress }: { left: number; label: string; expanded: boolean; onPress: () => void }) {
+  const share = Math.max(0, Math.min(1, left / COACH_CHAT_DAILY_LIMIT));
+  const color = left === 0 ? '#f87171' : share <= 0.25 ? '#facc15' : '#fc945f';
+  const radius = 14;
+  const length = 2 * Math.PI * radius;
+  return <Pressable accessibilityRole="button" accessibilityLabel="Tageskontingent anzeigen" accessibilityHint={label}
+    accessibilityState={{ expanded }} hitSlop={4} onPress={onPress} style={styles.quotaRing}>
+    <Svg width={34} height={34} viewBox="0 0 34 34" accessible={false}>
+      <Circle cx={17} cy={17} r={radius} stroke="#3f3f46" strokeWidth={3} fill="none" />
+      {share > 0 ? <Circle cx={17} cy={17} r={radius} stroke={color} strokeWidth={3} fill="none" strokeLinecap="round"
+        strokeDasharray={`${length * share} ${length}`} transform="rotate(-90 17 17)" /> : null}
+    </Svg>
+    <Text style={[styles.quotaCount, { color }]}>{left}</Text>
+  </Pressable>;
+}
+
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#09090b' },
   scroll: { flex: 1 },
@@ -545,12 +574,16 @@ const styles = StyleSheet.create({
   answer: { backgroundColor: '#18181b', color: '#fafafa', borderRadius: 14, padding: 12, fontSize: 16, lineHeight: 24 },
   composerArea: { padding: 12, gap: 6, borderTopColor: '#27272a', borderTopWidth: 1 },
   composerActions: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  leftActions: { flexDirection: 'row', alignItems: 'center', gap: 4, flexShrink: 1 },
   messageActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   modelTrigger: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minWidth: 44, flexShrink: 1, paddingHorizontal: 8 },
   modelTriggerLabel: { color: '#fafafa', fontSize: 14, flexShrink: 1 },
   modelList: { maxHeight: 200, borderRadius: 10, borderWidth: 1, borderColor: '#3f3f46', backgroundColor: '#18181b' },
   modelOption: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44, paddingHorizontal: 12, paddingVertical: 8 },
   modelLabel: { flex: 1, color: '#fafafa', fontSize: 15 },
+  quotaRing: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  quotaCount: { position: 'absolute', fontSize: 11, fontWeight: '700' },
+  quotaDetails: { gap: 4, borderRadius: 10, borderWidth: 1, borderColor: '#3f3f46', backgroundColor: '#18181b', padding: 12 },
   iconButton: { width: 44, alignItems: 'center', paddingHorizontal: 0 },
   inputFocused: { borderColor: '#fc945f' },
   input: { minHeight: 52, maxHeight: 120, textAlignVertical: 'top', color: '#fafafa', backgroundColor: '#27272a', borderWidth: 1, borderColor: '#71717a', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, fontSize: 16 },
