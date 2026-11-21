@@ -15,7 +15,34 @@ Stand: 21. November 2026.
 - Ein früherer Entwurf mit dem Platzhalter-Paket `com.dorfduesen.myapp` wurde gelöscht und die
   App am 21. November 2026 neu mit `de.dorfduesen.app`, Deutsch, App, kostenlos angelegt.
 - Interner Test: Release `1 (1.0)` hochgeladen und veröffentlicht (Play App Signing aktiv,
-  Downloadgröße ca. 27 MB). Noch keine Tester eingetragen.
+  Downloadgröße ca. 27 MB). Tester-Liste „intern users“ (1 Person) ist dem Track zugeordnet.
+
+### App-Inhalte (alle am 21. November 2026 gespeichert)
+
+- Datenschutz-URL: `https://dorfduesen.vercel.app/datenschutz` (`dorfduesen.de` hat noch keinen
+  DNS-Eintrag; nach Einrichtung der Domain hier und in der Datensicherheit umstellen).
+- Werbung: keine. Werbe-ID: nicht verwendet. Behörden-App: nein. Finanzfunktionen: keine.
+- Anmeldedaten: Strava-Prüferkonto mit englischen Hinweisen (Zugangsdaten nur im Portal).
+- Altersfreigabe (IARC): Kategorie „All Other App Types“, nur „Online-Inhalte“ (KI-Coach) mit
+  Ja → USK 0, PEGI 3. Kontakt: metzmade@pm.me.
+- Zielgruppe: 18 und älter.
+- Health-Apps: Aktivität & Fitness, Ernährung & Gewicht, Zyklus, Schlaf, Stress/Achtsamkeit;
+  alle 27 Health-Connect-Berechtigungen einzeln begründet (Lesen nur nach Zustimmung und
+  manuellem Import, nur persönliches Dashboard, keine Weitergabe).
+- Datensicherheit: erhoben (nicht geteilt) werden Name, Nutzer-IDs, ungefährer und genauer
+  Standort (Strava-Strecken), Fotos (Strava-Profilbild), sonstige In-App-Nachrichten (Coach-
+  Chat, optional), Gesundheitsdaten (optional) und Fitnessdaten; verschlüsselte Übertragung;
+  Konto-/Datenlöschung über die App bzw. `https://dorfduesen.vercel.app/support`.
+- Store-Einstellungen: Kategorie Health & Fitness, E-Mail metzmade@pm.me, Website
+  `https://dorfduesen.vercel.app/support`.
+- Store-Eintrag (de-DE): Texte aus `store-listing-de.md`, Icon 512 px, Feature-Grafik und fünf
+  Screenshots (1080 × 2160); keine KI-Kennzeichnung.
+
+### Offen
+
+- Änderungen über „Publishing overview“ zur Prüfung senden.
+- Geschlossener Test mit mindestens 12 Testern über 14 Tage, danach Produktionszugriff beantragen.
+- Länderauswahl (nur Deutschland) beim geschlossenen Test/Produktion setzen.
 
 ## Signierung (Play App Signing)
 

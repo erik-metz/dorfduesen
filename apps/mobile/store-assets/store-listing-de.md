@@ -52,7 +52,7 @@ Dorfdüsen
 
 **Kurzbeschreibung**
 
-Laufaktivitäten, Trainingsfortschritt und Clubziele des Runclub Nordheim im Blick.
+Laufaktivitäten, Trainingsfortschritt und Clubziele des Runclub Nordheim.
 
 **Vollständige Beschreibung**
 
@@ -65,6 +65,8 @@ Verbinde dein Strava-Konto und behalte deine Laufaktivitäten, deinen Trainingsf
 • Persönliche Trainingswerte und geschätzte Laufbereiche
 • Trophäen und persönliche Meilensteine
 • Düsen-Arena mit Clubzielen und Wochenübersicht
+• Smart Coach mit KI-Chat und Trainingsplänen
+• Optionaler Import deiner Health-Connect-Daten nach ausdrücklicher Zustimmung
 
 Die angezeigten Trainingswerte sind Auswertungen und Schätzungen auf Basis verfügbarer Daten. Sie ersetzen keine medizinische Beratung oder Diagnostik.
 
