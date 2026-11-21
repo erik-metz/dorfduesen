@@ -85,6 +85,7 @@ function CoachChat() {
   const [olderConversations, setOlderConversations] = useState(false);
   const [history, setHistory] = useState(false);
   const [draft, setDraft] = useState('');
+  const [composerFocused, setComposerFocused] = useState(false);
   const [settings, setSettings] = useState<CoachSettings>();
   const [modelId, setModelId] = useState('');
   const [showModels, setShowModels] = useState(false);
@@ -107,6 +108,7 @@ function CoachChat() {
   const modelKey = `coach-model:${user?.id}`;
   const selected = settings?.models.find(model => model.id === modelId);
   const standard = settings?.models.find(model => model.id === settings.defaultModelId);
+  const activeModel = selected ?? standard;
   const dictation = useCoachDictation(focused && consent && !history && !planView, text => {
     setDraft(current => joinDictation(current, text));
   });
@@ -468,13 +470,10 @@ function CoachChat() {
       {consent ? <View style={styles.composerArea}>
         {remaining ? <Text style={styles.muted}>{coachQuotaLabel(remaining)}</Text> : null}
         {showModels ? <ScrollView style={styles.modelList} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
-          {[{ id: '', label: standard ? `Automatisch · sparsam (${standard.label})` : 'Automatisch · sparsam' },
-            ...(settings?.models.map(model => ({
-              id: model.id, label: model.label + (model.newest ? ' · Neu' : '') + (model.premium ? ' · Höhere Kosten' : ''),
-            })) ?? [])].map(model => {
-            const active = model.id === (selected?.id ?? '');
+          {settings?.models.map(model => {
+            const active = model.id === activeModel?.id;
             return <Pressable key={model.id} accessibilityRole="button" accessibilityState={{ selected: active }}
-              style={styles.modelOption} onPress={() => selectModel(model.id)}>
+              style={styles.modelOption} onPress={() => selectModel(model.id === standard?.id ? '' : model.id)}>
               <Text style={[styles.modelLabel, active && styles.accent]}>{model.label}</Text>
               {active ? <Svg width={16} height={16} viewBox="0 0 24 24" accessible={false}>
                 <Path d="m5 12 4 4L19 6" stroke="#fc945f" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" fill="none" />
@@ -485,16 +484,18 @@ function CoachChat() {
         {dictation.message ? <Text accessibilityLiveRegion="polite" style={styles.muted}>{dictation.message}</Text> : null}
         {dictation.canDownload ? <Button label="Deutsch herunterladen" onPress={() => void dictation.download()} /> : null}
         <TextInput accessibilityLabel="Nachricht an den Coach" value={joinDictation(draft, dictation.interim)} onChangeText={setDraft}
-          editable={!dictation.listening} maxLength={3000} multiline placeholder="Deine Nachricht" placeholderTextColor="#a1a1aa" style={styles.input} />
+          editable={!dictation.listening} maxLength={3000} multiline placeholder="Deine Nachricht" placeholderTextColor="#a1a1aa" onFocus={() => setComposerFocused(true)} onBlur={() => setComposerFocused(false)}
+          style={[styles.input, composerFocused && styles.inputFocused]} />
         <View style={styles.composerActions}>
           <Pressable accessibilityRole="button" accessibilityLabel="xAI-Modell auswählen"
-            accessibilityValue={{ text: selected?.label ?? 'Automatisch · sparsam' }}
-            accessibilityState={{ expanded: showModels, disabled: sending || Boolean(pending) }}
-            disabled={sending || Boolean(pending)} onPress={() => setShowModels(open => !open)}
+            accessibilityValue={{ text: activeModel?.label ?? 'xAI' }}
+            accessibilityState={{ expanded: showModels, disabled: !activeModel || sending || Boolean(pending) }}
+            disabled={!activeModel || sending || Boolean(pending)} onPress={() => setShowModels(open => !open)}
             style={[styles.button, styles.modelTrigger, (sending || pending) && styles.disabled]}>
             <Svg width={14} height={16} viewBox={xaiViewBox} accessible={false}>
               {xaiPolygons.map(points => <Polygon key={points} points={points} fill="#fafafa" />)}
             </Svg>
+            <Text style={styles.modelTriggerLabel} numberOfLines={1}>{activeModel?.label ?? 'xAI'}</Text>
             <Svg width={12} height={12} viewBox="0 0 24 24" accessible={false}>
               <Path d={showModels ? 'm6 15 6-6 6 6' : 'm6 9 6 6 6-6'} stroke="#fafafa" strokeWidth={2}
                 strokeLinecap="round" strokeLinejoin="round" fill="none" />
@@ -546,13 +547,15 @@ const styles = StyleSheet.create({
   question: { alignSelf: 'flex-end', maxWidth: '92%', backgroundColor: '#42281e', color: '#fafafa', borderRadius: 14, padding: 12, fontSize: 16, lineHeight: 23 },
   answer: { backgroundColor: '#18181b', color: '#fafafa', borderRadius: 14, padding: 12, fontSize: 16, lineHeight: 24 },
   composerArea: { padding: 12, gap: 6, borderTopColor: '#27272a', borderTopWidth: 1 },
-  composerActions: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  composerActions: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   messageActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  modelTrigger: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, minWidth: 44, paddingHorizontal: 8 },
+  modelTrigger: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minWidth: 44, flexShrink: 1, paddingHorizontal: 8 },
+  modelTriggerLabel: { color: '#fafafa', fontSize: 14, flexShrink: 1 },
   modelList: { maxHeight: 200, borderRadius: 10, borderWidth: 1, borderColor: '#3f3f46', backgroundColor: '#18181b' },
   modelOption: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44, paddingHorizontal: 12, paddingVertical: 8 },
   modelLabel: { flex: 1, color: '#fafafa', fontSize: 15 },
   iconButton: { width: 44, alignItems: 'center', paddingHorizontal: 0 },
-  input: { minHeight: 52, maxHeight: 120, textAlignVertical: 'top', color: '#fafafa', backgroundColor: '#18181b', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, fontSize: 16 },
+  inputFocused: { borderColor: '#fc945f' },
+  input: { minHeight: 52, maxHeight: 120, textAlignVertical: 'top', color: '#fafafa', backgroundColor: '#27272a', borderWidth: 1, borderColor: '#71717a', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, fontSize: 16 },
   error: { color: '#fca5a5', paddingHorizontal: 16, paddingVertical: 8 },
 });

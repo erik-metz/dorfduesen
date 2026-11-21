@@ -14,7 +14,6 @@ const settingsStorage = {
 };
 const button = 'rounded-lg bg-zinc-800 px-3 py-2 text-sm font-semibold text-zinc-100 hover:bg-zinc-700 disabled:opacity-50';
 const primary = 'rounded-lg bg-orange-500 px-3 py-2 text-sm font-bold text-zinc-950 hover:bg-orange-400 disabled:opacity-50';
-const field = 'min-w-0 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100';
 type Conversation = { id: string; title: string };
 type Plan = { id: string; status: string };
 type Turn = {
@@ -69,6 +68,7 @@ export function CoachChat({ userId, onPlanChanged, onOpenPlan }: {
   const action = useRef(false);
   const standard = settings?.models.find(model => model.id === settings.defaultModelId);
   const selected = settings?.models.find(model => model.id === modelId);
+  const activeModel = selected ?? standard;
   const dictation = useBrowserDictation(text => setDraft(current => joinDictation(current, text)));
 
   useEffect(() => {
@@ -324,27 +324,28 @@ export function CoachChat({ userId, onPlanChanged, onOpenPlan }: {
         {remaining && <p className="text-xs text-zinc-400">{coachQuotaLabel(remaining)}</p>}
         {dictation.message && <p role="status" className="text-sm text-zinc-300">{dictation.message}</p>}
         {dictation.canDownload && <button type="button" className={button} onClick={() => void dictation.download()}>Deutsch herunterladen</button>}
-        <textarea className={`${field} block w-full resize-y`} aria-label="Nachricht an den Coach" placeholder="Deine Nachricht" rows={3}
+        <textarea className="block w-full resize-y rounded-lg border border-zinc-500 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-400 focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-400" aria-label="Nachricht an den Coach" placeholder="Deine Nachricht" rows={3}
           value={joinDictation(draft, dictation.interim)} maxLength={3000} readOnly={dictation.listening} onChange={event => setDraft(event.target.value)} />
         <div className="flex items-center justify-between gap-2">
-          <label className="relative inline-flex h-11 min-w-11 items-center justify-center gap-1 rounded-lg bg-zinc-800 px-2 text-white focus-within:ring-2 focus-within:ring-orange-500"
-            title={selected?.label ?? 'Automatisch · sparsam'}>
+          <label className="relative inline-flex h-11 min-w-0 items-center justify-center gap-2 rounded-lg bg-zinc-800 px-2 text-white focus-within:ring-2 focus-within:ring-orange-500"
+            title={activeModel?.label ?? 'xAI'}>
             <svg viewBox={xaiViewBox} width={14} height={16} aria-hidden="true" fill="currentColor">
               {xaiPolygons.map(points => <polygon key={points} points={points} />)}
             </svg>
-            <ChevronDown size={12} aria-hidden />
+            <span className="truncate text-sm">{activeModel?.label ?? 'xAI'}</span>
+            <ChevronDown size={12} className="shrink-0" aria-hidden />
             <select className="absolute inset-0 h-full w-full cursor-pointer opacity-0 disabled:cursor-default"
-              aria-label="xAI-Modell auswählen" value={selected?.id ?? ''} disabled={busy || Boolean(pending)} onChange={event => {
-                setModelId(event.target.value);
-                remember(modelKey, event.target.value);
+              aria-label="xAI-Modell auswählen" value={activeModel?.id ?? ''} disabled={!activeModel || busy || Boolean(pending)} onChange={event => {
+                const nextModelId = event.target.value === standard?.id ? '' : event.target.value;
+                setModelId(nextModelId);
+                remember(modelKey, nextModelId);
               }}>
-              <option value="">{standard ? `Automatisch · sparsam (${standard.label})` : 'Automatisch · sparsam'}</option>
               {settings?.models.map(model => <option key={model.id} value={model.id}>
-                {model.label}{model.newest ? ' · Neu' : ''}{model.premium ? ' · Höhere Kosten' : ''}
+                {model.label}
               </option>)}
             </select>
           </label>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             <button type="button" className={`${button} inline-flex size-11 items-center justify-center`} aria-pressed={dictation.listening}
               aria-label={dictation.listening ? 'Diktat beenden' : 'Nachricht diktieren'}
               title={dictation.listening ? 'Diktat beenden' : 'Nachricht diktieren'}
