@@ -9,7 +9,7 @@
     "userInterfaceStyle": "dark",
     "ios": {
       "appleTeamId": "GS338K2H7M",
-      "buildNumber": "10",
+      "buildNumber": "11",
       "config": { "usesNonExemptEncryption": false },
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "Dorfdüsen kann Fotos und Videos lesen, wenn du sie ausdrücklich aus deiner Fotomediathek als Datei an die App übergibst."
