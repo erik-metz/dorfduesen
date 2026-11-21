@@ -19,6 +19,12 @@
     },
     "android": {
       "package": "de.dorfduesen.app",
+      "versionCode": 1,
+      "blockedPermissions": [
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT"
+      ],
       "permissions": [
         "android.permission.health.READ_STEPS",
         "android.permission.health.READ_DISTANCE",
@@ -74,6 +80,7 @@
       ],
       "react-native-health-connect",
       "./plugins/with-health-connect-queries",
+      "./plugins/with-android-release-signing",
       [
         "expo-build-properties",
         {
