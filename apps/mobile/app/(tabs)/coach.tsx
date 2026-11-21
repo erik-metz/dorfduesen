@@ -361,6 +361,9 @@ function CoachChat() {
     });
   }
 
+  const sendDisabled = busy || sending || dictation.listening || dictation.starting || Boolean(pending) || !draft.trim()
+    || remaining?.messages === 0 || Boolean(selected?.premium && remaining?.premiumMessages === 0);
+
   return <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={insets.top + 44}>
     <View style={styles.toolbar}>
       {planView ? <Button label="Zum Chat" onPress={() => setPlanView(undefined)} /> : <>
@@ -463,22 +466,7 @@ function CoachChat() {
         {error && !conversationId && !pending && !sending ? <Button label="Erneut laden" disabled={busy} onPress={() => { setError(''); void initialize(); }} /> : null}
       </ScrollView>
       {consent ? <View style={styles.composerArea}>
-        <View style={styles.modelToolbar}>
-          <Pressable accessibilityRole="button" accessibilityLabel="xAI-Modell auswählen"
-            accessibilityValue={{ text: selected?.label ?? 'Automatisch · sparsam' }}
-            accessibilityState={{ expanded: showModels, disabled: sending || Boolean(pending) }}
-            disabled={sending || Boolean(pending)} onPress={() => setShowModels(open => !open)}
-            style={[styles.button, styles.modelTrigger, (sending || pending) && styles.disabled]}>
-            <Svg width={18} height={20} viewBox={xaiViewBox} accessible={false}>
-              {xaiPolygons.map(points => <Polygon key={points} points={points} fill="#fafafa" />)}
-            </Svg>
-            <Svg width={16} height={16} viewBox="0 0 24 24" accessible={false}>
-              <Path d={showModels ? 'm6 15 6-6 6 6' : 'm6 9 6 6 6-6'} stroke="#fafafa" strokeWidth={2}
-                strokeLinecap="round" strokeLinejoin="round" fill="none" />
-            </Svg>
-          </Pressable>
-          {remaining ? <Text style={[styles.muted, styles.quota]}>{coachQuotaLabel(remaining)}</Text> : null}
-        </View>
+        {remaining ? <Text style={styles.muted}>{coachQuotaLabel(remaining)}</Text> : null}
         {showModels ? <ScrollView style={styles.modelList} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
           {[{ id: '', label: standard ? `Automatisch · sparsam (${standard.label})` : 'Automatisch · sparsam' },
             ...(settings?.models.map(model => ({
@@ -496,22 +484,42 @@ function CoachChat() {
         </ScrollView> : null}
         {dictation.message ? <Text accessibilityLiveRegion="polite" style={styles.muted}>{dictation.message}</Text> : null}
         {dictation.canDownload ? <Button label="Deutsch herunterladen" onPress={() => void dictation.download()} /> : null}
-        <View style={styles.composer}>
-          <TextInput accessibilityLabel="Nachricht an den Coach" value={joinDictation(draft, dictation.interim)} onChangeText={setDraft}
-            editable={!dictation.listening} maxLength={3000} multiline placeholder="Deine Nachricht" placeholderTextColor="#a1a1aa" style={styles.input} />
-          <Pressable accessibilityRole="button" accessibilityLabel={dictation.listening ? 'Diktat beenden' : 'Nachricht diktieren'}
-            accessibilityState={{ selected: dictation.listening, disabled: dictation.starting || busy || sending }}
-            disabled={dictation.starting || busy || sending} onPress={() => void dictation.toggle()}
-            style={[styles.button, styles.dictationButton, dictation.listening && styles.primary, (dictation.starting || busy || sending) && styles.disabled]}>
-            <Svg width={20} height={20} viewBox="0 0 24 24" accessible={false}>
-              {dictation.listening ? <Rect x={6} y={6} width={12} height={12} rx={1} fill="#171717" /> : <>
-                <Rect x={9} y={2} width={6} height={13} rx={3} stroke="#fafafa" strokeWidth={2} fill="none" />
-                <Path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3" stroke="#fafafa" strokeWidth={2} strokeLinecap="round" fill="none" />
-              </>}
+        <TextInput accessibilityLabel="Nachricht an den Coach" value={joinDictation(draft, dictation.interim)} onChangeText={setDraft}
+          editable={!dictation.listening} maxLength={3000} multiline placeholder="Deine Nachricht" placeholderTextColor="#a1a1aa" style={styles.input} />
+        <View style={styles.composerActions}>
+          <Pressable accessibilityRole="button" accessibilityLabel="xAI-Modell auswählen"
+            accessibilityValue={{ text: selected?.label ?? 'Automatisch · sparsam' }}
+            accessibilityState={{ expanded: showModels, disabled: sending || Boolean(pending) }}
+            disabled={sending || Boolean(pending)} onPress={() => setShowModels(open => !open)}
+            style={[styles.button, styles.modelTrigger, (sending || pending) && styles.disabled]}>
+            <Svg width={14} height={16} viewBox={xaiViewBox} accessible={false}>
+              {xaiPolygons.map(points => <Polygon key={points} points={points} fill="#fafafa" />)}
+            </Svg>
+            <Svg width={12} height={12} viewBox="0 0 24 24" accessible={false}>
+              <Path d={showModels ? 'm6 15 6-6 6 6' : 'm6 9 6 6 6-6'} stroke="#fafafa" strokeWidth={2}
+                strokeLinecap="round" strokeLinejoin="round" fill="none" />
             </Svg>
           </Pressable>
-          <Button label="Senden" primary disabled={busy || sending || dictation.listening || dictation.starting || Boolean(pending) || !draft.trim()
-            || remaining?.messages === 0 || Boolean(selected?.premium && remaining?.premiumMessages === 0)} onPress={() => void send()} />
+          <View style={styles.messageActions}>
+            <Pressable accessibilityRole="button" accessibilityLabel={dictation.listening ? 'Diktat beenden' : 'Nachricht diktieren'}
+              accessibilityState={{ selected: dictation.listening, disabled: dictation.starting || busy || sending }}
+              disabled={dictation.starting || busy || sending} onPress={() => void dictation.toggle()}
+              style={[styles.button, styles.iconButton, dictation.listening && styles.primary, (dictation.starting || busy || sending) && styles.disabled]}>
+              <Svg width={20} height={20} viewBox="0 0 24 24" accessible={false}>
+                {dictation.listening ? <Rect x={6} y={6} width={12} height={12} rx={1} fill="#171717" /> : <>
+                  <Rect x={9} y={2} width={6} height={13} rx={3} stroke="#fafafa" strokeWidth={2} fill="none" />
+                  <Path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3" stroke="#fafafa" strokeWidth={2} strokeLinecap="round" fill="none" />
+                </>}
+              </Svg>
+            </Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel="Nachricht senden"
+              accessibilityState={{ disabled: sendDisabled }} disabled={sendDisabled} onPress={() => void send()}
+              style={[styles.button, styles.iconButton, styles.primary, sendDisabled && styles.disabled]}>
+              <Svg width={20} height={20} viewBox="0 0 24 24" accessible={false}>
+                <Path d="M12 19V5m-7 7 7-7 7 7" stroke="#171717" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" fill="none" />
+              </Svg>
+            </Pressable>
+          </View>
         </View>
       </View> : null}
     </>}
@@ -538,14 +546,13 @@ const styles = StyleSheet.create({
   question: { alignSelf: 'flex-end', maxWidth: '92%', backgroundColor: '#42281e', color: '#fafafa', borderRadius: 14, padding: 12, fontSize: 16, lineHeight: 23 },
   answer: { backgroundColor: '#18181b', color: '#fafafa', borderRadius: 14, padding: 12, fontSize: 16, lineHeight: 24 },
   composerArea: { padding: 12, gap: 6, borderTopColor: '#27272a', borderTopWidth: 1 },
-  composer: { flexDirection: 'row', gap: 8, alignItems: 'flex-end' },
-  modelToolbar: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  modelTrigger: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  quota: { flex: 1 },
+  composerActions: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  messageActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  modelTrigger: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, minWidth: 44, paddingHorizontal: 8 },
   modelList: { maxHeight: 200, borderRadius: 10, borderWidth: 1, borderColor: '#3f3f46', backgroundColor: '#18181b' },
   modelOption: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44, paddingHorizontal: 12, paddingVertical: 8 },
   modelLabel: { flex: 1, color: '#fafafa', fontSize: 15 },
-  dictationButton: { width: 44, alignItems: 'center', paddingHorizontal: 0 },
-  input: { flex: 1, minHeight: 44, maxHeight: 120, color: '#fafafa', backgroundColor: '#18181b', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, fontSize: 16 },
+  iconButton: { width: 44, alignItems: 'center', paddingHorizontal: 0 },
+  input: { minHeight: 52, maxHeight: 120, textAlignVertical: 'top', color: '#fafafa', backgroundColor: '#18181b', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, fontSize: 16 },
   error: { color: '#fca5a5', paddingHorizontal: 16, paddingVertical: 8 },
 });

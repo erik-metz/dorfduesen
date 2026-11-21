@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { ChevronDown, Mic, Square } from 'lucide-react';
+import { ArrowUp, ChevronDown, Mic, Square } from 'lucide-react';
 import { COACH_CONSENT_VERSION, joinDictation, type CoachQuota, type CoachSettings } from '@/apps/mobile/src/coach/contracts';
 import { coachQuotaLabel, currentCoachQuota, mergeCoachQuota, refreshDailyCoachSettings } from '@/apps/mobile/src/coach/settings-cache';
 import { xaiPolygons, xaiViewBox } from '@/apps/mobile/src/coach/xai-mark';
@@ -321,13 +321,18 @@ export function CoachChat({ userId, onPlanChanged, onOpenPlan }: {
           onClick={() => void perform(() => openConversation(conversation.id))}>Status aktualisieren</button>}
       </div>
       <form onSubmit={submit} className="space-y-2 border-t border-zinc-800 pt-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <label className="relative inline-flex min-h-10 items-center gap-2 rounded-lg bg-zinc-800 px-3 text-white focus-within:ring-2 focus-within:ring-orange-500"
+        {remaining && <p className="text-xs text-zinc-400">{coachQuotaLabel(remaining)}</p>}
+        {dictation.message && <p role="status" className="text-sm text-zinc-300">{dictation.message}</p>}
+        {dictation.canDownload && <button type="button" className={button} onClick={() => void dictation.download()}>Deutsch herunterladen</button>}
+        <textarea className={`${field} block w-full resize-y`} aria-label="Nachricht an den Coach" placeholder="Deine Nachricht" rows={3}
+          value={joinDictation(draft, dictation.interim)} maxLength={3000} readOnly={dictation.listening} onChange={event => setDraft(event.target.value)} />
+        <div className="flex items-center justify-between gap-2">
+          <label className="relative inline-flex h-11 min-w-11 items-center justify-center gap-1 rounded-lg bg-zinc-800 px-2 text-white focus-within:ring-2 focus-within:ring-orange-500"
             title={selected?.label ?? 'Automatisch · sparsam'}>
-            <svg viewBox={xaiViewBox} width={18} height={20} aria-hidden="true" fill="currentColor">
+            <svg viewBox={xaiViewBox} width={14} height={16} aria-hidden="true" fill="currentColor">
               {xaiPolygons.map(points => <polygon key={points} points={points} />)}
             </svg>
-            <ChevronDown size={16} aria-hidden />
+            <ChevronDown size={12} aria-hidden />
             <select className="absolute inset-0 h-full w-full cursor-pointer opacity-0 disabled:cursor-default"
               aria-label="xAI-Modell auswählen" value={selected?.id ?? ''} disabled={busy || Boolean(pending)} onChange={event => {
                 setModelId(event.target.value);
@@ -339,21 +344,20 @@ export function CoachChat({ userId, onPlanChanged, onOpenPlan }: {
               </option>)}
             </select>
           </label>
-          {remaining && <p className="text-xs text-zinc-400">{coachQuotaLabel(remaining)}</p>}
-        </div>
-        <textarea className={`${field} block w-full resize-y`} aria-label="Nachricht an den Coach" placeholder="Deine Nachricht" rows={3}
-          value={joinDictation(draft, dictation.interim)} maxLength={3000} readOnly={dictation.listening} onChange={event => setDraft(event.target.value)} />
-        {dictation.message && <p role="status" className="text-sm text-zinc-300">{dictation.message}</p>}
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          {dictation.canDownload && <button type="button" className={button} onClick={() => void dictation.download()}>Deutsch herunterladen</button>}
-          <button type="button" className={`${button} inline-flex items-center gap-2`} aria-pressed={dictation.listening}
-            aria-label={dictation.listening ? 'Diktat beenden' : 'Nachricht diktieren'}
-            title={dictation.listening ? 'Diktat beenden' : 'Nachricht diktieren'}
-            disabled={dictation.starting || busy} onClick={() => void dictation.toggle()}>
-            {dictation.listening ? <Square size={16} aria-hidden /> : <Mic size={16} aria-hidden />}
-          </button>
-          <button className={primary} type="submit" disabled={controlsLocked || Boolean(pending) || !draft.trim()
-            || remaining?.messages === 0 || Boolean(selected?.premium && remaining?.premiumMessages === 0)}>Senden</button>
+          <div className="flex items-center gap-2">
+            <button type="button" className={`${button} inline-flex size-11 items-center justify-center`} aria-pressed={dictation.listening}
+              aria-label={dictation.listening ? 'Diktat beenden' : 'Nachricht diktieren'}
+              title={dictation.listening ? 'Diktat beenden' : 'Nachricht diktieren'}
+              disabled={dictation.starting || busy} onClick={() => void dictation.toggle()}>
+              {dictation.listening ? <Square size={18} aria-hidden /> : <Mic size={18} aria-hidden />}
+            </button>
+            <button className={`${primary} inline-flex size-11 items-center justify-center`} type="submit"
+              aria-label="Nachricht senden" title="Nachricht senden"
+              disabled={controlsLocked || Boolean(pending) || !draft.trim()
+                || remaining?.messages === 0 || Boolean(selected?.premium && remaining?.premiumMessages === 0)}>
+              <ArrowUp size={20} strokeWidth={2.5} aria-hidden />
+            </button>
+          </div>
         </div>
       </form>
     </>}
