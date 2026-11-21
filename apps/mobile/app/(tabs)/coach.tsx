@@ -3,14 +3,13 @@ import { randomUUID } from 'expo-crypto';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, AppState, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import Svg, { Path, Polygon, Rect } from 'react-native-svg';
+import Svg, { Path, Rect } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../src/auth/AuthProvider';
 import { useCoachDictation } from '../../src/coach/useCoachDictation';
 import { COACH_CONSENT_VERSION as consentVersion, joinDictation, type CoachSettings, type CoachQuota } from '../../src/coach/contracts';
 
 import { coachQuotaLabel, currentCoachQuota, mergeCoachQuota, refreshDailyCoachSettings } from '../../src/coach/settings-cache';
-import { xaiPolygons, xaiViewBox } from '../../src/coach/xai-mark';
 
 const settingsStorage = { read: AsyncStorage.getItem, write: AsyncStorage.setItem };
 const endpoint = '/api/mobile/coach';
@@ -482,20 +481,18 @@ function CoachChat() {
           })}
         </ScrollView> : null}
         {dictation.message ? <Text accessibilityLiveRegion="polite" style={styles.muted}>{dictation.message}</Text> : null}
+        {dictation.needsSettings ? <Button label="Einstellungen öffnen" onPress={() => void dictation.openSettings()} /> : null}
         {dictation.canDownload ? <Button label="Deutsch herunterladen" onPress={() => void dictation.download()} /> : null}
         <TextInput accessibilityLabel="Nachricht an den Coach" value={joinDictation(draft, dictation.interim)} onChangeText={setDraft}
           editable={!dictation.listening} maxLength={3000} multiline placeholder="Deine Nachricht" placeholderTextColor="#a1a1aa" onFocus={() => setComposerFocused(true)} onBlur={() => setComposerFocused(false)}
           style={[styles.input, composerFocused && styles.inputFocused]} />
         <View style={styles.composerActions}>
-          <Pressable accessibilityRole="button" accessibilityLabel="xAI-Modell auswählen"
-            accessibilityValue={{ text: activeModel?.label ?? 'xAI' }}
+          <Pressable accessibilityRole="button" accessibilityLabel="KI-Modell auswählen"
+            accessibilityValue={{ text: activeModel?.label ?? 'Modell' }}
             accessibilityState={{ expanded: showModels, disabled: !activeModel || sending || Boolean(pending) }}
             disabled={!activeModel || sending || Boolean(pending)} onPress={() => setShowModels(open => !open)}
             style={[styles.button, styles.modelTrigger, (sending || pending) && styles.disabled]}>
-            <Svg width={14} height={16} viewBox={xaiViewBox} accessible={false}>
-              {xaiPolygons.map(points => <Polygon key={points} points={points} fill="#fafafa" />)}
-            </Svg>
-            <Text style={styles.modelTriggerLabel} numberOfLines={1}>{activeModel?.label ?? 'xAI'}</Text>
+            <Text style={styles.modelTriggerLabel} numberOfLines={1}>{activeModel?.label ?? 'Modell'}</Text>
             <Svg width={12} height={12} viewBox="0 0 24 24" accessible={false}>
               <Path d={showModels ? 'm6 15 6-6 6 6' : 'm6 9 6 6 6-6'} stroke="#fafafa" strokeWidth={2}
                 strokeLinecap="round" strokeLinejoin="round" fill="none" />

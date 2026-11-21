@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { AppState, Platform } from 'react-native';
+import { AppState, Linking, Platform } from 'react-native';
 import { ExpoSpeechRecognitionModule as speech, useSpeechRecognitionEvent } from 'expo-speech-recognition';
 
 const locale = 'de-DE';
@@ -11,9 +11,24 @@ export function useCoachDictation(enabled: boolean, onFinal: (text: string) => v
   const [interim, setInterim] = useState('');
   const [message, setMessage] = useState('');
   const [canDownload, setCanDownload] = useState(false);
+  const [needsSettings, setNeedsSettings] = useState(false);
   const session = useRef<symbol | null>(null);
   const recording = useRef(false);
   const lastTranscript = useRef('');
+
+  async function openSettings() {
+    try {
+      await Linking.openSettings();
+    } catch {
+      setMessage('Öffne die Systemeinstellungen und erlaube Dorfdüsen den Zugriff auf das Mikrofon.');
+    }
+  }
+
+  function showSettings() {
+    setNeedsSettings(true);
+    setMessage('Erlaube Dorfdüsen den Mikrofonzugriff. Tippe danach erneut auf das Mikrofon.');
+    void openSettings();
+  }
 
   useSpeechRecognitionEvent('result', event => {
     if (!recording.current) return;
@@ -31,8 +46,10 @@ export function useCoachDictation(enabled: boolean, onFinal: (text: string) => v
     if (event.error === 'language-not-supported' && Platform.OS === 'android' && Number(Platform.Version) >= 33) {
       setCanDownload(true);
       setMessage('Für Deutsch ist möglicherweise ein Offline-Sprachpaket erforderlich.');
+    } else if (event.error === 'not-allowed') {
+      showSettings();
     } else if (event.error !== 'no-speech') {
-      setMessage(event.error === 'not-allowed' ? 'Erlaube den Mikrofonzugriff in den Systemeinstellungen.' : fallback);
+      setMessage(fallback);
     }
   });
 
@@ -78,6 +95,7 @@ export function useCoachDictation(enabled: boolean, onFinal: (text: string) => v
     setStarting(true);
     setMessage('');
     setCanDownload(false);
+    setNeedsSettings(false);
     try {
       // The installed native recognizer only uses the on-device Android service on API 33+.
       if (Platform.OS === 'web' || (Platform.OS === 'android' && Number(Platform.Version) < 33)
@@ -95,10 +113,14 @@ export function useCoachDictation(enabled: boolean, onFinal: (text: string) => v
           return;
         }
       }
-      const permission = await speech.requestPermissionsAsync();
+      const permission = await speech.requestMicrophonePermissionsAsync();
       if (session.current !== attempt) return;
       if (!permission.granted) {
-        setMessage('Erlaube Mikrofon und Spracherkennung in den Systemeinstellungen oder tippe deine Nachricht.');
+        if (permission.canAskAgain) {
+          setMessage('Erlaube Dorfdüsen den Mikrofonzugriff, um zu diktieren.');
+        } else {
+          showSettings();
+        }
         return;
       }
       recording.current = true;
@@ -130,5 +152,5 @@ export function useCoachDictation(enabled: boolean, onFinal: (text: string) => v
     }
   }
 
-  return { listening, starting, interim, message, canDownload, toggle, download };
+  return { listening, starting, interim, message, canDownload, needsSettings, toggle, download, openSettings };
 }

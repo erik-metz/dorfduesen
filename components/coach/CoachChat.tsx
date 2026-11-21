@@ -4,7 +4,6 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { ArrowUp, ChevronDown, Mic, Square } from 'lucide-react';
 import { COACH_CONSENT_VERSION, joinDictation, type CoachQuota, type CoachSettings } from '@/apps/mobile/src/coach/contracts';
 import { coachQuotaLabel, currentCoachQuota, mergeCoachQuota, refreshDailyCoachSettings } from '@/apps/mobile/src/coach/settings-cache';
-import { xaiPolygons, xaiViewBox } from '@/apps/mobile/src/coach/xai-mark';
 import { useBrowserDictation } from './useBrowserDictation';
 
 const endpoint = '/api/coach/chat';
@@ -323,19 +322,15 @@ export function CoachChat({ userId, onPlanChanged, onOpenPlan }: {
       <form onSubmit={submit} className="space-y-2 border-t border-zinc-800 pt-3">
         {remaining && <p className="text-xs text-zinc-400">{coachQuotaLabel(remaining)}</p>}
         {dictation.message && <p role="status" className="text-sm text-zinc-300">{dictation.message}</p>}
-        {dictation.canDownload && <button type="button" className={button} onClick={() => void dictation.download()}>Deutsch herunterladen</button>}
         <textarea className="block w-full resize-y rounded-lg border border-zinc-500 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-400 focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-400" aria-label="Nachricht an den Coach" placeholder="Deine Nachricht" rows={3}
           value={joinDictation(draft, dictation.interim)} maxLength={3000} readOnly={dictation.listening} onChange={event => setDraft(event.target.value)} />
         <div className="flex items-center justify-between gap-2">
           <label className="relative inline-flex h-11 min-w-0 items-center justify-center gap-2 rounded-lg bg-zinc-800 px-2 text-white focus-within:ring-2 focus-within:ring-orange-500"
-            title={activeModel?.label ?? 'xAI'}>
-            <svg viewBox={xaiViewBox} width={14} height={16} aria-hidden="true" fill="currentColor">
-              {xaiPolygons.map(points => <polygon key={points} points={points} />)}
-            </svg>
+            title={activeModel?.label ?? 'Modell'}>
             <span className="truncate text-sm">{activeModel?.label ?? 'xAI'}</span>
             <ChevronDown size={12} className="shrink-0" aria-hidden />
             <select className="absolute inset-0 h-full w-full cursor-pointer opacity-0 disabled:cursor-default"
-              aria-label="xAI-Modell auswählen" value={activeModel?.id ?? ''} disabled={!activeModel || busy || Boolean(pending)} onChange={event => {
+              aria-label="KI-Modell auswählen" value={activeModel?.id ?? ''} disabled={!activeModel || busy || Boolean(pending)} onChange={event => {
                 const nextModelId = event.target.value === standard?.id ? '' : event.target.value;
                 setModelId(nextModelId);
                 remember(modelKey, nextModelId);
