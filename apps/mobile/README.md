@@ -63,7 +63,5 @@ Store-Builds enthalten `expo-updates` (Kanal `production`, Laufzeitversion per `
   npm run update -- "Kurze Beschreibung"                 # beide Plattformen
   npm run update -- "Beschreibung" --rollout 20          # schrittweise an 20 %
   ```
-  Das Skript prüft, dass `EXPO_PUBLIC_API_URL` eine öffentliche HTTPS-Adresse ist, und signiert das Update mit `~/.dorfduesen-updates-signing/private-key.pem` (nicht im Repository). Die App akzeptiert nur Updates, die zu `certs/certificate.pem` passen.
+  Das Skript prüft, dass `EXPO_PUBLIC_API_URL` eine öffentliche HTTPS-Adresse ist. Updates sind nicht signiert (Code-Signing erfordert ein kostenpflichtiges EAS-Abo); geschützt werden sie über das Expo-Konto `metzmade`, daher dort Zwei-Faktor-Anmeldung aktiv halten.
 - **Native Änderungen** (neue Pakete mit nativem Code, Berechtigungen, `app.json`, Expo-/React-Native-Upgrade, Patches): neuer Store-Build für beide Plattformen. iOS-Buildnummer und Android-`versionCode` erhöhen, dann wie in `store-assets/ios-release-status.md` und `store-assets/android-release-status.md` beschrieben bauen und hochladen (`npm run play:upload`). Der Fingerprint ändert sich dadurch automatisch; ältere Builds erhalten keine dazu inkompatiblen Updates.
-
-Der private Signaturschlüssel muss gesichert werden (z. B. Passwortmanager). Ohne ihn können installierte Apps keine Updates mehr annehmen, bis ein neuer Store-Build mit neuem Zertifikat veröffentlicht ist.
