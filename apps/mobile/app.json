@@ -33,7 +33,7 @@
     },
     "android": {
       "package": "de.dorfduesen.app",
-      "versionCode": 4,
+      "versionCode": 5,
       "blockedPermissions": [
         "android.permission.SYSTEM_ALERT_WINDOW",
         "android.permission.USE_BIOMETRIC",
