@@ -86,6 +86,13 @@ Vor jedem weiteren Upload `expo.android.versionCode` in `app.json` erhöhen.
 - `npm run play:upload` lädt `app-release.aab` hoch und veröffentlicht es im internen Test;
   `npm run play:upload -- --check` prüft nur den Zugriff und listet die Tracks.
 - 22. November 2026: versionCode 2 (1.0) so in den internen Test veröffentlicht.
+- 22. November 2026: versionCode 5 (1.0) mit `expo-updates` im internen Test. Laufzeitversion
+  (Fingerprint) `4094cb51…` stimmt mit dem ersten EAS-Update überein. versionCode 3 und 4
+  können keine Updates empfangen (3: Signaturprüfung, 4: instabiler Fingerprint).
+- Fingerprint-Prüfung nach einem Build: `unzip -p android/app/build/outputs/bundle/release/app-release.aab base/assets/fingerprint`
+  muss mit der „Runtime version“ von `npm run update` übereinstimmen. Gradle-Ausgaben in
+  `node_modules` sind über `.fingerprintignore` ausgeschlossen.
+- Release-Builds nacheinander, nicht parallel zu iOS starten (8 GB RAM; sonst Metaspace-Abbruch).
 - iOS und Android werden gemeinsam gebaut und hochgeladen (iOS-Ablauf siehe
   `ios-release-status.md`).
 

@@ -140,6 +140,10 @@ Uploadstatus.
   `upload`. Voraussetzung ist ein gültig angemeldetes Konto unter Xcode →
   Settings → Accounts; ein beschädigter Schlüsselbundeintrag führt zu
   „Failed to Use Accounts“.
+- 22. November 2026: Build 17 mit `expo-updates` archiviert (Fingerprint `91f81341…`, passt zum
+  ersten EAS-Update). Kommandozeilen-Upload scheiterte erneut an „Failed to Use Accounts“;
+  Upload per Organizer oder künftig per App-Store-Connect-API-Key. Build 16 (mit inzwischen
+  entfernter Update-Signatur) nicht verwenden.
 - Apple-Hinweis: Ab April 2027 sind Uploads nur noch mit dem iOS-27-SDK
   (Xcode 27) möglich.
 
