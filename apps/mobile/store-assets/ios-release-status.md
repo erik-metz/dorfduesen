@@ -144,6 +144,11 @@ Uploadstatus.
   ersten EAS-Update). Kommandozeilen-Upload scheiterte erneut an „Failed to Use Accounts“;
   Upload per Organizer oder künftig per App-Store-Connect-API-Key. Build 16 (mit inzwischen
   entfernter Update-Signatur) nicht verwenden.
+- 22. November 2026: Build 17 per App-Store-Connect-API-Key hochgeladen. Seitdem gilt für
+  iOS-Uploads: `xcodebuild -exportArchive … -allowProvisioningUpdates -authenticationKeyPath
+  ~/.appstoreconnect/private_keys/AuthKey_<KEY_ID>.p8 -authenticationKeyID <KEY_ID>
+  -authenticationKeyIssuerID <ISSUER_ID>` (Team-Schlüssel, Rolle App Manager; Schlüssel nicht im
+  Repository). Eine Xcode-Kontoanmeldung ist dafür nicht mehr nötig.
 - Apple-Hinweis: Ab April 2027 sind Uploads nur noch mit dem iOS-27-SDK
   (Xcode 27) möglich.
 
