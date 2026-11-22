@@ -133,6 +133,16 @@ Uploadstatus.
   Erklärung hält fest, dass Dorfdüsen HealthKit-Daten nur liest und nichts nach
   Apple Health zurückschreibt.
 
+- 22. November 2026: Build 15 (kompakter Kontingent-Ring im Coach, Tastatur
+  schließt nach dem Senden) per Kommandozeile hochgeladen:
+  `xcodebuild -exportArchive -archivePath <archiv> -exportOptionsPlist <plist>
+  -allowProvisioningUpdates` mit `method` `app-store-connect` und `destination`
+  `upload`. Voraussetzung ist ein gültig angemeldetes Konto unter Xcode →
+  Settings → Accounts; ein beschädigter Schlüsselbundeintrag führt zu
+  „Failed to Use Accounts“.
+- Apple-Hinweis: Ab April 2027 sind Uploads nur noch mit dem iOS-27-SDK
+  (Xcode 27) möglich.
+
 ### Noch offen vor einer Prüfungseinreichung
 
 - HealthKit-App-Compliance: Apples Erklärung, ob Dorfdüsen ein reguliertes
