@@ -53,3 +53,17 @@ Die Migration `20261022120000_mobile_health_data` legt die Datenbanktabellen an 
 ## Smart Coach
 
 Der Tab **Coach** bietet KI-Chat, gespeicherte Gespräche und Trainingspläne. Vor dem Rollout die Migration `20261120120000_mobile_coach` mit `npx prisma migrate deploy` anwenden und die nachfolgende Migration `20261120130000_coach_models_and_budget` mit `npx prisma migrate deploy` anwenden. Serverseitig `XAI_API_KEY` setzen. Der Coach übernimmt verfügbare, kompatible Modelle aus dem xAI-Katalog. Änderungen am Modellkatalog greifen in Web und App nach der nächsten Aktualisierung. Spracheingabe braucht einen nativen Build mit Mikrofon- und Spracherkennungsberechtigungen.
+
+## Releases und Over-the-Air-Updates
+
+Store-Builds enthalten `expo-updates` (Kanal `production`, Laufzeitversion per `fingerprint`). Ein Update ändert nur JavaScript und Assets; die App lädt es beim Start im Hintergrund und verwendet es ab dem nächsten Start.
+
+- **Nur JS/UI geändert** (Bildschirme, Texte, Logik in `app/` und `src/`):
+  ```sh
+  npm run update -- "Kurze Beschreibung"                 # beide Plattformen
+  npm run update -- "Beschreibung" --rollout 20          # schrittweise an 20 %
+  ```
+  Das Skript prüft, dass `EXPO_PUBLIC_API_URL` eine öffentliche HTTPS-Adresse ist, und signiert das Update mit `~/.dorfduesen-updates-signing/private-key.pem` (nicht im Repository). Die App akzeptiert nur Updates, die zu `certs/certificate.pem` passen.
+- **Native Änderungen** (neue Pakete mit nativem Code, Berechtigungen, `app.json`, Expo-/React-Native-Upgrade, Patches): neuer Store-Build für beide Plattformen. iOS-Buildnummer und Android-`versionCode` erhöhen, dann wie in `store-assets/ios-release-status.md` und `store-assets/android-release-status.md` beschrieben bauen und hochladen (`npm run play:upload`). Der Fingerprint ändert sich dadurch automatisch; ältere Builds erhalten keine dazu inkompatiblen Updates.
+
+Der private Signaturschlüssel muss gesichert werden (z. B. Passwortmanager). Ohne ihn können installierte Apps keine Updates mehr annehmen, bis ein neuer Store-Build mit neuem Zertifikat veröffentlicht ist.

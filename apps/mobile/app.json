@@ -3,6 +3,22 @@
     "name": "Dorfdüsen",
     "slug": "dorfduesen",
     "version": "1.0",
+    "runtimeVersion": {
+      "policy": "fingerprint"
+    },
+    "updates": {
+      "enabled": true,
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0,
+      "requestHeaders": {
+        "expo-channel-name": "production"
+      },
+      "codeSigningCertificate": "./certs/certificate.pem",
+      "codeSigningMetadata": {
+        "keyid": "main",
+        "alg": "rsa-v1_5-sha256"
+      }
+    },
     "icon": "./store-assets/icons/app-icon-1024.png",
     "scheme": "dorfduesen",
     "orientation": "portrait",
@@ -10,7 +26,9 @@
     "ios": {
       "appleTeamId": "GS338K2H7M",
       "buildNumber": "15",
-      "config": { "usesNonExemptEncryption": false },
+      "config": {
+        "usesNonExemptEncryption": false
+      },
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "Dorfdüsen kann Fotos und Videos lesen, wenn du sie ausdrücklich aus deiner Fotomediathek als Datei an die App übergibst."
       },

@@ -9,6 +9,7 @@
     "ios": "expo run:ios",
     "typecheck": "tsc --noEmit",
     "play:upload": "node scripts/play-upload.mjs",
+    "update": "node scripts/ota-update.mjs",
     "postinstall": "patch-package --error-on-fail"
   },
   "dependencies": {
@@ -24,6 +25,7 @@
     "expo-speech-recognition": "57.1.1",
     "expo-status-bar": "~57.0.1",
     "expo-system-ui": "~57.0.4",
+    "expo-updates": "~57.0.28",
     "expo-web-browser": "~57.0.3",
     "patch-package": "8.0.1",
     "react": "19.2.3",

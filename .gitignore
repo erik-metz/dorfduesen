@@ -27,6 +27,8 @@
 # misc
 .DS_Store
 *.pem
+# Public expo-updates code-signing certificate (the private key lives outside the repo)
+!apps/mobile/certs/certificate.pem
 
 # debug
 npm-debug.log*
