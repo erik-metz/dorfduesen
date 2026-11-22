@@ -7,6 +7,7 @@
       "policy": "fingerprint"
     },
     "updates": {
+      "url": "https://u.expo.dev/064659e4-f3ea-4f34-9d47-1a63e7cd494c",
       "enabled": true,
       "checkAutomatically": "ON_LOAD",
       "fallbackToCacheTimeout": 0,
@@ -25,7 +26,7 @@
     "userInterfaceStyle": "dark",
     "ios": {
       "appleTeamId": "GS338K2H7M",
-      "buildNumber": "15",
+      "buildNumber": "16",
       "config": {
         "usesNonExemptEncryption": false
       },
@@ -37,7 +38,7 @@
     },
     "android": {
       "package": "de.dorfduesen.app",
-      "versionCode": 2,
+      "versionCode": 3,
       "blockedPermissions": [
         "android.permission.SYSTEM_ALERT_WINDOW",
         "android.permission.USE_BIOMETRIC",
@@ -112,6 +113,12 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "064659e4-f3ea-4f34-9d47-1a63e7cd494c"
+      }
+    },
+    "owner": "metzmade"
   }
 }
