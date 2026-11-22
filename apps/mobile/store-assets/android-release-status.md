@@ -77,6 +77,18 @@ Nicht benötigte Berechtigungen (`SYSTEM_ALERT_WINDOW`, Biometrie) sind über
 
 Vor jedem weiteren Upload `expo.android.versionCode` in `app.json` erhöhen.
 
+## Upload per Play Developer API
+
+- Service-Account `t3-code@dorfduesen.iam.gserviceaccount.com` (Google-Cloud-Projekt
+  `dorfduesen`, Play Android Developer API aktiv) ist in der Play Console mit Rechten für
+  Test-Tracks eingeladen. JSON-Schlüssel: `~/.dorfduesen-android-signing/play-service-account.json`
+  (nicht im Repository; alternativ Pfad über `PLAY_SERVICE_ACCOUNT`).
+- `npm run play:upload` lädt `app-release.aab` hoch und veröffentlicht es im internen Test;
+  `npm run play:upload -- --check` prüft nur den Zugriff und listet die Tracks.
+- 22. November 2026: versionCode 2 (1.0) so in den internen Test veröffentlicht.
+- iOS und Android werden gemeinsam gebaut und hochgeladen (iOS-Ablauf siehe
+  `ios-release-status.md`).
+
 ## Nächste Schritte in der Play Console
 
 1. App erstellen: Dorfdüsen, Deutsch, App, kostenlos; Erklärungen bestätigen.
