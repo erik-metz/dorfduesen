@@ -3,9 +3,11 @@ import { Text } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { useAuth } from '../../src/auth/AuthProvider';
 import { HealthConnectPrompt } from '../../src/components/HealthConnectPrompt';
+import { useStravaVisitSync } from '../../src/strava/stravaSync';
 
 export default function TabsLayout() {
-  const { status, user } = useAuth();
+  const { status, user, apiFetch } = useAuth();
+  useStravaVisitSync(apiFetch, status === 'authenticated');
   if (status !== 'authenticated') return <Redirect href="/" />;
 
   return (

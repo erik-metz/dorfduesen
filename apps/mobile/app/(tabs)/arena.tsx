@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../src/auth/AuthProvider';
+import { requestStravaSync, useStravaSyncSettled } from '../../src/strava/stravaSync';
 
 type LeaderboardEntry = {
   rank: number; userId: string; name: string; profile: string | null; totalDistanceKm: number;
@@ -100,8 +101,12 @@ export default function ArenaScreen() {
   useEffect(() => { void loadTerritories(); }, [loadTerritories]);
   const refresh = () => {
     setRefreshing(true);
+    void requestStravaSync(apiFetch, true);
     void Promise.all([loadArena(false, true), loadTerritories(true)]).finally(() => setRefreshing(false));
   };
+  useStravaSyncSettled(useCallback(() => {
+    void Promise.all([loadArena(false, true), loadTerritories(true)]);
+  }, [loadArena, loadTerritories]));
   const sortedLeaderboard = useMemo(() => [...(data?.leaderboard ?? [])].sort((a, b) => {
     if (sortBy === 'time') return b.totalHours - a.totalHours;
     if (sortBy === 'elevation') return b.totalElevation - a.totalElevation;

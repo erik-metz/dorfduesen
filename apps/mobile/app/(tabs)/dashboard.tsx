@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Linking, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { useAuth } from '../../src/auth/AuthProvider';
+import { requestStravaSync, useStravaSyncSettled } from '../../src/strava/stravaSync';
 import { ActivityDetail } from '../../src/components/ActivityDetail';
 import { HealthDataPanel } from '../../src/components/HealthDataPanel';
 import { HealthOverviewPanel, type HealthOverviewData } from '../../src/components/HealthOverviewPanel';
@@ -192,8 +193,13 @@ export default function DashboardScreen() {
   const refresh = () => {
     setRefreshing(true);
     setRefreshSection(value => value + 1);
+    void requestStravaSync(apiFetch, true);
     void loadDashboard(false, true);
   };
+  useStravaSyncSettled(useCallback(() => {
+    setRefreshSection(value => value + 1);
+    void loadDashboard(false, true);
+  }, [loadDashboard]));
 
   async function loadMore() {
     if (!data || data.pagination.page >= data.pagination.pageCount) return;
