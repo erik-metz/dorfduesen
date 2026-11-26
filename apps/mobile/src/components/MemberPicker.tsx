@@ -22,7 +22,7 @@ function Avatar({ member, size, active }: { member: PickerMember; size: number; 
     {member.profile
       ? <Image source={{ uri: member.profile }} alt="" style={{ width: size, height: size, borderRadius: size / 2 }} />
       : <View style={[styles.placeholder, { width: size, height: size, borderRadius: size / 2 }]}>
-        <Text style={[styles.initial, { fontSize: size * 0.4 }]}>{member.name.slice(0, 1).toUpperCase()}</Text>
+        <Text allowFontScaling={false} style={[styles.initial, { fontSize: size * 0.4 }]}>{member.name.slice(0, 1).toUpperCase()}</Text>
       </View>}
   </View>;
 }
@@ -53,14 +53,14 @@ export function MemberPicker({ members, currentUserId, selectedId, onSelect }: P
   }
 
   return <>
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.strip}>
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.stripScroll} contentContainerStyle={styles.strip}>
       {strip.map(member => {
         const active = member.id === selectedId;
         const isSelf = member.id === currentUserId;
         return <Pressable key={member.id} accessibilityRole="button" accessibilityLabel={isSelf ? `Du (${member.name})` : member.name}
           accessibilityState={{ selected: active }} onPress={() => choose(member.id)} style={styles.item}>
           <Avatar member={member} size={46} active={active} />
-          <Text numberOfLines={1} style={[styles.name, active && styles.nameActive]}>{firstName(member, isSelf)}</Text>
+          <Text numberOfLines={1} allowFontScaling={false} style={[styles.name, active && styles.nameActive]}>{firstName(member, isSelf)}</Text>
         </Pressable>;
       })}
       <Pressable accessibilityRole="button" accessibilityLabel="Alle Athleten durchsuchen" onPress={() => setOpen(true)} style={styles.item}>
@@ -70,7 +70,7 @@ export function MemberPicker({ members, currentUserId, selectedId, onSelect }: P
             <Path d="m20 20-4-4" stroke="#fafafa" strokeWidth={2} strokeLinecap="round" />
           </Svg>
         </View>
-        <Text style={styles.name}>Alle</Text>
+        <Text numberOfLines={1} allowFontScaling={false} style={styles.name}>Alle</Text>
       </Pressable>
     </ScrollView>
 
@@ -107,8 +107,11 @@ export function MemberPicker({ members, currentUserId, selectedId, onSelect }: P
 }
 
 const styles = StyleSheet.create({
-  strip: { gap: 12, paddingRight: 4 },
-  item: { width: 58, alignItems: 'center', gap: 4 },
+  // Phone-sized strip on every device: fixed height, no flex growth and no text scaling, so a large iPad or tablet
+  // shows the same compact avatars instead of stretching them.
+  stripScroll: { flexGrow: 0, flexShrink: 0, height: 74 },
+  strip: { gap: 12, paddingRight: 4, alignItems: 'flex-start' },
+  item: { width: 58, height: 74, flexGrow: 0, flexShrink: 0, alignItems: 'center', gap: 4 },
   ring: { alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'transparent' },
   ringActive: { alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#fc7a3d' },
   placeholder: { backgroundColor: '#3f3f46', alignItems: 'center', justifyContent: 'center' },
