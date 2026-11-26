@@ -1,6 +1,7 @@
 import { db } from '@/lib/db';
 import { generateAlgorithmicPlan } from '@/lib/ai/generator';
 import { calculateAthleteBaseline } from './baseline';
+import { loadCanonicalActivities } from './canonical-activities';
 import { buildPeriodizationSkeleton, type PeriodizationPlanSkeleton } from './periodization';
 import { buildRunWalkSkeleton, runWalkLevel } from './run-walk';
 import { adaptationMessage, reviewWeek, storedRunWalk, type WeekOutcome } from './plan-adaptation';
@@ -39,11 +40,9 @@ export async function adaptPlanAfterWeek(planId: string, now = new Date()): Prom
   const countedFrom = new Date(Math.max(reviewed.start.getTime(), berlinMidnight(dayKey(plan.createdAt)).getTime()));
   const planned = week.workouts.filter(workout => workout.workoutType !== 'REST' && workout.sportType === 'Run' && workout.scheduledDate >= countedFrom);
   if (!planned.length) return { status: 'skipped', reason: 'Nothing planned after plan creation' };
-  const runs = await db.activity.findMany({
-    where: { userId: plan.userId, sportType: { in: RUN_TYPES }, startDate: { gte: countedFrom, lt: reviewed.end } },
-    select: { distance: true, manualDistance: true },
-  });
-  const distances = runs.map(run => (run.manualDistance ?? run.distance) / 1000);
+  // Health workouts count with their own measurements, whether or not they reached Strava.
+  const { activities } = await loadCanonicalActivities(plan.userId, countedFrom, new Date(reviewed.end.getTime() - 1));
+  const distances = activities.filter(run => RUN_TYPES.includes(run.sportType)).map(run => (run.manualDistance ?? run.distance) / 1000);
   const review = {
     plannedSessions: planned.length,
     plannedKm: planned.reduce((sum, workout) => sum + (workout.targetDistance ?? 0), 0),

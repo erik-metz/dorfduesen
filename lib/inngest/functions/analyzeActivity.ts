@@ -49,6 +49,21 @@ export const analyzeActivityFunction = inngest.createFunction(
         return { matched: false, reason: "No active plan found" };
       }
 
+      // The same session may already have completed a workout as a Health-only run.
+      if (!activity.stravaId.startsWith('health:')) {
+        const twin = await db.planWorkout.findFirst({
+          where: {
+            status: 'COMPLETED', week: { planId: activePlan.id },
+            matchedActivity: { stravaId: { startsWith: 'health:' }, startDate: { gte: new Date(activity.startDate.getTime() - 10 * 60000), lte: new Date(activity.startDate.getTime() + 10 * 60000) } },
+          },
+          select: { id: true },
+        });
+        if (twin) {
+          await db.planWorkout.update({ where: { id: twin.id }, data: { matchedActivityId: activity.id } });
+          return { matched: false, reason: 'Already completed by the same Health workout' };
+        }
+      }
+
       // Smart Flexible Matching within the activity's week
       const activityDate = new Date(activity.startDate);
       const activityKm = activity.distance / 1000;

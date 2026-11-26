@@ -2,11 +2,15 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, ActivityIndicator, DeviceEventEmitter, Modal, Pressable, Text, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../auth/AuthProvider';
-import { connectDeviceHealth, DEFAULT_HEALTH_TYPES, deviceHealthProvider, healthCursorKey, HealthReadPermissionError, HEALTH_CONNECTION_CHANGED, HEALTH_SYNC_COMPLETED, importHealthData, withHealthTimeout } from '../health/healthSync';
+import { connectDeviceHealth, DEFAULT_HEALTH_TYPES, deviceHealthProvider, healthCursorKey, HealthReadPermissionError, HEALTH_CONNECTION_CHANGED, HEALTH_SYNC_COMPLETED, importHealthData, withHealthTimeout, type HealthRecordType } from '../health/healthSync';
 
 const SYNC_INTERVAL_MS = 30 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const OVERLAP_MS = 2 * 60 * 60 * 1000;
+// Workouts and slow-changing vitals are imported once for a year so plans start from the
+// athlete's real history. Dense samples (heart rate, steps, distance) stay on the short window.
+const HISTORY_DAYS = 365;
+const HISTORY_TYPES: HealthRecordType[] = ['workout', 'resting_heart_rate', 'vo2_max', 'body_mass'];
 
 type Connection = { provider: string; consentedTypes: string[]; revokedAt: string | null };
 
@@ -77,6 +81,19 @@ export function HealthConnectPrompt() {
           });
           if (signal.aborted) return;
           await AsyncStorage.setItem(cursorKey, String(startedAt));
+          const historyKey = `${cursorKey}:history-v1`;
+          const historyTypes = HISTORY_TYPES.filter(type => types.includes(type));
+          if (historyTypes.length && !await AsyncStorage.getItem(historyKey).catch(() => null)) {
+            await importHealthData(request, historyTypes, {
+              since: new Date(startedAt - HISTORY_DAYS * DAY_MS),
+              requestPermissions: false,
+              saveConsent: false,
+              signal,
+              accountId: userId,
+            });
+            if (signal.aborted) return;
+            await AsyncStorage.setItem(historyKey, String(startedAt));
+          }
           if (!signal.aborted) DeviceEventEmitter.emit(HEALTH_SYNC_COMPLETED, userId);
         }
         if (!signal.aborted) setVisible(false);

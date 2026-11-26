@@ -430,9 +430,14 @@ export function buildCanonicalActivities(userId: string, records: HealthRecordFo
   return [...enrichedStrava, ...buildHealthOnlyActivities(userId, records, matches)];
 }
 
-export function buildHealthOnlyCanonicalActivities(userId: string, records: HealthRecordForOverview[], stravaActivities: ActivityForMatching[], now: Date): Activity[] {
+export function buildHealthOnlyCanonicalActivities(userId: string, records: HealthRecordForOverview[], stravaActivities: ActivityForMatching[], now: Date) {
   const matches = buildHealthOverview(records, stravaActivities, now).activityMatches;
-  return buildHealthOnlyActivities(userId, records, matches);
+  // Health activity row id -> Strava activity id it now belongs to.
+  const stravaByHealthActivity = new Map<string, string>(matches.flatMap(match => {
+    const strava = match.strava && stravaActivities.find(activity => activity.stravaId === match.strava!.id);
+    return strava ? [[`health:${match.healthRecordId}`, strava.id] as [string, string]] : [];
+  }));
+  return { activities: buildHealthOnlyActivities(userId, records, matches), stravaByHealthActivity };
 }
 
 /** Import measured weight and resting pulse into the historical read-model, retaining manual entries. */

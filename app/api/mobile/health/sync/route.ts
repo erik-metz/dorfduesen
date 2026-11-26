@@ -7,6 +7,7 @@ import { db } from '@/lib/db';
 import { isHealthProvider, isHealthRecordType, isJsonObject, isSafeJson, parseDate } from '@/lib/mobile/health';
 import { reconcileHealthActivities } from '@/lib/mobile/health-activities';
 import { evaluateUserBadges } from '@/lib/arena/badge-engine';
+import { inngest } from '@/lib/inngest/client';
 import { cacheTags, invalidateCacheTags } from '@/lib/cache-tags';
 
 export const maxDuration = 20;
@@ -14,6 +15,22 @@ export const maxDuration = 20;
 const MAX_BODY_BYTES = 1_500_000;
 const MAX_BATCH_RECORDS = 500;
 const ACTIVITY_SIGNAL_TYPES = ['distance', 'walking_running_distance', 'cycling_distance', 'swimming_distance', 'heart_rate'];
+
+/** Health-only runs complete plan workouts exactly like synced Strava runs. */
+async function queuePlanMatching(userId: string, runs: Array<{ id: string; startDate: Date }>) {
+  if (!runs.length) return;
+  try {
+    const plan = await db.trainingPlan.findFirst({ where: { userId, status: 'ACTIVE' }, select: { id: true, startDate: true } });
+    if (!plan) return;
+    const events = runs.filter(run => run.startDate >= plan.startDate).slice(0, 50).map(run => ({
+      id: `activity:${run.id}:plan:${plan.id}`, name: 'strava/activity.synced' as const,
+      data: { activityId: run.id, userId, planId: plan.id },
+    }));
+    if (events.length) await inngest.send(events);
+  } catch (error) {
+    console.error('Health-Läufe wurden gespeichert, der Trainingsplan-Abgleich konnte aber nicht gestartet werden:', error);
+  }
+}
 
 export async function POST(request: Request) {
   await connection();
@@ -146,7 +163,8 @@ export async function POST(request: Request) {
     invalidateCacheTags(cacheTags.userHealth(user.id), cacheTags.userProfile(user.id));
   }
   if (activityChanged) {
-    await reconcileHealthActivities(user.id);
+    const { newRuns } = await reconcileHealthActivities(user.id);
+    await queuePlanMatching(user.id, newRuns);
     try {
       await evaluateUserBadges(user.id);
     } catch (error) {

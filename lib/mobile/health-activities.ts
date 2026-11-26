@@ -15,7 +15,8 @@ const MATCHING_RECORD_TYPES = [
 /**
  * Materialize Health-only sessions as Activity rows so every existing activity
  * consumer (dashboard, website, Arena, weekly champions and badges) sees them.
- * Strava remains the primary activity when its workout matches a Health workout.
+ * A Health workout that matches a Strava activity stays one activity (the Strava row,
+ * whose training values are taken from Health in the canonical view).
  */
 export async function reconcileHealthActivities(userId: string) {
   const prefix = `${HEALTH_ACTIVITY_PREFIX}${userId}:`;
@@ -29,12 +30,15 @@ export async function reconcileHealthActivities(userId: string) {
       where: { userId, NOT: { stravaId: { startsWith: HEALTH_ACTIVITY_PREFIX } } },
       select: { id: true, stravaId: true, name: true, sportType: true, startDate: true, elapsedTime: true, distance: true },
     }),
-    db.activity.findMany({ where: { userId, stravaId: { startsWith: prefix } }, select: { stravaId: true } }),
+    db.activity.findMany({ where: { userId, stravaId: { startsWith: prefix } }, select: { id: true, stravaId: true } }),
   ]);
 
-  const healthActivities = buildHealthOnlyCanonicalActivities(userId, records, stravaActivities, new Date());
+  const { activities: healthActivities, stravaByHealthActivity } = buildHealthOnlyCanonicalActivities(userId, records, stravaActivities, new Date());
   const recordByActivityId = new Map(records.map(record => [`health:${record.id}`, record]));
   const desiredIds = new Set(healthActivities.map(activity => activity.stravaId));
+  const existingIds = new Set(existingHealthActivities.map(activity => activity.stravaId));
+  const newRuns = healthActivities.filter(activity => activity.sportType === 'Run' && !existingIds.has(activity.stravaId))
+    .map(activity => ({ id: activity.id, startDate: activity.startDate }));
   const staleIds = existingHealthActivities.map(activity => activity.stravaId).filter(id => !desiredIds.has(id));
 
   await db.$transaction(async tx => {
@@ -82,9 +86,15 @@ export async function reconcileHealthActivities(userId: string) {
       });
     }
     if (staleIds.length) {
+      // A Health run that later arrived via Strava keeps its completed plan workout.
+      for (const stale of existingHealthActivities.filter(activity => (staleIds as string[]).includes(activity.stravaId))) {
+        const stravaId = stravaByHealthActivity.get(stale.id);
+        if (!stravaId || await tx.planWorkout.findFirst({ where: { matchedActivityId: stravaId }, select: { id: true } })) continue;
+        await tx.planWorkout.updateMany({ where: { matchedActivityId: stale.id }, data: { matchedActivityId: stravaId } });
+      }
       await tx.activity.deleteMany({ where: { userId, stravaId: { in: staleIds } } });
     }
   });
 
-  return { createdOrUpdated: healthActivities.length, removed: staleIds.length };
+  return { createdOrUpdated: healthActivities.length, removed: staleIds.length, newRuns };
 }
