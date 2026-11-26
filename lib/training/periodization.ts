@@ -1,5 +1,6 @@
 import { weekRange, berlinMidnight, shiftDay } from '@/lib/time';
 import { AthleteBaseline } from "./baseline";
+import { buildRunWalkSkeleton, runWalkStart, type RunWalkSession } from "./run-walk";
 
 export type TrainingPhase = "BASE" | "BUILD" | "PEAK" | "TAPER" | "RECOVERY";
 
@@ -9,6 +10,8 @@ export interface PeriodizationWorkoutSkeleton {
   approximateKm: number;
   isFlexible: boolean;
   recommendedTiming: string;
+  /** Present for beginner plans: the session is a run/walk interval workout. */
+  runWalk?: RunWalkSession;
 }
 
 export interface PeriodizationWeekSkeleton {
@@ -21,6 +24,8 @@ export interface PeriodizationWeekSkeleton {
 }
 
 export interface PeriodizationPlanSkeleton {
+  /** RUN_WALK plans are deterministic beginner progressions and skip the language model. */
+  mode?: "STANDARD" | "RUN_WALK";
   totalWeeks: number;
   startDate: Date;
   targetDate: Date;
@@ -41,6 +46,8 @@ export interface PeriodizationInput {
   weeklyAvailability?: number; // 2 to 6 days
   preferredLongRunDay?: number | null; // null or -1 = Flexibel, 0 = So, 1 = Mo, 2 = Di, etc.
   includeSundayRun?: boolean;
+  /** Minutes the athlete can currently run without a walking break, if stated. */
+  currentRunMinutes?: number;
 }
 
 /**
@@ -74,6 +81,18 @@ export function buildPeriodizationSkeleton(input: PeriodizationInput): Periodiza
   }
 
   const daysAvailable = Math.min(Math.max(input.weeklyAvailability || 3, 2), 6);
+
+  const beginner = runWalkStart({
+    goalType: input.goalType, targetDistanceKm: input.targetDistanceKm,
+    currentRunMinutes: input.currentRunMinutes, baseline: input.baseline,
+  });
+  if (beginner) {
+    return buildRunWalkSkeleton({
+      start: beginner, totalWeeks, startDate, targetDate, daysAvailable,
+      preferredLongRunDay: input.preferredLongRunDay, includeSundayRun: input.includeSundayRun ?? true,
+      gentlerStart: input.gentlerStart,
+    });
+  }
   const isFlexibleLongRun = input.preferredLongRunDay === null || input.preferredLongRunDay === undefined || input.preferredLongRunDay === -1;
   const longRunDay = (isFlexibleLongRun || input.preferredLongRunDay == null) ? 0 : input.preferredLongRunDay; // Default placeholder slot Sunday, but marked flexible
 
@@ -193,6 +212,7 @@ export function buildPeriodizationSkeleton(input: PeriodizationInput): Periodiza
   }
 
   return {
+    mode: "STANDARD",
     totalWeeks,
     startDate,
     targetDate: targetDate || new Date(),

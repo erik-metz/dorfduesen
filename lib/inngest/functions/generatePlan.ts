@@ -35,6 +35,7 @@ export const generatePlanFunction = inngest.createFunction(
       weeklyAvailability,
       preferredLongRunDay,
       includeSundayRun,
+      currentRunMinutes,
     } = event.data;
 
     const requestedPlan = await db.trainingPlan.findFirst({ where: { id: planId, userId, status: { in: ['QUEUED', 'PROCESSING'] } } });
@@ -92,6 +93,7 @@ export const generatePlanFunction = inngest.createFunction(
         weeklyAvailability,
         preferredLongRunDay,
         includeSundayRun: includeSundayRun !== undefined ? Boolean(includeSundayRun) : true,
+        currentRunMinutes: typeof currentRunMinutes === 'number' ? currentRunMinutes : undefined,
       });
     });
 

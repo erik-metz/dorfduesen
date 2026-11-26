@@ -9,6 +9,7 @@ export interface CoachBody {
   weeklyAvailability?: number | string; preferredLongRunDay?: number | string | null;
   targetDistance?: number | string; targetTimeSeconds?: number | string;
   includeSundayRun?: boolean;
+  currentRunMinutes?: number | string;
 }
 const goals = ['5K', '10K', 'HALF_MARATHON', 'MARATHON', 'GENERAL_FITNESS', 'BASE_BUILD', 'FITNESS_BUILD', 'SPEED_IMPROVE', 'WEIGHT_LOSS', 'ROUTINE'];
 
@@ -26,6 +27,7 @@ export function validateCoachBody(body: unknown, kind: 'plan' | 'profile' | 'met
     weightKg: [20, 400], heightCm: [80, 250], restingHeartrate: [25, 150, true],
     maxHeartrate: [80, 240, true], vdotScore: [10, 100], weeklyAvailability: [2, 6, true],
     preferredLongRunDay: [-1, 6, true], targetDistance: [1, 100], targetTimeSeconds: [60, 86400, true],
+    currentRunMinutes: [0, 300, true],
   };
   for (const [field, [min, max, integer]] of Object.entries(ranges)) {
     if (value[field] === undefined || value[field] === null || value[field] === '') continue;

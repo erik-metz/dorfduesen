@@ -855,7 +855,7 @@ export function CoachDashboard({ physiologyOnly = false, userId }: { physiologyO
                           (Boolean(w.recommendedTiming) && w.recommendedTiming!.toLowerCase().includes('sunday run'));
 
                         const displayDistance = isClubRun
-                          ? `${Math.max(w.targetDistance || 0, 5.0)} km`
+                          ? `${w.targetDistance ?? 5} km`
                           : (w.targetDistance ? `${w.targetDistance} km` : '-');
 
                         const isCompleted = w.status === 'COMPLETED';

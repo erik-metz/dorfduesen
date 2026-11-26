@@ -17,6 +17,7 @@ export async function requestCoachPlan(userId: string, body: CoachBody, requestI
     weeklyAvailability = 3,
     preferredLongRunDay = null,
     includeSundayRun = true,
+    currentRunMinutes,
   } = body;
 
   if (!goalType) {
@@ -65,6 +66,7 @@ export async function requestCoachPlan(userId: string, body: CoachBody, requestI
         weeklyAvailability: Number(weeklyAvailability),
         preferredLongRunDay: parsedLongRunDay,
         includeSundayRun: Boolean(includeSundayRun),
+        currentRunMinutes: currentRunMinutes === undefined || currentRunMinutes === null || currentRunMinutes === '' ? undefined : Number(currentRunMinutes),
       },
     });
 

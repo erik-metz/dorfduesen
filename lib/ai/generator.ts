@@ -7,6 +7,7 @@ import { AthleteBaseline } from "../training/baseline";
 import { TrainingPaces, paceToSecondsPerKm } from "../training/vdot";
 import { HeartRateZone } from "../training/zones";
 import { validateGeneratedWeeks } from '../training/generated-plan-validation';
+import { describeRunWalk, runWalkDurationMinutes, type RunWalkSession } from '../training/run-walk';
 
 export interface GeneratedWorkout {
   dayOfWeek: number;
@@ -52,6 +53,9 @@ export interface PlanGenerationContext {
 export async function generatePlanWithGrok(
   context: PlanGenerationContext
 ): Promise<GeneratedWeek[]> {
+  // Beginner progressions are fully determined by the run/walk schedule; a model would only add risk.
+  if (context.skeleton.mode === "RUN_WALK") return generateAlgorithmicPlan(context);
+
   const hasValidApiKey =
     process.env.XAI_API_KEY &&
     process.env.XAI_API_KEY.length > 5 &&
@@ -227,6 +231,10 @@ export function generateAlgorithmicPlan(ctx: PlanGenerationContext): GeneratedWe
 
     for (const d of w.daysDistribution) {
       if (d.workoutType === "REST") continue;
+      if (d.runWalk) {
+        workouts.push(runWalkWorkout(d.dayOfWeek, d.runWalk, d.dayOfWeek === 0 && !d.isFlexible, d.isFlexible, d.recommendedTiming, d.workoutType, d.approximateKm));
+        continue;
+      }
 
       let title = "";
       let desc = "";
@@ -324,6 +332,32 @@ export function generateAlgorithmicPlan(ctx: PlanGenerationContext): GeneratedWe
   });
 
   return alignGeneratedPlanWithDates(unalignedWeeks, skeleton);
+}
+
+function runWalkWorkout(
+  dayOfWeek: number, session: RunWalkSession, clubRun: boolean, isFlexible: boolean,
+  recommendedTiming: string, workoutType: GeneratedWorkout["workoutType"], targetDistance: number,
+): GeneratedWorkout {
+  const plan = describeRunWalk(session);
+  const easy = "Lauf so langsam, dass du dich dabei locker unterhalten kannst. Zu langsam gibt es nicht. Wenn es zwickt oder du nach Luft schnappst: gehen ist kein Scheitern, sondern Teil des Plans.";
+  const frame = `Starte mit ${session.warmupWalkMinutes} Minuten zügigem Gehen und hör mit ${session.cooldownWalkMinutes} Minuten Gehen auf.`;
+  let title: string;
+  let description: string;
+  if (session.goalRunKm) {
+    title = clubRun ? `Zielrunde beim Sunday Run: ${plan}` : `Zielrunde: ${plan}`;
+    description = `Dein großer Tag! ${frame} Dazwischen läufst du ${plan}, ganz ruhig und gleichmäßig. Das Tempo ist egal, ankommen ist alles. ${clubRun ? "Die Sonntagsrunde läuft mit dir ins Ziel." : ""}`.trim();
+  } else if (session.repeats === 1) {
+    title = clubRun ? `Sonntagsrunde: ${plan}` : `Dauerlauf: ${plan}`;
+    description = `${frame} Dazwischen ${plan}. ${easy}${clubRun ? " Bei der Sonntagsrunde in Nordheim läuft niemand alleine, sag der Gruppe einfach, dass du deinen Plan läufst." : ""}`;
+  } else {
+    title = clubRun ? `Sonntagsrunde mit Gehpausen: ${plan}` : `Lauf-Geh-Intervalle: ${plan}`;
+    description = `${frame} Dazwischen wechselst du ${session.repeats}-mal: ${String(session.runMinutes).replace(".", ",")} Minuten locker laufen, dann ${String(session.walkMinutes).replace(".", ",")} Minuten gehen. ${easy}${clubRun ? " Du kannst die Intervalle bei der Sonntagsrunde in Nordheim laufen, Gehpausen sind dort ausdrücklich willkommen." : ""}`;
+  }
+  return {
+    dayOfWeek, date: "", sportType: "Run", workoutType, title, description, targetDistance,
+    targetDurationMinutes: runWalkDurationMinutes(session), targetHrZone: 2,
+    structuredSteps: { type: "RUN_WALK", ...session }, isFlexible, recommendedTiming,
+  };
 }
 
 function alignGeneratedPlanWithDates(
