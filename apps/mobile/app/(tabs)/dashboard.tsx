@@ -4,6 +4,10 @@ import { useLocalSearchParams } from 'expo-router';
 import { useAuth } from '../../src/auth/AuthProvider';
 import { requestStravaSync, useStravaSyncSettled } from '../../src/strava/stravaSync';
 import { ActivityDetail } from '../../src/components/ActivityDetail';
+import type { TerritoryData } from '../../../../lib/territory/types';
+import { formatArea } from '../../src/territoryFormat';
+
+const revierByActivity = (data: TerritoryData) => Object.fromEntries(data.myRuns.filter(run => run.gainedM2 >= 1).map(run => [run.stravaId, run.gainedM2]));
 import { HealthDataPanel } from '../../src/components/HealthDataPanel';
 import { HealthOverviewPanel, type HealthOverviewData } from '../../src/components/HealthOverviewPanel';
 import { MemberPicker } from '../../src/components/MemberPicker';
@@ -73,6 +77,8 @@ export default function DashboardScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expandedActivity, setExpandedActivity] = useState<string | null>(null);
+  // Territory gained per own run, from the arena payload the dashboard already prefetches.
+  const [revier, setRevier] = useState<Record<string, number>>({});
   const [activityDetail, setActivityDetail] = useState<Record<string, Record<string, unknown>>>({});
   const [sections, setSections] = useState<Record<string, Record<string, unknown>>>({});
   const memberId = selectedUserId ?? user?.id;
@@ -138,13 +144,14 @@ export default function DashboardScreen() {
       (selectedUserId && selectedUserId !== user?.id) || (params.userId && params.userId !== user?.id)) return;
     arenaPrefetched.current = true;
     const warm = (path: string) => apiFetch(path)
-      .then(response => response.json().catch(() => null))
+      .then(response => response.ok ? response.json().catch(() => null) : null)
       .catch(() => undefined);
+    void getCachedJson<TerritoryData>('/api/arena/territories').then(cached => { if (cached) setRevier(revierByActivity(cached)); }).catch(() => undefined);
     void Promise.all([
       warm('/api/mobile/arena?period=week&sport=all&includeTerritories=false'),
-      warm('/api/arena/territories'),
+      warm('/api/arena/territories').then(payload => { if (payload && Array.isArray((payload as TerritoryData).myRuns)) setRevier(revierByActivity(payload as TerritoryData)); }),
     ]);
-  }, [apiFetch, data, loading, params.userId, selectedUserId, user?.id]);
+  }, [apiFetch, data, getCachedJson, loading, params.userId, selectedUserId, user?.id]);
 
   const dashboardMemberId = data?.user.id;
   const isReadOnly = data?.isReadOnly;
@@ -365,6 +372,7 @@ export default function DashboardScreen() {
             <View style={styles.spaceBetween}><Text style={styles.small}>{formatDuration(activity.movingTime)} · {formatPace(activity.averageSpeed, activity.sportType)}</Text><Text style={styles.small}>+{Math.round(activity.totalElevationGain)} m</Text></View>
             {activity.manualDistance !== null ? <Text style={styles.tiny}>Manuell korrigiert</Text> : null}
             {activity.averageHeartrate ? <Text style={styles.small}>Ø Puls {Math.round(activity.averageHeartrate)} bpm</Text> : null}
+            {!isReadOnly && revier[activity.stravaId] ? <Text style={styles.tiny}>▲ {formatArea(revier[activity.stravaId])} Revier</Text> : null}
             {expandedActivity === activity.stravaId ? <View style={styles.detailBlock}>
               {activityDetail[activity.stravaId] ? <ActivityDetail detail={activityDetail[activity.stravaId]} /> : <ActivityIndicator color="#fc7a3d" />}
             </View> : null}

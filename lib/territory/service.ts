@@ -1,14 +1,15 @@
 import { isTerritoryBudgetError, TERRITORY_REPLAY_BUDGET_MS, TERRITORY_RETRY_SECONDS, TerritoryBudgetExceededError } from './budget';
-import type { TerritoryData } from './types';
+import { formatArea, type TerritoryData } from './types';
 import { createHash } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import { db } from '@/lib/db';
 import { getValidStravaToken } from '@/lib/strava/tokens';
 import { RetryAfterError } from 'inngest';
-import { evaluateLoop, reasons, replayClaims, RULES_VERSION, seasonRange, type Reason, type Shape } from './engine';
+import { evaluateLoop, GROUP_WINDOW_MS, reasons, replayClaims, REPLAY_VERSION, RULES_VERSION, seasonRange, type Claim, type Projection, type Reason, type Shape } from './engine';
 
 // In-process promise deduplication is only an optimization. The shared projection lives in Postgres.
-type TerritoryProjection = ReturnType<typeof replayClaims>;
+// claimKeys records exactly which claim inputs a projection contains, for the append-only fast path.
+type TerritoryProjection = Projection & { claimKeys?: Record<string, string> };
 type ProjectionCache = { key: string; value: Promise<TerritoryProjection> };
 let projectionCache: ProjectionCache | null = null;
 
@@ -16,7 +17,25 @@ function projectionFromJson(value: Prisma.JsonValue): TerritoryProjection {
   return value as unknown as TerritoryProjection;
 }
 
-async function getProjection(seasonKey: string, inputHash: string, valid: Array<{ id: string; activityId: string; sourceHash: string; checkedAt: Date; endedAt: Date; activity: { userId: string } }>) {
+type ValidClaimRow = { id: string; activityId: string; sourceHash: string; checkedAt: Date; endedAt: Date; activity: { userId: string; startDate: Date } };
+const claimKey = (row: ValidClaimRow) => `${row.sourceHash}|${row.endedAt.toISOString()}|${row.activity.userId}|${row.activity.startDate.toISOString()}`;
+
+/** Base for an incremental replay: every stored claim unchanged, every new claim sorting after the stored cursor. */
+function appendBase(projection: TerritoryProjection | null, valid: ValidClaimRow[]) {
+  if (!projection || projection.version !== REPLAY_VERSION || !projection.claimKeys || !projection.cursor) return null;
+  const keys = projection.claimKeys;
+  const current = new Map(valid.map(row => [row.activityId, row]));
+  for (const [id, key] of Object.entries(keys)) if (!current.has(id) || claimKey(current.get(id)!) !== key) return null;
+  const cursor = projection.cursor;
+  for (const row of valid) {
+    if (keys[row.activityId]) continue;
+    const endedAt = row.endedAt.toISOString();
+    if (endedAt < cursor.endedAt || (endedAt === cursor.endedAt && row.activityId <= cursor.id)) return null;
+  }
+  return projection;
+}
+
+async function getProjection(seasonKey: string, inputHash: string, valid: ValidClaimRow[]) {
   const cached = await db.territoryProjectionCache.findUnique({ where: { seasonKey } });
   if (cached?.inputHash === inputHash && cached.projection) return projectionFromJson(cached.projection);
   if (cached?.failedInputHash === inputHash && cached.retryAt && cached.retryAt > new Date()) {
@@ -39,16 +58,24 @@ async function getProjection(seasonKey: string, inputHash: string, valid: Array<
           throw new TerritoryBudgetExceededError();
         }
 
-      const shapes = valid.length ? await tx.territoryClaim.findMany({
-        where: { id: { in: valid.map(row => row.id) } }, select: { id: true, geometry: true, checkedAt: true },
+      const base = appendBase(latest?.projection ? projectionFromJson(latest.projection) : null, valid);
+      // The append path needs the new shapes plus the earlier ones a group run can still match.
+      const added = base ? valid.filter(row => !base.claimKeys![row.activityId]) : valid;
+      const groupHorizon = Math.min(...added.map(row => row.endedAt.getTime())) - GROUP_WINDOW_MS;
+      const needed = base ? valid.filter(row => !base.claimKeys![row.activityId] || row.endedAt.getTime() >= groupHorizon) : valid;
+      const shapes = needed.length ? await tx.territoryClaim.findMany({
+        where: { id: { in: needed.map(row => row.id) } }, select: { id: true, geometry: true, checkedAt: true },
       }) : [];
       const metadata = new Map(valid.map(row => [row.id, row]));
-      const projection = replayClaims(shapes.flatMap(shape => {
+      const claims: Claim[] = [];
+      const claimKeys: Record<string, string> = base ? { ...base.claimKeys } : {};
+      for (const shape of shapes) {
         const row = metadata.get(shape.id);
-        return row && shape.geometry && shape.checkedAt.getTime() === row.checkedAt.getTime() ? [{
-          id: row.activityId, userId: row.activity.userId, endedAt: row.endedAt.toISOString(), geometry: shape.geometry as unknown as Shape,
-        }] : [];
-      }), { budgetMs: TERRITORY_REPLAY_BUDGET_MS });
+        if (!row || !shape.geometry || shape.checkedAt.getTime() !== row.checkedAt.getTime()) continue;
+        claims.push({ id: row.activityId, userId: row.activity.userId, endedAt: row.endedAt.toISOString(), startedAt: row.activity.startDate.toISOString(), geometry: shape.geometry as unknown as Shape });
+        claimKeys[row.activityId] = claimKey(row);
+      }
+      const projection: TerritoryProjection = { ...replayClaims(claims, { budgetMs: TERRITORY_REPLAY_BUDGET_MS, base: base ?? undefined }), claimKeys };
       await tx.territoryProjectionCache.upsert({
         where: { seasonKey },
         create: { seasonKey, inputHash, projection: projection as unknown as Prisma.InputJsonValue },
@@ -156,28 +183,45 @@ export async function getTerritoryData(userId: string): Promise<TerritoryData> {
   const valid = current.filter(row => row.status === 'VALID');
   // checkedAt changes during the daily Strava reconciliation even when the geometry is unchanged.
   // Key by the actual replay inputs so that reconciliation does not invalidate the shared snapshot.
-  const key = createHash('sha256').update(JSON.stringify(valid.map(row => [row.id, row.sourceHash,
-    row.endedAt.toISOString(), row.activity.userId]).sort((a, b) => a[0].localeCompare(b[0])))).digest('hex');
+  const key = createHash('sha256').update(JSON.stringify([REPLAY_VERSION, ...valid.map(row => [row.id, row.sourceHash,
+    row.endedAt.toISOString(), row.activity.userId]).sort((a, b) => a[0].localeCompare(b[0]))])).digest('hex');
   const state = await getProjection(season.key, key, valid);
   const names = new Map(rows.map(row => [row.activity.userId, [row.activity.user.firstname, row.activity.user.lastname].filter(Boolean).join(' ') || 'DorfDüse']));
+  const nameOf = (id: string) => names.get(id) ?? 'DorfDüse';
+  // A stored projection from older replay rules can still be served during a cooling-off period.
+  const ownersOf = (t: { userId: string; ownerIds?: string[] }) => t.ownerIds?.length ? t.ownerIds : [t.userId];
   const leaderboard = new Map<string, { userId: string; name: string; areaM2: number; count: number }>();
-  for (const t of state.territories) {
-    const entry = leaderboard.get(t.userId) ?? { userId: t.userId, name: names.get(t.userId) ?? 'DorfDüse', areaM2: 0, count: 0 };
+  for (const t of state.territories) for (const owner of ownersOf(t)) {
+    const entry = leaderboard.get(owner) ?? { userId: owner, name: nameOf(owner), areaM2: 0, count: 0 };
     entry.areaM2 += t.areaM2; entry.count++;
-    leaderboard.set(t.userId, entry);
+    leaderboard.set(owner, entry);
   }
   const resultMap = new Map(state.results.map(result => [result.claimId, result]));
   const activityNames = new Map(current.map(row => [row.activityId, row.activity.name]));
+  const ownEvents = state.events.filter(event => event.kind !== 'JOIN');
   const presentEvent = (event: typeof state.events[number]) => ({
     ...event,
-    fromName: event.fromUserId ? names.get(event.fromUserId) ?? 'DorfDüse' : null,
-    toName: names.get(event.toUserId) ?? 'DorfDüse',
+    fromName: event.fromUserId ? nameOf(event.fromUserId) : null,
+    toName: nameOf(event.toUserId),
   });
   const histories = new Map<string, TerritoryData['territories'][number]['history']>();
-  for (const event of state.events) {
+  for (const event of ownEvents) {
     const history = histories.get(event.territoryId) ?? [];
     history.push(presentEvent(event));
     histories.set(event.territoryId, history);
+  }
+  // One line per run, or per group run, instead of one per territory fragment.
+  const changes = new Map<string, TerritoryData['changes'][number] & { runners: Set<string>; from: Set<string> }>();
+  for (const event of state.events) {
+    const groupId = resultMap.get(event.claimId)?.groupId ?? event.claimId;
+    const change = changes.get(groupId) ?? { id: groupId, at: event.at, runnerNames: [], freeM2: 0, capturedM2: 0, fromNames: [], runners: new Set<string>(), from: new Set<string>() };
+    change.runners.add(event.toUserId);
+    if (event.at > change.at) change.at = event.at;
+    if (event.kind === 'CAPTURE' || (!event.kind && event.fromUserId)) {
+      change.capturedM2 += event.areaM2;
+      for (const id of event.fromUserIds?.length ? event.fromUserIds : event.fromUserId ? [event.fromUserId] : []) change.from.add(id);
+    } else if (event.kind !== 'JOIN') change.freeM2 += event.areaM2;
+    changes.set(groupId, change);
   }
   const own = await db.activity.findMany({ where: { userId, sportType: { in: ['Run', 'TrailRun'] }, startDate: { gte: season.start, lt: season.end } },
     orderBy: [{ startDate: 'desc' }, { id: 'asc' }], take: 10, select: { id: true, name: true, stravaId: true, startDate: true, elapsedTime: true, distance: true, sportType: true, summaryPolyline: true, territoryClaim: { select: { sourceHash: true, rulesVersion: true, status: true, reason: true } } } });
@@ -185,21 +229,30 @@ export async function getTerritoryData(userId: string): Promise<TerritoryData> {
     season: { key: season.key, start: season.start.toISOString(), end: season.end.toISOString() },
     myAreaM2: leaderboard.get(userId)?.areaM2 ?? 0,
     leaderboard: [...leaderboard.values()].sort((a, b) => b.areaM2 - a.areaM2 || a.userId.localeCompare(b.userId)),
-    territories: state.territories.map(t => ({
-      ...t, lastActivityName: activityNames.get(t.lastClaimId) ?? 'Lauf',
-      history: histories.get(t.id) ?? [], ownerName: names.get(t.userId) ?? 'DorfDüse', mine: t.userId === userId,
-    })),
-    events: state.events.slice(-30).reverse().map(presentEvent),
+    territories: state.territories.map(t => {
+      const ownerNames = ownersOf(t).map(nameOf);
+      return {
+        ...t, ownerIds: ownersOf(t), ownerClaimIds: t.ownerClaimIds ?? [t.lastClaimId], lastActivityName: activityNames.get(t.lastClaimId) ?? 'Lauf',
+        history: histories.get(t.id) ?? [], ownerNames,
+        ownerName: ownerNames.length > 2 ? `${ownerNames.slice(0, 2).join(', ')} +${ownerNames.length - 2}` : ownerNames.join(', '),
+        mine: ownersOf(t).includes(userId),
+      };
+    }),
+    // Older app versions still render this list; joins would read as free land there.
+    events: ownEvents.slice(-30).reverse().map(presentEvent),
+    changes: [...changes.values()].filter(change => change.freeM2 + change.capturedM2 >= 1)
+      .sort((a, b) => b.at.localeCompare(a.at) || a.id.localeCompare(b.id)).slice(0, 10)
+      .map(({ runners, from, ...change }) => ({ ...change, runnerNames: [...runners].map(nameOf), fromNames: [...from].filter(id => !runners.has(id)).map(nameOf) })),
     myRuns: own.map(a => {
       const evaluation = a.territoryClaim;
       const fresh = evaluation && evaluation.sourceHash === sourceHash(a, evaluation.rulesVersion);
       const result = resultMap.get(a.id);
+      const groupSize = result ? new Set(state.results.filter(r => r.groupId === result.groupId).map(r => r.claimId)).size : 1;
       return { id: a.id, stravaId: a.stravaId, name: a.name, startDate: a.startDate.toISOString(),
         status: a.stravaId.startsWith('health:') ? 'REJECTED' : fresh ? evaluation.status : 'PENDING',
         message: a.stravaId.startsWith('health:') ? reasons.NO_GPS : !fresh ? 'Gebietsprüfung ausstehend.' : evaluation.reason ? reasons[evaluation.reason as Reason] ?? 'Keine gültige Runde.' :
-          result && result.gainedM2 > 0 ? `${(result.gainedM2 / 1e6).toFixed(3)} km² eingenommen · ${result.capturedCount} Gebiete erobert` : 'Keine neue Fläche: Bestehende fremde Gebiete müssen vollständig umlaufen werden.',
-        gainedM2: result?.gainedM2 ?? 0 };
+          result && result.gainedM2 > 0 ? `${formatArea(result.gainedM2)} eingenommen${groupSize > 1 ? ` · Gruppenlauf mit ${groupSize} Läufern` : ''}` : 'Keine neue Fläche: Bestehende fremde Gebiete müssen vollständig umlaufen werden.',
+        gainedM2: result?.gainedM2 ?? 0, groupSize };
     }),
   };
 }
-

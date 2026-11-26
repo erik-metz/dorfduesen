@@ -2,18 +2,20 @@ import { useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Image, Linking, PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import type { TerritoryData } from '../../../../lib/territory/types';
+import { describeChange, formatArea } from '../territoryFormat';
 
 // OSM's tile usage policy blocks generic HTTP client user agents (Android's okhttp default); identify the app.
 const TILE_HEADERS = { 'User-Agent': 'Dorfduesen/1.0 (de.dorfduesen.app; +https://dorfduesen.vercel.app)', Referer: 'https://dorfduesen.vercel.app/' };
-const km2 = (area: number) => `${(area / 1e6).toFixed(3)} km²`;
+const km2 = formatArea;
 // Web Mercator coordinates match the OpenStreetMap tile grid.
 function project(p: number[]) {
   const lat = Math.max(-85, Math.min(85, p[1])) * Math.PI / 180;
   return [(p[0] + 180) / 360, (1 - Math.log(Math.tan(lat) + 1 / Math.cos(lat)) / Math.PI) / 2];
 }
 
-export function TerritoryPanel({ data, loading = false, error, onRetry }: {
+export function TerritoryPanel({ data, loading = false, error, onRetry, myUserId }: {
   data: TerritoryData | undefined;
+  myUserId?: string;
   loading?: boolean;
   error?: string | null;
   onRetry?: () => void;
@@ -83,6 +85,8 @@ export function TerritoryPanel({ data, loading = false, error, onRetry }: {
     onPanResponderTerminationRequest: () => false,
   }), [width]);
   const [rules, setRules] = useState(false);
+  const [allRanks, setAllRanks] = useState(false);
+  const [changesOpen, setChangesOpen] = useState(false);
   const [tileError, setTileError] = useState(false);
   const camera = useMemo(() => {
     const points = data?.territories.flatMap(t => t.geometry.type === 'Polygon' ? t.geometry.coordinates.flat() : t.geometry.coordinates.flat(2)).map(project) ?? [];
@@ -112,6 +116,10 @@ export function TerritoryPanel({ data, loading = false, error, onRetry }: {
     }
   }
   const selected = data.territories.find(t => t.id === selectedId);
+  const myRankIndex = data.leaderboard.findIndex(entry => entry.userId === myUserId);
+  const myRank = myRankIndex >= 0 ? data.leaderboard[myRankIndex] : undefined;
+  // Cached payloads from older servers have no aggregated changes.
+  const changes = data.changes ?? [];
   const changeZoom = (delta: number) => { const nextZoom = Math.max(1, Math.min(19, zoom + delta)); const ratio = 2 ** (nextZoom - zoom); updateView(nextZoom - camera.zoom, [offset[0] * ratio, offset[1] * ratio]); };
   return <View style={styles.panel}>
     <Text style={styles.title}>Dein Revier</Text>
@@ -132,16 +140,17 @@ export function TerritoryPanel({ data, loading = false, error, onRetry }: {
     <View style={styles.controls}>{[['＋', () => changeZoom(1)], ['−', () => changeZoom(-1)], ['Alle', () => updateView(0, [0, 0])]].map(([label, action]) => <Pressable key={String(label)} accessibilityRole="button" accessibilityLabel={String(label)} onPress={action as () => void} style={styles.button}><Text style={styles.text}>{String(label)}</Text></Pressable>)}</View>
     <Pressable onPress={() => void Linking.openURL('https://www.openstreetmap.org/copyright')}><Text style={styles.copy}>© OpenStreetMap-Mitwirkende</Text></Pressable>
     {tileError ? <Text style={styles.copy}>Hintergrundkarte nicht verfügbar. Gebiete werden weiterhin angezeigt.</Text> : null}
-    {selected ? <View><Text style={styles.text}>{selected.ownerName} · {km2(selected.areaM2)}</Text><Text style={styles.copy}>{selected.lastActivityName} · Eingenommen: {new Date(selected.capturedAt).toLocaleString('de-DE')}</Text>{selected.history.map((e, i) => <Text key={i} style={styles.copy}>{e.fromName ?? 'Freie Fläche'} → {e.toName}</Text>)}</View> : null}
+    {selected ? <View><Text style={styles.text}>{selected.ownerName} · {km2(selected.areaM2)}</Text><Text style={styles.copy}>{selected.lastActivityName} · Eingenommen: {new Date(selected.capturedAt).toLocaleString('de-DE')}</Text>{(selected.ownerNames?.length ?? 0) > 1 ? <Text style={styles.copy}>Gemeinsames Revier: {selected.ownerNames.join(', ')}</Text> : null}{selected.history.slice(-5).map((e, i) => <Text key={i} style={styles.copy}>{e.fromName ?? 'Freie Fläche'} → {e.toName}</Text>)}</View> : null}
     {!data.territories.length ? <Text style={styles.copy}>Noch freie Karte: Nimm mit deinem nächsten Rundlauf das erste Gebiet ein.</Text> : null}
     <Text style={styles.heading}>Flächenrangliste</Text>
-    {data.leaderboard.map((entry, i) => <Text key={entry.userId} style={styles.text}>{i + 1}. {entry.name} · {km2(entry.areaM2)}</Text>)}
-    <Text style={styles.heading}>Deine letzten Läufe</Text>
-    {data.myRuns.map(run => <View key={run.id}><Text style={styles.text}>{run.name}</Text><Text style={styles.copy}>{run.message}</Text></View>)}
-    <Pressable onPress={() => setRules(value => !value)} accessibilityRole="button"><Text style={styles.heading}>{rules ? 'Regeln schließen' : 'So funktioniert die Eroberung'}</Text></Pressable>
-    {rules ? <Text style={styles.copy}>Outdoor-Läufe und Trailruns ab Saisonstart zählen. Start und Ziel: 100 m Grundtoleranz; bei längeren Läufen bis 10 % der Strecke, maximal 300 m. Kreuzungen und gemeinsam gelaufene Hin-/Rückwege sind erlaubt. Es zählen eingeschlossene Teilflächen ab 10.000 m²; schmale GPS-Streifen und GPS-Lücken zählen nicht. Private, manuelle und Indoor-Aktivitäten zählen nicht. Fremde Gebiete musst du vollständig umlaufen (10 m GPS-Toleranz); teilweise Überschneidungen ändern deren Besitz nicht. Freie Flächen gehören dir, eigene Flächen zählen nur einmal. Der Laufabschluss entscheidet, bei gleicher Zeit die Aktivitäts-ID. Läufe über Saisongrenzen zählen nicht. Jedes Quartal beginnt eine neue Saison. Strava-Änderungen und Löschungen werden täglich geprüft. Zum Aktualisieren die Arena nach unten ziehen.</Text> : null}
-    <Text style={styles.heading}>Letzte Gebietswechsel</Text>
-    {data.events.slice(0, 10).map((e, i) => <Text key={`${e.claimId}:${e.territoryId}:${i}`} style={styles.copy}>{e.toName} {e.fromName ? `erobert von ${e.fromName}` : 'nimmt freie Fläche ein'} · {km2(e.areaM2)}</Text>)}
+    {data.leaderboard.length ? null : <Text style={styles.copy}>Noch keine Gebiete vergeben.</Text>}
+    {(allRanks ? data.leaderboard : data.leaderboard.slice(0, 3)).map((entry, i) => <Text key={entry.userId} style={[styles.text, entry.userId === myRank?.userId && styles.me]}>{i + 1}. {entry.name} · {km2(entry.areaM2)}</Text>)}
+    {!allRanks && myRankIndex >= 3 && myRank ? <Text style={[styles.text, styles.me]}>{myRankIndex + 1}. {myRank.name} · {km2(myRank.areaM2)}</Text> : null}
+    {data.leaderboard.length > 3 ? <Pressable onPress={() => setAllRanks(value => !value)} accessibilityRole="button"><Text style={styles.toggle}>{allRanks ? 'Weniger anzeigen ▴' : `Alle ${data.leaderboard.length} anzeigen ▾`}</Text></Pressable> : null}
+    {changes.length ? <Pressable onPress={() => setChangesOpen(value => !value)} accessibilityRole="button" accessibilityState={{ expanded: changesOpen }}><Text style={styles.heading}>Letzte Gebietswechsel {changesOpen ? '▴' : '▾'}</Text></Pressable> : null}
+    {changesOpen ? changes.map(change => <Text key={change.id} style={styles.copy}>{describeChange(change)}</Text>) : null}
+    <Pressable onPress={() => setRules(value => !value)} accessibilityRole="button" accessibilityState={{ expanded: rules }}><Text style={styles.heading}>So funktioniert die Eroberung {rules ? '▴' : '▾'}</Text></Pressable>
+    {rules ? <Text style={styles.copy}>Outdoor-Läufe und Trailruns ab Saisonstart zählen. Start und Ziel: 100 m Grundtoleranz; bei längeren Läufen bis 10 % der Strecke, maximal 300 m. Kreuzungen und gemeinsam gelaufene Hin-/Rückwege sind erlaubt. Es zählen eingeschlossene Teilflächen ab 10.000 m²; schmale GPS-Streifen, Reststücke unter 2.000 m² und GPS-Lücken zählen nicht. Private, manuelle und Indoor-Aktivitäten zählen nicht. Fremde Gebiete musst du vollständig umlaufen (10 m GPS-Toleranz); teilweise Überschneidungen ändern deren Besitz nicht. Freie Flächen gehören dir, eigene Flächen zählen nur einmal. Gruppenläufe: Wer mit anderen dieselbe Runde zur selben Zeit läuft (Start und Ziel höchstens 15 Minuten auseinander, mindestens 70 % gleiche Fläche), erobert nichts voneinander – das Gebiet gehört allen gemeinsam und zählt für jeden in der Rangliste. Der Laufabschluss entscheidet, bei gleicher Zeit die Aktivitäts-ID. Läufe über Saisongrenzen zählen nicht. Jedes Quartal beginnt eine neue Saison. Strava-Änderungen und Löschungen werden täglich geprüft. Zum Aktualisieren die Arena nach unten ziehen.</Text> : null}
   </View>;
 }
 const styles = StyleSheet.create({
@@ -149,7 +158,7 @@ const styles = StyleSheet.create({
   error: { gap: 5, borderWidth: 1, borderColor: '#3f3f46', borderRadius: 14, padding: 12, backgroundColor: '#202024' },
   retry: { color: '#fb923c', fontSize: 12, fontWeight: '900' },
   title: { color: '#fafafa', fontSize: 24, fontWeight: '900' }, area: { color: '#fb923c', fontSize: 28, fontWeight: '900' },
-  heading: { color: '#fafafa', fontSize: 14, fontWeight: '800', marginTop: 8 }, text: { color: '#fafafa', fontSize: 12 }, copy: { color: '#a1a1aa', fontSize: 11, lineHeight: 17 },
+  heading: { color: '#fafafa', fontSize: 14, fontWeight: '800', marginTop: 8 }, me: { color: '#fb923c', fontWeight: '800' }, toggle: { color: '#fb923c', fontSize: 12, fontWeight: '800' }, text: { color: '#fafafa', fontSize: 12 }, copy: { color: '#a1a1aa', fontSize: 11, lineHeight: 17 },
   map: { overflow: 'hidden', height: 300, backgroundColor: '#27272a', borderRadius: 12 }, controls: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   button: { backgroundColor: '#3f3f46', paddingHorizontal: 12, paddingVertical: 10, borderRadius: 8 },
 });

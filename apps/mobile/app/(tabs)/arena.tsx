@@ -39,7 +39,7 @@ async function responseJson<T>(response: Response): Promise<T> {
 }
 
 export default function ArenaScreen() {
-  const { apiFetch, getCachedJson } = useAuth();
+  const { apiFetch, getCachedJson, user } = useAuth();
   const router = useRouter();
   const [period, setPeriod] = useState<ArenaData['filters']['period']>('week');
   const [sport, setSport] = useState<ArenaData['filters']['sport']>('all');
@@ -154,7 +154,7 @@ export default function ArenaScreen() {
         <View style={styles.spaceBetween}><Text style={styles.small}>{data.challenge.isCompleted ? '1.000 km geschafft!' : `${Math.round(data.challenge.percentage)}% erreicht`}</Text><Text style={styles.small}>{data.challenge.isCompleted ? `+${Math.max(0, data.challenge.currentKm - data.challenge.targetKm).toFixed(1)} km über dem Ziel` : `Ziel: ${data.challenge.targetKm} km`}</Text></View>
       </View>
 
-      <TerritoryPanel data={territories ?? undefined} loading={territoryLoading} error={territoryError} onRetry={() => void loadTerritories(true)} />
+      <TerritoryPanel data={territories ?? undefined} loading={territoryLoading} error={territoryError} onRetry={() => void loadTerritories(true)} myUserId={user?.id} />
 
       <View style={styles.sectionHead}><Text style={styles.sectionTitle}>Champions der Woche</Text><Text style={styles.small}>Montag bis Sonntag</Text></View>
       <View style={styles.championList}>

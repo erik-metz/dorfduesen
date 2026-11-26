@@ -177,3 +177,36 @@ test('territory: many nearly coincident GPS borders remain finite and do not dup
   assert.ok(total<=area(rounds[0].geometry)*1.01);
   assert.ok(state.events.length>=rounds.length);
 });
+
+const together = (id, userId, geometry, startMinute, endMinute) => ({ id, userId, geometry,
+  startedAt: new Date(Date.UTC(2026, 10, 20, 12, startMinute)).toISOString(), endedAt: new Date(Date.UTC(2026, 10, 20, 12, endMinute)).toISOString() });
+test('territory: a group run is shared by every runner instead of passed along', () => {
+  const runs = Array.from({ length: 6 }, (_, i) => together(`g${i}`, `runner-${i}`, square(8 + i * 2e-5, 49 + (i % 2) * 2e-5), i, 40 + i));
+  const state = replayClaims(runs);
+  assert.equal(state.territories.length, 1);
+  assert.deepEqual([...state.territories[0].ownerIds].sort(), runs.map(r => r.userId).sort());
+  assert.equal(state.events.filter(e => e.kind === 'CAPTURE').length, 0);
+  assert.equal(new Set(state.results.map(r => r.groupId)).size, 1);
+  assert.ok(state.results.every(r => r.gainedM2 > 2e5));
+  // An outsider who encloses it later takes it from everyone.
+  const outsider = replayClaims([...runs, claim('z', 'outsider', square(7.999, 48.999, .007), 120)]);
+  assert.ok(outsider.territories.every(t => t.ownerIds.length === 1 && t.ownerIds[0] === 'outsider'));
+  assert.equal(outsider.events.find(e => e.kind === 'CAPTURE').fromUserIds.length, 6);
+});
+test('territory: the same loop at different times is not a group run', () => {
+  const state = replayClaims([together('a', 'alice', square(), 0, 40), together('b', 'bob', square(8.00002, 49.00002), 60, 100)]);
+  assert.equal(state.territories[0].userId, 'bob');
+  assert.equal(state.territories[0].ownerIds.length, 1);
+});
+test('territory: GPS slivers between nearly identical rounds do not become plots', () => {
+  const state = replayClaims([claim('a', 'alice', square()), claim('b', 'bob', square(8.00008, 49), 1)]);
+  assert.ok(state.territories.every(t => t.areaM2 >= 2000));
+});
+test('territory: appending later claims to a stored projection equals a full replay', () => {
+  const runs = [claim('a', 'alice', square()), together('g0', 'bob', square(8.003, 49.003), 0, 40), together('g1', 'carol', square(8.00302, 49.003), 2, 41),
+    claim('c', 'dave', square(7.999, 48.999, .02), 50), together('g2', 'erin', square(8.00301, 49.00301), 5, 44)];
+  runs.sort((x, y) => x.endedAt.localeCompare(y.endedAt));
+  const full = replayClaims(runs);
+  const base = JSON.parse(JSON.stringify(replayClaims(runs.slice(0, 3))));
+  assert.equal(JSON.stringify(replayClaims(runs, { base })), JSON.stringify(full));
+});

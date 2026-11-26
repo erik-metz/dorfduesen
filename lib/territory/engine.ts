@@ -68,10 +68,22 @@ export function evaluateLoop(points: number[][], times: number[], reportedDistan
   }
 }
 
-export type Claim = { id: string; userId: string; endedAt: string; geometry: Shape };
-export type Territory = { id: string; userId: string; originClaimId: string; lastClaimId: string; geometry: Shape; areaM2: number; capturedAt: string };
-export type CaptureEvent = { claimId: string; territoryId: string; fromUserId: string | null; toUserId: string; areaM2: number; at: string };
-export type ClaimResult = { claimId: string; gainedM2: number; capturedCount: number };
+/** Bump when replay rules change so stored projections are rebuilt once. */
+export const REPLAY_VERSION = 3;
+/** Runs of different members that start and end within this window and share most of their area are one group run. */
+export const GROUP_WINDOW_MS = 15 * 60 * 1000;
+export const GROUP_MIN_OVERLAP = 0.7;
+/** A group territory is shared when at least this share of it lies inside the mate's round. */
+const GROUP_JOIN_INSIDE = 0.7;
+/** Free remainders below this area or narrower than the width are GPS slivers, not plots. */
+export const MIN_FREE_PIECE_M2 = 2000;
+const MIN_FREE_PIECE_WIDTH_M = 15;
+
+export type Claim = { id: string; userId: string; endedAt: string; startedAt?: string; geometry: Shape };
+export type Territory = { id: string; userId: string; ownerIds: string[]; ownerClaimIds: string[]; originClaimId: string; lastClaimId: string; geometry: Shape; areaM2: number; capturedAt: string };
+export type CaptureEvent = { claimId: string; territoryId: string; kind: 'FREE' | 'CAPTURE' | 'JOIN'; fromUserId: string | null; fromUserIds: string[]; toUserId: string; areaM2: number; at: string };
+export type ClaimResult = { claimId: string; gainedM2: number; capturedCount: number; groupId: string };
+export type Projection = { version: number; cursor: { endedAt: string; id: string } | null; territories: Territory[]; events: CaptureEvent[]; results: ClaimResult[] };
 
 function bounds(shape: Shape): number[] {
   const polygons = shape.type === 'Polygon' ? [shape.coordinates] : shape.coordinates;
@@ -136,67 +148,129 @@ class TerritorySpatialIndex {
   }
 }
 
-/** Deterministic ledger replay: import order, retries and concurrent jobs cannot change ownership. */
-export function replayClaims(input: Claim[], options: { budgetMs?: number } = {}) {
+/** Sliver filter in metres: width ≈ 2·area / perimeter for long thin strips. */
+function isSliver(geometry: Polygon, areaM2: number) {
+  if (areaM2 < MIN_FREE_PIECE_M2) return true;
+  const latitude = geometry.coordinates[0][0][1] * Math.PI / 180;
+  const mx = 111195 * Math.cos(latitude), my = 111195;
+  let perimeter = 0;
+  for (const ring of geometry.coordinates) for (let i = 1; i < ring.length; i++) {
+    perimeter += Math.hypot((ring[i][0] - ring[i - 1][0]) * mx, (ring[i][1] - ring[i - 1][1]) * my);
+  }
+  return perimeter > 0 && 2 * areaM2 / perimeter < MIN_FREE_PIECE_WIDTH_M;
+}
+
+const claimOrder = (a: { endedAt: string; id: string }, b: { endedAt: string; id: string }) => a.endedAt.localeCompare(b.endedAt) || a.id.localeCompare(b.id);
+
+/**
+ * Deterministic ledger replay: import order, retries and concurrent jobs cannot change ownership.
+ * With `base`, claims up to its cursor are treated as already applied; the result equals a full replay
+ * as long as those claims are unchanged (the caller verifies that).
+ */
+export function replayClaims(input: Claim[], options: { budgetMs?: number; base?: Projection } = {}): Projection {
   const checkBudget = options.budgetMs === undefined ? () => {} : replayBudget(options.budgetMs);
   checkBudget();
-  const territories: Territory[] = [];
-  const events: CaptureEvent[] = [];
-  const results: ClaimResult[] = [];
-  const seen = new Set<string>();
+  const base = options.base ? JSON.parse(JSON.stringify(options.base)) as Projection : null;
+  const territories: Territory[] = base?.territories ?? [];
+  const events: CaptureEvent[] = base?.events ?? [];
+  const results: ClaimResult[] = base?.results ?? [];
+  const groupOf = new Map(results.map(result => [result.claimId, result.groupId]));
   const boxes = new Map<string, number[]>();
   const spatialIndex = new TerritorySpatialIndex();
-  for (const claim of [...input].sort((a, b) => a.endedAt.localeCompare(b.endedAt) || a.id.localeCompare(b.id))) {
+  territories.forEach((t, index) => { boxes.set(t.id, bounds(t.geometry)); spatialIndex.add(index, boxes.get(t.id)!); });
+  const seen = new Set<string>();
+  const claims = [...input].sort(claimOrder).filter(claim => !seen.has(claim.id) && Boolean(seen.add(claim.id)));
+  const prepared = new Map<string, { geometry: Shape; box: number[]; areaM2: number }>();
+  const prepare = (claim: Claim) => {
+    let entry = prepared.get(claim.id);
+    if (!entry) {
+      const geometry = replayShape(claim.geometry);
+      entry = { geometry, box: bounds(geometry), areaM2: area(geometry) };
+      prepared.set(claim.id, entry);
+    }
+    return entry;
+  };
+  let cursor = base?.cursor ?? null;
+  for (let index = 0; index < claims.length; index++) {
+    const claim = claims[index];
+    if (cursor && claimOrder(claim, cursor) <= 0) continue;
     checkBudget();
-    if (seen.has(claim.id)) continue;
-    seen.add(claim.id);
-    const geometry = replayShape(claim.geometry);
+    const own = prepare(claim);
+    const geometry = own.geometry;
+    // Group run: an earlier claim of another member with the same time window and nearly the same area.
+    const mates = new Set<string>();
+    const endedAt = Date.parse(claim.endedAt), startedAt = claim.startedAt ? Date.parse(claim.startedAt) : NaN;
+    for (let j = index - 1; j >= 0 && Number.isFinite(startedAt); j--) {
+      const other = claims[j];
+      if (endedAt - Date.parse(other.endedAt) > GROUP_WINDOW_MS) break;
+      if (other.userId === claim.userId || !other.startedAt || Math.abs(Date.parse(other.startedAt) - startedAt) > GROUP_WINDOW_MS) continue;
+      const theirs = prepare(other);
+      if (!intersects(own.box, theirs.box) || Math.min(own.areaM2, theirs.areaM2) < GROUP_MIN_OVERLAP * Math.max(own.areaM2, theirs.areaM2)) continue;
+      checkBudget();
+      const outside = subtractShape(geometry, [theirs.geometry]);
+      const shared = own.areaM2 - (outside ? area(outside) : 0);
+      if (shared >= GROUP_MIN_OVERLAP * (own.areaM2 + theirs.areaM2 - shared)) mates.add(other.id);
+    }
+    const groupId = [...mates].map(id => groupOf.get(id) ?? id).sort()[0] ?? claim.id;
+    groupOf.set(claim.id, groupId);
     const candidate = feature(geometry);
     checkBudget();
     const tolerant = buffer(candidate, 10, { units: 'meters' });
-    const candidateBox = bounds(geometry);
-    const tolerantBox = tolerant ? bounds(tolerant.geometry) : candidateBox;
+    const tolerantBox = tolerant ? bounds(tolerant.geometry) : own.box;
     let gainedM2 = 0;
     let capturedCount = 0;
-    const captureCandidates = spatialIndex.candidates(tolerantBox) ?? territories.map((_, index) => index);
+    const captureCandidates = spatialIndex.candidates(tolerantBox) ?? territories.map((_, i) => i);
     for (const targetIndex of captureCandidates) {
       checkBudget();
       const target = territories[targetIndex];
-      if (!target || target.userId === claim.userId || !tolerant || !intersects(tolerantBox, boxes.get(target.id)!)) continue;
+      if (!target || target.ownerIds.includes(claim.userId) || !tolerant || !intersects(tolerantBox, boxes.get(target.id)!)) continue;
       const outside = subtractShape(target.geometry, [tolerant.geometry]);
-      if (outside && area(outside) > 1) continue;
-      events.push({ claimId: claim.id, territoryId: target.id, fromUserId: target.userId, toUserId: claim.userId, areaM2: target.areaM2, at: claim.endedAt });
+      const outsideM2 = outside ? area(outside) : 0;
+      if (target.ownerClaimIds.some(id => mates.has(id))) {
+        // Running together never steals: the member joins the group's territory instead.
+        if (outsideM2 > (1 - GROUP_JOIN_INSIDE) * target.areaM2) continue;
+        events.push({ claimId: claim.id, territoryId: target.id, kind: 'JOIN', fromUserId: null, fromUserIds: [], toUserId: claim.userId, areaM2: target.areaM2, at: claim.endedAt });
+        target.ownerIds.push(claim.userId);
+        target.ownerClaimIds.push(claim.id);
+        gainedM2 += target.areaM2;
+        continue;
+      }
+      if (outsideM2 > 1) continue;
+      events.push({ claimId: claim.id, territoryId: target.id, kind: 'CAPTURE', fromUserId: target.userId, fromUserIds: [...target.ownerIds], toUserId: claim.userId, areaM2: target.areaM2, at: claim.endedAt });
       target.userId = claim.userId;
+      target.ownerIds = [claim.userId];
+      target.ownerClaimIds = [claim.id];
       target.lastClaimId = claim.id;
       target.capturedAt = claim.endedAt;
       gainedM2 += target.areaM2;
       capturedCount++;
     }
     // Existing borders stay intact, including partially intersected foreign territories.
-    const overlapCandidates = spatialIndex.candidates(candidateBox) ?? territories.map((_, index) => index);
-    const overlaps = overlapCandidates.map(index => territories[index]).filter(t => t && intersects(candidateBox, boxes.get(t.id)!));
+    const overlapCandidates = spatialIndex.candidates(own.box) ?? territories.map((_, i) => i);
+    const overlaps = overlapCandidates.map(i => territories[i]).filter(t => t && intersects(own.box, boxes.get(t.id)!));
     const free = overlaps.length
       ? subtractShape(geometry, overlaps.map(t => t.geometry))
       : geometry;
     checkBudget();
     if (free) {
       const pieces = free.type === 'Polygon' ? [free.coordinates] : free.coordinates;
-      pieces.forEach((coordinates, index) => {
-        const geometry: Polygon = { type: 'Polygon', coordinates };
-        const areaM2 = area(geometry);
-        if (areaM2 < 100) return; // Discard GPS slivers, never count them twice.
-        const id = `${claim.id}:${index}`;
-        boxes.set(id, bounds(geometry));
-        territories.push({ id, geometry, userId: claim.userId, originClaimId: claim.id, lastClaimId: claim.id, areaM2, capturedAt: claim.endedAt });
+      pieces.forEach((coordinates, pieceIndex) => {
+        const piece: Polygon = { type: 'Polygon', coordinates };
+        const areaM2 = area(piece);
+        if (isSliver(piece, areaM2)) return; // GPS slivers never become plots or count twice.
+        const id = `${claim.id}:${pieceIndex}`;
+        boxes.set(id, bounds(piece));
+        territories.push({ id, geometry: piece, userId: claim.userId, ownerIds: [claim.userId], ownerClaimIds: [claim.id], originClaimId: claim.id, lastClaimId: claim.id, areaM2, capturedAt: claim.endedAt });
         spatialIndex.add(territories.length - 1, boxes.get(id)!);
-        events.push({ claimId: claim.id, territoryId: id, fromUserId: null, toUserId: claim.userId, areaM2, at: claim.endedAt });
+        events.push({ claimId: claim.id, territoryId: id, kind: 'FREE', fromUserId: null, fromUserIds: [], toUserId: claim.userId, areaM2, at: claim.endedAt });
         gainedM2 += areaM2;
       });
     }
-    results.push({ claimId: claim.id, gainedM2, capturedCount });
+    results.push({ claimId: claim.id, gainedM2, capturedCount, groupId });
+    cursor = { endedAt: claim.endedAt, id: claim.id };
   }
   checkBudget();
-  return { territories, events, results };
+  return { version: REPLAY_VERSION, cursor, territories, events, results };
 }
 
 export function seasonRange(enabledAt: Date, now = new Date()) {
