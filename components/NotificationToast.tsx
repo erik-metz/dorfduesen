@@ -36,13 +36,13 @@ function ToastContent() {
       };
     } else if (error === 'access_pending') {
       urlToast = {
-        type: 'error',
-        message: 'Deine Zugangsanfrage ist beim Club eingegangen. Sobald ein Admin sie freigibt, kannst du dich mit Strava anmelden.',
+        type: 'success',
+        message: 'Wir prüfen deine Anfrage. Die Seite ist nur für Mitglieder der Dorfdüsen. Sobald ein Admin dich freischaltet, meldest du dich einfach noch einmal mit Strava an.',
       };
     } else if (error === 'access_rejected') {
       urlToast = {
         type: 'error',
-        message: 'Dein Zugang wurde nicht freigegeben. Die App ist nur für Mitglieder der Dorfdüsen. Sprich uns gern beim Lauf an.',
+        message: 'Noch kein Zugang: Die Seite ist nur für Mitglieder der Dorfdüsen. Du läufst bei uns mit? Dann sprich uns beim nächsten Lauf an.',
       };
     } else if (error) {
       urlToast = {

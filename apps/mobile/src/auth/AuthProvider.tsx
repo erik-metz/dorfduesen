@@ -7,6 +7,8 @@ import * as WebBrowser from 'expo-web-browser';
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type PropsWithChildren } from 'react';
 
 export type AuthStatus = 'loading' | 'anonymous' | 'authenticated';
+/** Set when Strava sign-in worked but the athlete is not (yet) an approved club member. */
+export type AccessNotice = 'pending' | 'rejected' | null;
 
 export type MobileUser = {
   id: string;
@@ -27,6 +29,7 @@ type AuthContextValue = {
   status: AuthStatus;
   user: MobileUser | null;
   error: string | null;
+  accessNotice: AccessNotice;
   login: () => Promise<void>;
   logout: () => Promise<void>;
   deleteAccount: () => Promise<void>;
@@ -78,6 +81,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const [status, setStatus] = useState<AuthStatus>('loading');
   const [user, setUser] = useState<MobileUser | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [accessNotice, setAccessNotice] = useState<AccessNotice>(null);
   const processingCallback = useRef(false);
   const processedStates = useRef(new Set<string>());
   const responseCache = useRef(new Map<string, CachedResponse>());
@@ -133,11 +137,11 @@ export function AuthProvider({ children }: PropsWithChildren) {
       if (!state || !expectedState || state !== expectedState || !verifier) {
         throw new Error('Die OAuth-Rückgabe konnte nicht verifiziert werden. Bitte erneut anmelden.');
       }
-      if (authError === 'access_pending') {
-        throw new Error('Deine Zugangsanfrage ist beim Club eingegangen. Sobald ein Admin sie freigibt, kannst du dich hier mit Strava anmelden.');
-      }
-      if (authError === 'access_rejected') {
-        throw new Error('Dein Zugang wurde nicht freigegeben. Die App ist nur für Mitglieder der Dorfdüsen. Sprich uns gern beim Lauf an.');
+      if (authError === 'access_pending' || authError === 'access_rejected') {
+        setAccessNotice(authError === 'access_pending' ? 'pending' : 'rejected');
+        setUser(null);
+        setStatus('anonymous');
+        return;
       }
       if (authError) throw new Error('Die Anmeldung bei Strava wurde abgebrochen.');
       if (!code || !API_BASE_URL) throw new Error('Die Anmeldung konnte nicht abgeschlossen werden.');
@@ -208,6 +212,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   const login = useCallback(async () => {
     setError(null);
+    setAccessNotice(null);
     setStatus('loading');
     try {
       if (!API_BASE_URL) throw new Error('EXPO_PUBLIC_API_URL ist nicht konfiguriert.');
@@ -391,7 +396,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }, [apiFetch, clearResponseCache, user?.id]);
 
   return (
-    <AuthContext.Provider value={{ status, user, error, login, logout, deleteAccount, apiFetch, getCachedJson }}>
+    <AuthContext.Provider value={{ status, user, error, accessNotice, login, logout, deleteAccount, apiFetch, getCachedJson }}>
       {children}
     </AuthContext.Provider>
   );
