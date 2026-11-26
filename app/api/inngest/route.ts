@@ -2,6 +2,7 @@ import { evaluateTerritoryFunction, reconcileTerritoriesFunction } from '@/lib/i
 import { serve } from "inngest/next";
 import { inngest } from "@/lib/inngest/client";
 import { generatePlanFunction } from "@/lib/inngest/functions/generatePlan";
+import { adaptPlansWeeklyFunction } from "@/lib/inngest/functions/adaptPlans";
 import { analyzeActivityFunction } from "@/lib/inngest/functions/analyzeActivity";
 import { syncAllUsersFunction } from "@/lib/inngest/functions/syncAllUsers";
 import { syncUserFunction } from '@/lib/inngest/functions/syncUser';
@@ -19,6 +20,7 @@ export const { GET, POST, PUT } = serve({
     reconcileTerritoriesFunction,
     syncInstagramFunction,
     generatePlanFunction,
+    adaptPlansWeeklyFunction,
     analyzeActivityFunction,
     syncAllUsersFunction,
     syncUserFunction,

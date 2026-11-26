@@ -15,6 +15,47 @@ export interface AthleteBaseline {
   acwr: number; // Acute-to-Chronic Workload Ratio
   frequencyDaysPerWeek: number;
   hasSufficientData: boolean;
+  /** Current level from the last four to eight weeks, used as the plan's individual starting point. */
+  recent: RecentRunning;
+}
+
+export interface RecentRunning {
+  /** Runs per week over the last four weeks. */
+  runsPerWeek: number;
+  weeklyKm: number;
+  weeklyMinutes: number;
+  /** Medians of the last up to six runs within eight weeks; 0 without runs. */
+  typicalRunKm: number;
+  typicalRunMinutes: number;
+  typicalPaceSecPerKm: number;
+  /** Average pace slower than 8:00 min/km usually means the runs contain walking breaks. */
+  likelyRunWalk: boolean;
+}
+
+const NO_RECENT_RUNNING: RecentRunning = { runsPerWeek: 0, weeklyKm: 0, weeklyMinutes: 0, typicalRunKm: 0, typicalRunMinutes: 0, typicalPaceSecPerKm: 0, likelyRunWalk: false };
+const median = (values: number[]) => {
+  const sorted = [...values].sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
+};
+
+function recentRunning(runs: FitnessActivity[], now: Date): RecentRunning {
+  const valid = runs.filter(run => run.distance > 0 && run.movingTime >= 240 && run.movingTime / (run.distance / 1000) >= 150);
+  const fourWeeks = valid.filter(run => run.startDate >= new Date(now.getTime() - 28 * 86400000));
+  const typical = valid.filter(run => run.startDate >= new Date(now.getTime() - 56 * 86400000))
+    .sort((a, b) => b.startDate.getTime() - a.startDate.getTime()).slice(0, 6);
+  if (!typical.length && !fourWeeks.length) return NO_RECENT_RUNNING;
+  const round = (value: number) => Math.round(value * 10) / 10;
+  const pace = typical.length ? median(typical.map(run => run.movingTime / (run.distance / 1000))) : 0;
+  return {
+    runsPerWeek: round(fourWeeks.length / 4),
+    weeklyKm: round(fourWeeks.reduce((sum, run) => sum + run.distance / 1000, 0) / 4),
+    weeklyMinutes: Math.round(fourWeeks.reduce((sum, run) => sum + run.movingTime / 60, 0) / 4),
+    typicalRunKm: typical.length ? round(median(typical.map(run => run.distance / 1000))) : 0,
+    typicalRunMinutes: typical.length ? Math.round(median(typical.map(run => run.movingTime / 60))) : 0,
+    typicalPaceSecPerKm: Math.round(pace),
+    likelyRunWalk: pace > 480,
+  };
 }
 
 export type FitnessActivity = Pick<Activity,
@@ -49,6 +90,7 @@ export function baselineFromActivities(
       acwr: 1.0,
       frequencyDaysPerWeek: 2,
       hasSufficientData: false,
+      recent: NO_RECENT_RUNNING,
     };
   }
 
@@ -180,5 +222,6 @@ export function baselineFromActivities(
     acwr: Number.isFinite(acwr) ? acwr : 0,
     frequencyDaysPerWeek: Math.min(Math.max(Math.round(recentRuns.length / 8), 1), 7),
     hasSufficientData: fitnessSampleCount >= 4,
+    recent: recentRunning(runs, now),
   };
 }

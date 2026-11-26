@@ -51,3 +51,45 @@ test('regular runners and long-distance goals keep the standard plan', () => {
   assert.equal(buildPeriodizationSkeleton({ baseline: runner, goalType: '5K', startDate, targetDate }).mode, 'STANDARD');
   assert.equal(buildPeriodizationSkeleton({ baseline: noRuns, goalType: 'HALF_MARATHON', startDate, targetDate }).mode, 'STANDARD');
 });
+
+const recent = (values) => ({ runsPerWeek: 1, weeklyKm: 4, weeklyMinutes: 35, typicalRunKm: 5, typicalRunMinutes: 41, typicalPaceSecPerKm: 496, likelyRunWalk: true, ...values });
+
+test('recent runs with walking breaks set an individual run/walk start and goal pace', () => {
+  const baseline = { runCount: 11, averageWeeklyKm: 3.3, longestRunKm: 7, estimatedVdot: 30, recent: recent() };
+  const skeleton = buildPeriodizationSkeleton({ baseline, goalType: '5K', targetDistanceKm: 5, startDate, targetDate, weeklyAvailability: 2 });
+  assert.equal(skeleton.mode, 'RUN_WALK');
+  const first = runs(skeleton.weeks[0])[0].runWalk;
+  // About 8:16 min/km means roughly three quarters running: start with blocks of a few minutes.
+  assert.ok(first.runMinutes >= 3 && first.runMinutes <= 5 && first.repeats > 1, JSON.stringify(first));
+  // The first week stays close to the athlete's ~27 running minutes per week, not two full 5 km runs.
+  assert.ok(first.repeats * first.runMinutes * 2 <= 45, JSON.stringify(first));
+  assert.equal(runs(skeleton.weeks.at(-1)).find(day => day.runWalk.goalRunKm).runWalk.runMinutes, 39);
+});
+
+test('regular plans start from recent volume without fixed 10 km or 5 km floors', () => {
+  const baseline = { runCount: 12, averageWeeklyKm: 6, longestRunKm: 12, estimatedVdot: 38, recent: recent({ runsPerWeek: 2, weeklyKm: 6, weeklyMinutes: 36, typicalRunKm: 3, typicalRunMinutes: 18, typicalPaceSecPerKm: 360, likelyRunWalk: false }) };
+  const skeleton = buildPeriodizationSkeleton({ baseline, goalType: '10K', startDate, targetDate, weeklyAvailability: 2, currentRunMinutes: 30 });
+  assert.equal(skeleton.mode, 'STANDARD');
+  assert.ok(skeleton.weeks[0].targetKm <= 7.5, `week 1 ${skeleton.weeks[0].targetKm} km`);
+  for (const day of runs(skeleton.weeks[0])) assert.ok(day.approximateKm <= 3.6, `${day.dayOfWeek}: ${day.approximateKm} km`);
+});
+
+test('weekly review only progresses after a mostly completed week', () => {
+  const { reviewWeek } = loadTs('lib/training/plan-adaptation.ts');
+  assert.equal(reviewWeek({ plannedSessions: 2, plannedKm: 6, completedSessions: 2, actualKm: 5.5 }).outcome, 'ON_TRACK');
+  assert.equal(reviewWeek({ plannedSessions: 2, plannedKm: 6, completedSessions: 1, actualKm: 3 }).outcome, 'REPEAT');
+  assert.equal(reviewWeek({ plannedSessions: 3, plannedKm: 9, completedSessions: 3, actualKm: 5 }).outcome, 'REPEAT');
+  assert.equal(reviewWeek({ plannedSessions: 2, plannedKm: 6, completedSessions: 0, actualKm: 0 }).outcome, 'STEP_BACK');
+});
+
+test('a re-plan repeats the reached level and keeps the goal week', () => {
+  const { buildRunWalkSkeleton } = loadTs('lib/training/run-walk.ts');
+  const skeleton = buildRunWalkSkeleton({
+    start: { startBlock: 4, startTotalRun: 20, goalMinutes: 40, targetKm: 5, paceMinPerKm: 8, basis: 'data' },
+    totalWeeks: 6, firstWeekNumber: 5, startDate, targetDate, daysAvailable: 2, includeSundayRun: true,
+  });
+  assert.equal(skeleton.weeks.map(week => week.weekNumber).join(), '5,6,7,8,9,10');
+  assert.equal(runs(skeleton.weeks[0])[0].runWalk.runMinutes, 4);
+  assert.equal(skeleton.weeks[3].isDeloadWeek, true);
+  assert.equal(runs(skeleton.weeks.at(-1)).find(day => day.runWalk.goalRunKm).runWalk.goalRunKm, 5);
+});

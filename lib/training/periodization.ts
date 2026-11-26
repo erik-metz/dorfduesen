@@ -48,6 +48,9 @@ export interface PeriodizationInput {
   includeSundayRun?: boolean;
   /** Minutes the athlete can currently run without a walking break, if stated. */
   currentRunMinutes?: number;
+  /** Re-plans: plan week number of the first generated week and its weekly volume. */
+  firstWeekNumber?: number;
+  startVolumeKm?: number;
 }
 
 /**
@@ -64,7 +67,8 @@ export function buildPeriodizationSkeleton(input: PeriodizationInput): Periodiza
   if (targetDate) {
     const diffMs = targetDate.getTime() - startDate.getTime();
     const calculatedWeeks = Math.round(diffMs / (7 * 24 * 60 * 60 * 1000));
-    totalWeeks = Math.max(Math.min(calculatedWeeks, 24), 6);
+    // Re-plans cover only the remaining weeks of an existing plan.
+    totalWeeks = input.firstWeekNumber && input.firstWeekNumber > 1 ? Math.max(calculatedWeeks, 1) : Math.max(Math.min(calculatedWeeks, 24), 6);
   } else {
     // Default duration depending on goal
     if (input.goalType === "MARATHON") totalWeeks = 16;
@@ -82,9 +86,9 @@ export function buildPeriodizationSkeleton(input: PeriodizationInput): Periodiza
 
   const daysAvailable = Math.min(Math.max(input.weeklyAvailability || 3, 2), 6);
 
-  const beginner = runWalkStart({
+  const beginner = input.firstWeekNumber && input.firstWeekNumber > 1 ? null : runWalkStart({
     goalType: input.goalType, targetDistanceKm: input.targetDistanceKm,
-    currentRunMinutes: input.currentRunMinutes, baseline: input.baseline,
+    currentRunMinutes: input.currentRunMinutes, baseline: input.baseline, sessionsPerWeek: daysAvailable,
   });
   if (beginner) {
     return buildRunWalkSkeleton({
@@ -96,8 +100,13 @@ export function buildPeriodizationSkeleton(input: PeriodizationInput): Periodiza
   const isFlexibleLongRun = input.preferredLongRunDay === null || input.preferredLongRunDay === undefined || input.preferredLongRunDay === -1;
   const longRunDay = (isFlexibleLongRun || input.preferredLongRunDay == null) ? 0 : input.preferredLongRunDay; // Default placeholder slot Sunday, but marked flexible
 
-  // Starting volume based on user baseline
-  const plannedStartVolume = Math.max(input.baseline.averageWeeklyKm * 0.9, 10);
+  // Starting volume from the athlete's own recent weeks; the old 10 km floor overloaded casual runners.
+  const recent = input.baseline.recent;
+  const typicalRunKm = recent?.typicalRunKm || 0;
+  const dataVolume = recent && recent.weeklyKm > 0
+    ? Math.max((recent.weeklyKm + input.baseline.averageWeeklyKm) / 2, typicalRunKm) * 1.1
+    : input.baseline.runCount > 0 ? input.baseline.averageWeeklyKm * 0.9 : 10;
+  const plannedStartVolume = input.startVolumeKm ?? Math.max(dataVolume, typicalRunKm, 3);
   const startVolume = input.gentlerStart ? plannedStartVolume * 0.85 : plannedStartVolume;
   
   // Peak volume estimated based on goal
@@ -125,17 +134,19 @@ export function buildPeriodizationSkeleton(input: PeriodizationInput): Periodiza
 
   const weeks: PeriodizationWeekSkeleton[] = [];
   let currentVolume = startVolume;
+  const firstWeek = input.firstWeekNumber ?? 1;
+  const planWeeks = firstWeek + totalWeeks - 1;
 
-  for (let w = 1; w <= totalWeeks; w++) {
+  for (let w = firstWeek; w <= planWeeks; w++) {
     let phase: TrainingPhase = "BASE";
     let isDeload = false;
     let focusTitle = "";
 
-    const progressRatio = w / totalWeeks;
+    const progressRatio = w / planWeeks;
 
-    if (w > totalWeeks - taperWeeksCount && (input.goalType === "MARATHON" || input.goalType === "HALF_MARATHON" || input.goalType === "10K" || input.goalType === "5K" || input.goalType === "SPEED_IMPROVE")) {
+    if (w > planWeeks - taperWeeksCount && (input.goalType === "MARATHON" || input.goalType === "HALF_MARATHON" || input.goalType === "10K" || input.goalType === "5K" || input.goalType === "SPEED_IMPROVE")) {
       phase = "TAPER";
-      const taperStep = totalWeeks - w;
+      const taperStep = planWeeks - w;
       currentVolume = targetPeakVolume * (0.6 + taperStep * 0.2);
       focusTitle = `Tapering: Frische tanken & aktivieren für dein Zieldatum`;
     } else if (progressRatio > 0.75) {
@@ -171,7 +182,7 @@ export function buildPeriodizationSkeleton(input: PeriodizationInput): Periodiza
       currentVolume = currentVolume * 0.75;
       focusTitle = `Regenerationswoche: Superkompensation & Erholung`;
     } else if (phase !== "TAPER") {
-      if (w > 1 && !weeks[w - 2].isDeloadWeek) {
+      if (w > firstWeek && !weeks[w - firstWeek - 1].isDeloadWeek) {
         currentVolume = Math.min(currentVolume * 1.07, targetPeakVolume);
       }
     }
@@ -180,16 +191,17 @@ export function buildPeriodizationSkeleton(input: PeriodizationInput): Periodiza
 
     // Distribute mileage across days
     const daysDistribution = distributeDays(
-      w === 1 && input.gentlerStart ? plannedStartVolume : weeklyKm,
+      w === firstWeek && input.gentlerStart ? plannedStartVolume : weeklyKm,
       daysAvailable,
       longRunDay,
       isFlexibleLongRun,
       phase,
       input.includeSundayRun ?? true,
-      input.goalType
+      input.goalType,
+      typicalRunKm,
     );
 
-    if (w === 1 && input.gentlerStart) {
+    if (w === firstWeek && input.gentlerStart) {
       focusTitle = 'Ruhiger Einstieg mit lockeren Läufen';
       for (const day of daysDistribution) {
         if (day.dayOfWeek !== 0 || input.includeSundayRun === false) {
@@ -234,7 +246,8 @@ function distributeDays(
   isFlexibleLongRun: boolean,
   phase: TrainingPhase,
   includeSundayRun: boolean,
-  goalType?: string
+  goalType?: string,
+  typicalRunKm = 0,
 ): PeriodizationWorkoutSkeleton[] {
   // Available days selection
   const defaultDaySchedules: Record<number, number[]> = {
@@ -256,17 +269,22 @@ function distributeDays(
     selectedDays[0] = 0;
   }
 
-  // Sunday run is always standardmäßig 5.0 km (or longer for Marathon/HM)
-  let sundayKm = 5.0;
+  // The club route is 5 km. Athletes whose runs are still shorter join with their own distance
+  // instead of being forced to the full lap; nobody gets sessions far above their usual run.
+  const usual = typicalRunKm > 0 ? typicalRunKm : 5;
+  const minRunKm = Math.min(3.5, Math.max(Math.round(usual * 0.6 * 10) / 10, 1.5));
+  const clubKm = Math.min(5.0, Math.max(Math.round(usual * 1.1 * 10) / 10, 2));
+  let sundayKm = clubKm;
   if ((goalType === "MARATHON" || goalType === "HALF_MARATHON") && phase !== "BASE") {
-    sundayKm = Math.max(Math.round(weeklyKm * 0.35 * 10) / 10, 5.0);
+    sundayKm = Math.max(Math.round(weeklyKm * 0.35 * 10) / 10, clubKm);
   }
 
   const isSundayLongRun = longRunDay === 0 || isFlexibleLongRun;
   const otherDays = selectedDays.filter((d) => d !== (isSundayLongRun ? 0 : longRunDay));
   
-  const remainingKm = Math.max(weeklyKm - (isSundayLongRun ? sundayKm : 5.0), otherDays.length * 3.5);
-  const kmPerOtherDay = Math.max(Math.round((remainingKm / Math.max(otherDays.length, 1)) * 10) / 10, 3.5);
+  const longRunKm = Math.max(Math.round(weeklyKm * 0.33 * 10) / 10, clubKm);
+  const remainingKm = Math.max(weeklyKm - (isSundayLongRun ? sundayKm : includeSundayRun ? sundayKm + longRunKm : longRunKm), otherDays.length * minRunKm);
+  const kmPerOtherDay = Math.max(Math.round((remainingKm / Math.max(otherDays.length, 1)) * 10) / 10, minRunKm);
 
   const result: PeriodizationWorkoutSkeleton[] = [];
 
@@ -295,7 +313,7 @@ function distributeDays(
       result.push({
         dayOfWeek: d,
         workoutType: "LONGRUN",
-        approximateKm: Math.max(Math.round(weeklyKm * 0.33 * 10) / 10, 5.0),
+        approximateKm: longRunKm,
         isFlexible: isFlexibleLongRun,
         recommendedTiming: isFlexibleLongRun ? "Wochenende / Nach Tagesform & Wetter" : `${DAY_NAMES[d]} (Fester Tag)`,
       });

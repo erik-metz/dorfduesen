@@ -1,12 +1,12 @@
 import { inngest } from "../client";
 import { db } from "@/lib/db";
-import { Prisma } from "@prisma/client";
 import { calculateAthleteBaseline } from "../../training/baseline";
 import { buildPeriodizationSkeleton, PeriodizationPlanSkeleton } from "../../training/periodization";
 import { getTrainingPaces } from "../../training/vdot";
 import { calculateHeartRateZones } from "../../training/zones";
 import { generatePlanWithGrok, GeneratedWeek } from "../../ai/generator";
 import { cacheTags, invalidateCacheTags } from '@/lib/cache-tags';
+import { planWeekCreateData } from '@/lib/training/plan-weeks';
 
 export const generatePlanFunction = inngest.createFunction(
   {
@@ -128,21 +128,7 @@ export const generatePlanFunction = inngest.createFunction(
         await tx.planWeek.deleteMany({ where: { planId } });
         for (const week of generatedWeeks) {
           await tx.planWeek.create({
-            data: {
-              planId, weekNumber: week.weekNumber, phase: week.phase,
-              targetDistance: week.targetDistance, isDeloadWeek: week.isDeloadWeek,
-              focusTitle: baseline.gentlerStart && week.weekNumber === 1 ? skeleton.weeks[0].focusTitle : week.focusTitle,
-              workouts: { create: week.workouts.map(wo => ({
-                scheduledDate: new Date(wo.date), sportType: wo.sportType || 'Run',
-                workoutType: wo.workoutType, title: wo.title, description: wo.description,
-                targetDistance: wo.targetDistance, targetDurationMinutes: wo.targetDurationMinutes,
-                targetPaceMin: wo.targetPaceMin, targetPaceMax: wo.targetPaceMax,
-                targetHrZone: wo.targetHrZone,
-                structuredSteps: (wo.structuredSteps as Prisma.InputJsonValue) ?? undefined,
-                isFlexible: wo.isFlexible ?? true, recommendedTiming: wo.recommendedTiming || null,
-                status: 'PENDING',
-              })) },
-            },
+            data: planWeekCreateData(planId, week, baseline.gentlerStart && week.weekNumber === 1 ? skeleton.weeks[0].focusTitle : week.focusTitle),
           });
         }
         await tx.trainingPlan.updateMany({

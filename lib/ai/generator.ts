@@ -83,9 +83,9 @@ export async function generatePlanWithGrok(
 Deine Aufgabe ist es, für die bereitgestellten Rahmendaten der Wochen detaillierte, präzise und motivierende Laufeinheiten zu erstellen.
 Wichtige Regeln:
 1. 80/20 Prinzip (Polarisiertes Training): 80% des Volumens MUSS in Zone 2 (Grundlagenausdauer / Easy) stattfinden.
-2. Der sonntägliche DorfDüsen-Vereinslauf (Sunday Run) ist IMMER standardmäßig mindestens 5.0 km (Gemeinschaftsrunde in Nordheim, offizieller Strava-Club-Termin). Er darf niemals unter 5.0 km liegen.
+2. Der sonntägliche DorfDüsen-Vereinslauf (Sunday Run, Gemeinschaftsrunde in Nordheim, offizieller Strava-Club-Termin) hat genau die Distanz aus dem Gerüst. Ist sie kürzer als die 5-km-Runde, läuft der Athlet nur seinen Teil mit oder kürzt ab, sag das freundlich.
 3. Passe Einheiten und Tonalität exakt an das Ziel an (z. B. Kondition/Durchhalten, Schwellentempo/1-Min schneller, Fettverbrennung/Gewicht, Gewohnheit/Routine).
-4. Halte dich exakt an die vorgegebenen Wochenkilometer und Pace-Zonen.
+4. Halte dich exakt an die vorgegebenen Wochenkilometer und Pace-Zonen. Das Gerüst ist aus den echten Läufen des Athleten berechnet; mach keine Einheit länger oder härter.
 5. Gib IMMER valides JSON zurück, das dem gewünschten Schema entspricht. Keine Erklärungen außerhalb von JSON.`,
         },
         {
@@ -186,6 +186,7 @@ Athleten-Metriken:
 - Schwellen-Pace (Threshold): ${paces.thresholdMin} - ${paces.thresholdMax} min/km (Zone 4)
 - Intervall-Pace: ${paces.intervalMin} - ${paces.intervalMax} min/km (Zone 5)
 - Historischer Ø: ${athleteBaseline.averageWeeklyKm} km/Woche
+- Letzte 4 Wochen: ${athleteBaseline.recent?.runsPerWeek ?? 0} Läufe/Woche, ${athleteBaseline.recent?.weeklyKm ?? 0} km/Woche; typischer Lauf ${athleteBaseline.recent?.typicalRunKm ?? 0} km in ${athleteBaseline.recent?.typicalRunMinutes ?? 0} min
 
 Vorgegebenes Periodisierungs-Gerüst (exakte Soll-Werte einhalten):
 ${JSON.stringify(skeletonSummary, null, 2)}
@@ -223,7 +224,7 @@ Gib ein JSON-Objekt mit der Eigenschaft "weeks" zurück:
  * Fallback algorithmic generator (100% reliable, zero external dependencies).
  * Generates scientifically sound workouts matching Daniels tables.
  */
-export function generateAlgorithmicPlan(ctx: PlanGenerationContext): GeneratedWeek[] {
+export function generateAlgorithmicPlan(ctx: Pick<PlanGenerationContext, 'skeleton' | 'paces' | 'goalType'>): GeneratedWeek[] {
   const { skeleton, paces } = ctx;
 
   const unalignedWeeks = skeleton.weeks.map((w) => {
@@ -243,8 +244,11 @@ export function generateAlgorithmicPlan(ctx: PlanGenerationContext): GeneratedWe
       let hrZone = 2;
 
       if (d.dayOfWeek === 0) {
-        title = "DorfDüsen Sunday Run (5 km) – Strava Club-Termin";
-        desc = "Offizieller Vereinstermin in Nordheim (Gemeinde Biblis). Treffpunkt jeden Sonntag 09:00 Uhr. Lockere 5-km-Gemeinschaftsrunde im Wohlfühltempo (Zone 2) – niemand läuft alleine!";
+        const km = String(d.approximateKm).replace(".", ",");
+        title = `DorfDüsen Sunday Run (${km} km) – Strava Club-Termin`;
+        desc = d.approximateKm < 5
+          ? `Offizieller Vereinstermin in Nordheim (Gemeinde Biblis). Treffpunkt jeden Sonntag 09:00 Uhr. Du läufst ${km} km der Gemeinschaftsrunde locker mit (Zone 2) und kürzt ab – niemand läuft alleine!`
+          : "Offizieller Vereinstermin in Nordheim (Gemeinde Biblis). Treffpunkt jeden Sonntag 09:00 Uhr. Lockere Gemeinschaftsrunde im Wohlfühltempo (Zone 2) – niemand läuft alleine!";
         paceMin = paces.easyMin;
         paceMax = paces.easyMax;
         hrZone = 2;
