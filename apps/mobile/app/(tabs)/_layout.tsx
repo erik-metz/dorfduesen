@@ -4,6 +4,7 @@ import Svg, { Path } from 'react-native-svg';
 import { useAuth } from '../../src/auth/AuthProvider';
 import { HealthConnectPrompt } from '../../src/components/HealthConnectPrompt';
 import { useStravaVisitSync } from '../../src/strava/stravaSync';
+import { AppVersionBadge } from '../../src/updates/AppUpdates';
 
 export default function TabsLayout() {
   const { status, user, apiFetch } = useAuth();
@@ -15,6 +16,7 @@ export default function TabsLayout() {
       <Tabs screenOptions={{
         headerStyle: { backgroundColor: '#09090b' },
         headerTintColor: '#fafafa',
+        headerRight: () => <AppVersionBadge />,
         tabBarStyle: { backgroundColor: '#18181b', borderTopColor: '#27272a' },
         tabBarActiveTintColor: '#fc7a3d',
         tabBarInactiveTintColor: '#a1a1aa',

@@ -1,6 +1,7 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { AuthProvider } from '../src/auth/AuthProvider';
+import { UpdateBanner } from '../src/updates/AppUpdates';
 
 export default function RootLayout() {
   return (
@@ -11,6 +12,7 @@ export default function RootLayout() {
         <Stack.Screen name="auth/callback" />
         <Stack.Screen name="(tabs)" />
       </Stack>
+      <UpdateBanner />
     </AuthProvider>
   );
 }

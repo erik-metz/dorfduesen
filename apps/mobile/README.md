@@ -56,7 +56,9 @@ Der Tab **Coach** bietet KI-Chat, gespeicherte Gespräche und Trainingspläne. V
 
 ## Releases und Over-the-Air-Updates
 
-Store-Builds enthalten `expo-updates` (Kanal `production`, Laufzeitversion per `fingerprint`). Ein Update ändert nur JavaScript und Assets; die App lädt es beim Start im Hintergrund und verwendet es ab dem nächsten Start.
+Store-Builds enthalten `expo-updates` (Kanal `production`, Laufzeitversion per `fingerprint`). Ein Update ändert nur JavaScript und Assets. Die App sucht beim Start und beim Zurückkehren in den Vordergrund (höchstens alle 15 Minuten) nach Updates und lädt sie im Hintergrund. Ist eines geladen, erscheint oben ein Banner „Neue Version verfügbar“; „Aktualisieren“ lädt die App sofort neu, sonst greift das Update beim nächsten Start (`src/updates/AppUpdates.tsx`).
+
+Oben rechts in jedem Tab steht die laufende Version: `Version (Build) · Datum Uhrzeit` des OTA-Updates, `· Store` ohne Update. Tippen zeigt zusätzlich die Update-ID (passt zum Anfang der Update-ID im EAS-Dashboard) und sucht nach einem neuen Update.
 
 - **Nur JS/UI geändert** (Bildschirme, Texte, Logik in `app/` und `src/`):
   ```sh
