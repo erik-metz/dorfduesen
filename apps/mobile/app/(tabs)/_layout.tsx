@@ -1,14 +1,17 @@
-import { Redirect, Tabs } from 'expo-router';
-import { Text } from 'react-native';
+import { Redirect, Tabs, useRouter } from 'expo-router';
+import { Pressable, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { useAuth } from '../../src/auth/AuthProvider';
 import { HealthConnectPrompt } from '../../src/components/HealthConnectPrompt';
 import { useStravaVisitSync } from '../../src/strava/stravaSync';
 import { AppVersionBadge } from '../../src/updates/AppUpdates';
+import { useAdminPush } from '../../src/push/AdminPush';
 
 export default function TabsLayout() {
   const { status, user, apiFetch } = useAuth();
+  const router = useRouter();
   useStravaVisitSync(apiFetch, status === 'authenticated');
+  useAdminPush(status === 'authenticated' ? user : null, apiFetch);
   if (status !== 'authenticated') return <Redirect href="/" />;
 
   return (
@@ -16,7 +19,18 @@ export default function TabsLayout() {
       <Tabs screenOptions={{
         headerStyle: { backgroundColor: '#09090b' },
         headerTintColor: '#fafafa',
-        headerRight: () => <AppVersionBadge />,
+        headerRight: () => (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            {user?.role === 'ADMIN' ? (
+              <Pressable onPress={() => router.push('/admin')} hitSlop={10} accessibilityRole="button" accessibilityLabel="Zugangsanfragen öffnen">
+                <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+                  <Path d="M15 19v-1a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v1M8.5 10a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Zm8 1 2 2 4-4" stroke="#fc7a3d" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+                </Svg>
+              </Pressable>
+            ) : null}
+            <AppVersionBadge />
+          </View>
+        ),
         tabBarStyle: { backgroundColor: '#18181b', borderTopColor: '#27272a' },
         tabBarActiveTintColor: '#fc7a3d',
         tabBarInactiveTintColor: '#a1a1aa',

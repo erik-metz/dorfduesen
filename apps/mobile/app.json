@@ -78,6 +78,13 @@
       "expo-router",
       "expo-secure-store",
       [
+        "expo-notifications",
+        {
+          "color": "#fc5200",
+          "mode": "production"
+        }
+      ],
+      [
         "expo-speech-recognition",
         {
           "microphonePermission": "Dorfdüsen verwendet dein Mikrofon, wenn du dem Smart Coach eine Nachricht diktierst.",

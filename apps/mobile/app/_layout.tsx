@@ -11,6 +11,7 @@ export default function RootLayout() {
         <Stack.Screen name="index" />
         <Stack.Screen name="auth/callback" />
         <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="admin" />
       </Stack>
       <UpdateBanner />
     </AuthProvider>

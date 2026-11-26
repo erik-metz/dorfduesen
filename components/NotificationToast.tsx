@@ -34,6 +34,16 @@ function ToastContent() {
         type: 'success',
         message: 'Du wurdest erfolgreich abgemeldet.',
       };
+    } else if (error === 'access_pending') {
+      urlToast = {
+        type: 'error',
+        message: 'Deine Zugangsanfrage ist beim Club eingegangen. Sobald ein Admin sie freigibt, kannst du dich mit Strava anmelden.',
+      };
+    } else if (error === 'access_rejected') {
+      urlToast = {
+        type: 'error',
+        message: 'Dein Zugang wurde nicht freigegeben. Die App ist nur für Mitglieder der Dorfdüsen. Sprich uns gern beim Lauf an.',
+      };
     } else if (error) {
       urlToast = {
         type: 'error',

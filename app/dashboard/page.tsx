@@ -1,6 +1,6 @@
 import React, { Suspense } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Flame, ShieldCheck, Zap } from 'lucide-react';
+import { ArrowLeft, Flame, ShieldCheck, UserCheck, Zap } from 'lucide-react';
 import { getCurrentUser } from '@/lib/auth/session';
 import { db } from '@/lib/db';
 import { getDashboardActivities } from '@/lib/data/dashboard';
@@ -235,8 +235,28 @@ async function DashboardContent({
     currentUser.username ||
     'Dorfdüse';
 
+  const pendingAccessRequests = !isReadOnly && currentUser.role === 'ADMIN'
+    ? await db.accessRequest.count({ where: { status: 'PENDING' } })
+    : null;
+
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
+      {pendingAccessRequests !== null && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
+          <Link
+            href="/admin"
+            className="flex items-center justify-between gap-3 rounded-2xl border border-orange-500/30 bg-orange-500/10 px-4 py-3 text-sm font-semibold text-orange-200 hover:bg-orange-500/20 transition-colors"
+          >
+            <span className="flex items-center gap-2">
+              <UserCheck className="w-4 h-4 shrink-0" />
+              <span>Mitgliederverwaltung</span>
+            </span>
+            <span className="text-xs font-bold">
+              {pendingAccessRequests === 0 ? 'Keine offenen Anfragen' : `${pendingAccessRequests} offene ${pendingAccessRequests === 1 ? 'Anfrage' : 'Anfragen'}`}
+            </span>
+          </Link>
+        </div>
+      )}
       <DashboardView
         user={{
           id: targetUser.id,

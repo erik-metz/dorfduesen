@@ -17,6 +17,7 @@ model User {
   city            String?
   country         String?
   sex             String?
+  role            String     @default("MEMBER") // MEMBER | ADMIN
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
 
@@ -36,6 +37,7 @@ model User {
   healthConnections MobileHealthConnection[]
   healthRecords   MobileHealthRecord[]
   notifications   Notification[]
+  pushTokens      PushToken[]
   weeklyGoals WeeklyGoal[]
   weeklyTitleHolders  WeeklyTitleHolder[]
   monthlyTitleHolders MonthlyTitleHolder[]
@@ -51,6 +53,39 @@ model Account {
   scope        String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+}
+
+// Strava athletes who tried to sign in without being a club member. Approval creates the User row,
+// so pending or rejected people never appear in member lists, leaderboards or syncs.
+model AccessRequest {
+  id              String    @id @default(cuid())
+  stravaAthleteId String    @unique
+  firstname       String?
+  lastname        String?
+  username        String?
+  profile         String?
+  city            String?
+  country         String?
+  status          String    @default("PENDING") // PENDING | REJECTED
+  attemptCount    Int       @default(1)
+  lastAttemptAt   DateTime  @default(now())
+  decidedAt       DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([status, lastAttemptAt])
+}
+
+model PushToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  platform  String   // ios | android
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
 }
 
 model MobileOAuthState {

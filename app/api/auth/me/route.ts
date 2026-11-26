@@ -21,6 +21,7 @@ export async function GET() {
       profile: sanitizeAvatarUrl(user.profile),
       city: user.city,
       country: user.country,
+      role: user.role,
       activityCount: user._count.activities,
       scope: user.account?.scope,
       lastSync: user.account?.updatedAt,

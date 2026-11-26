@@ -17,6 +17,7 @@ export type MobileUser = {
   profile: string | null;
   city: string | null;
   country: string | null;
+  role?: string | null;
   activityCount: number;
   scope?: string | null;
   lastSync?: string | null;
@@ -57,6 +58,7 @@ const PENDING_STATE_KEY = 'dorfduesen_mobile_oauth_state';
 const PENDING_VERIFIER_KEY = 'dorfduesen_mobile_pkce_verifier';
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL?.replace(/\/$/, '');
 const APP_REDIRECT_URI = 'dorfduesen://auth/callback';
+const PUSH_TOKEN_KEY = 'dorfduesen_push_token';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -130,6 +132,12 @@ export function AuthProvider({ children }: PropsWithChildren) {
       ]);
       if (!state || !expectedState || state !== expectedState || !verifier) {
         throw new Error('Die OAuth-Rückgabe konnte nicht verifiziert werden. Bitte erneut anmelden.');
+      }
+      if (authError === 'access_pending') {
+        throw new Error('Deine Zugangsanfrage ist beim Club eingegangen. Sobald ein Admin sie freigibt, kannst du dich hier mit Strava anmelden.');
+      }
+      if (authError === 'access_rejected') {
+        throw new Error('Dein Zugang wurde nicht freigegeben. Die App ist nur für Mitglieder der Dorfdüsen. Sprich uns gern beim Lauf an.');
       }
       if (authError) throw new Error('Die Anmeldung bei Strava wurde abgebrochen.');
       if (!code || !API_BASE_URL) throw new Error('Die Anmeldung konnte nicht abgeschlossen werden.');
@@ -237,8 +245,16 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   const logout = useCallback(async () => {
     const token = await SecureStore.getItemAsync(TOKEN_KEY);
+    const pushToken = await SecureStore.getItemAsync(PUSH_TOKEN_KEY);
     if (token && API_BASE_URL) {
       try {
+        if (pushToken) {
+          await fetch(`${API_BASE_URL}/api/mobile/push-token`, {
+            method: 'DELETE',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token: pushToken }),
+          });
+        }
         await fetch(`${API_BASE_URL}/api/auth/logout`, {
           method: 'POST',
           headers: { Authorization: `Bearer ${token}` },
@@ -255,6 +271,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }
     await SecureStore.deleteItemAsync(USER_KEY);
     await SecureStore.deleteItemAsync(TOKEN_KEY);
+    await SecureStore.deleteItemAsync(PUSH_TOKEN_KEY);
     setUser(null);
     setError(null);
     setStatus('anonymous');

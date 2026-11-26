@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth/session';
+import { revokeStravaToken } from '@/lib/strava/revoke';
 
 export async function DELETE(request: Request) {
   const headers = { 'Cache-Control': 'private, no-store' };
@@ -16,26 +17,7 @@ export async function DELETE(request: Request) {
   if (!user) return NextResponse.json({ error: 'Die Sitzung ist abgelaufen. Bitte melde dich erneut an.' }, { status: 401, headers });
 
   const account = await db.account.findUnique({ where: { userId: user.id }, select: { refreshToken: true } });
-  if (account?.refreshToken && process.env.STRAVA_CLIENT_ID && process.env.STRAVA_CLIENT_SECRET) {
-    try {
-      const credentials = Buffer.from(`${process.env.STRAVA_CLIENT_ID}:${process.env.STRAVA_CLIENT_SECRET}`).toString('base64');
-      const revokeResponse = await fetch('https://www.strava.com/oauth/revoke', {
-        method: 'POST',
-        signal: AbortSignal.timeout(10_000),
-        headers: {
-          Authorization: `Basic ${credentials}`,
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams({
-          token: account.refreshToken,
-          token_type_hint: 'refresh_token',
-        }),
-      });
-      if (!revokeResponse.ok) console.error('Strava token revocation returned status:', revokeResponse.status);
-    } catch (error) {
-      console.error('Strava deauthorization request failed during account deletion:', error);
-    }
-  }
+  await revokeStravaToken(account?.refreshToken);
 
   await db.user.delete({ where: { id: user.id } });
   return NextResponse.json({ deleted: true }, { headers });

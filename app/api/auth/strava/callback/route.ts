@@ -1,10 +1,11 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { cookies } from 'next/headers';
 import { db } from '@/lib/db';
 import { createSessionToken, setSessionCookie } from '@/lib/auth/session';
 import { createMobileAuthCode, hashMobileSecret, makeMobileRedirectUrl } from '@/lib/auth/mobile-session';
 import { inngest } from '@/lib/inngest/client';
 import { sanitizeAvatarUrl } from '@/lib/utils/avatar';
+import { notifyAdminsAboutRequest, recordAccessAttempt } from '@/lib/admin/access';
 
 function websiteRedirect(appUrl: string, error: string) {
   const url = new URL('/', appUrl);
@@ -83,19 +84,33 @@ export async function GET(request: Request) {
     const stravaAthleteId = String(athlete.id);
     const sanitizedProfile = sanitizeAvatarUrl(athlete.profile || athlete.profile_medium);
 
-    const user = await db.user.upsert({
-      where: { stravaAthleteId },
-      update: {
+    const existingMember = await db.user.findUnique({ where: { stravaAthleteId }, select: { id: true } });
+    if (!existingMember) {
+      // Only approved club members get an account. Everyone else becomes an access request; the
+      // Strava tokens from this exchange are discarded.
+      const accessProfile = {
         firstname: athlete.firstname || null,
         lastname: athlete.lastname || null,
         username: athlete.username || null,
         profile: sanitizedProfile,
         city: athlete.city || null,
         country: athlete.country || null,
-        sex: athlete.sex || null,
-      },
-      create: {
-        stravaAthleteId,
+      };
+      const access = await recordAccessAttempt(stravaAthleteId, accessProfile);
+      if (access.isNew) {
+        after(() => notifyAdminsAboutRequest(accessProfile).catch((notifyErr) => {
+          console.error('Admins could not be notified about an access request:', notifyErr);
+        }));
+      }
+      const accessError = access.status === 'REJECTED' ? 'access_rejected' : 'access_pending';
+      return mobileAttempt
+        ? mobileRedirect(mobileAttempt.redirectUri, state!, accessError)
+        : websiteRedirect(appUrl, accessError);
+    }
+
+    const user = await db.user.update({
+      where: { id: existingMember.id },
+      data: {
         firstname: athlete.firstname || null,
         lastname: athlete.lastname || null,
         username: athlete.username || null,
