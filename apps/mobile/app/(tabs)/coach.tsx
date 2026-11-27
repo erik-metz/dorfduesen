@@ -182,10 +182,8 @@ function CoachChat() {
   const initialize = useCallback(async () => {
     setBusy(true);
     try {
-      const [saved, last, list] = await Promise.all([
-        AsyncStorage.getItem(consentKey), AsyncStorage.getItem(conversationKey), loadConversations(),
-      ]);
-      setConsent(saved === consentVersion);
+      const saved = AsyncStorage.getItem(consentKey).then(value => { setConsent(value === consentVersion); });
+      const [, last, list] = await Promise.all([saved, AsyncStorage.getItem(conversationKey), loadConversations()]);
       const id = last ?? list[0]?.id;
       if (id) {
         try { await loadConversation(id); }
@@ -426,13 +424,6 @@ function CoachChat() {
             scroll.current?.scrollToEnd({ animated: false });
           }
         }}>
-        {!consent && !busy ? <View style={styles.card}>
-          <Text style={styles.subheading}>KI-Coach aktivieren</Text>
-          <Text style={styles.text}>Für Antworten verarbeitet xAI deine Chatnachrichten und je nach Frage relevante Ausschnitte aus deinem Trainingsprofil, deinen Strava-Aktivitäten, freigegebenen Health-Daten, persönlichen Arena-Ergebnissen und Trainingsplänen. Gespräche werden in deinem DorfDüsen-Konto gespeichert und können gelöscht werden.</Text>
-          <Button label="Zustimmen und Chat nutzen" primary onPress={() => void perform(async () => {
-            await AsyncStorage.setItem(consentKey, consentVersion); setConsent(true);
-          })} />
-        </View> : null}
         {olderTurns && conversationId ? <Button label="Ältere Nachrichten laden" disabled={busy || sending} onPress={() => void perform(() => loadConversation(conversationId, turns[0]?.id))} /> : null}
         {!turns.length && !busy && consent ? <>
           <Text style={styles.heading}>Smart Coach</Text>
@@ -469,6 +460,13 @@ function CoachChat() {
         {waiting && !sending && conversationId ? <Button label="Status aktualisieren" disabled={busy} onPress={() => void perform(async () => { await refreshPending(); })} /> : null}
         {error && !conversationId && !pending && !sending ? <Button label="Erneut laden" disabled={busy} onPress={() => { setError(''); void initialize(); }} /> : null}
       </ScrollView>
+      {!consent && !busy ? <View style={[styles.card, styles.consentCard]}>
+        <Text style={styles.subheading}>KI-Coach aktivieren</Text>
+        <Text style={styles.text}>Für Antworten verarbeitet xAI deine Chatnachrichten und je nach Frage relevante Ausschnitte aus deinem Trainingsprofil, deinen Strava-Aktivitäten, freigegebenen Health-Daten, persönlichen Arena-Ergebnissen und Trainingsplänen. Gespräche werden in deinem DorfDüsen-Konto gespeichert und können gelöscht werden.</Text>
+        <Button label="Zustimmen und Chat nutzen" primary onPress={() => void perform(async () => {
+          await AsyncStorage.setItem(consentKey, consentVersion); setConsent(true);
+        })} />
+      </View> : null}
       {consent ? <View style={styles.composerArea}>
         {showQuota && remaining ? <View style={styles.quotaDetails}>
           <Text style={styles.subheading}>Heute noch frei</Text>
@@ -572,6 +570,7 @@ const styles = StyleSheet.create({
   card: { backgroundColor: '#18181b', borderColor: '#3f3f46', borderWidth: 1, borderRadius: 12, padding: 14, gap: 8 },
   question: { alignSelf: 'flex-end', maxWidth: '92%', backgroundColor: '#42281e', color: '#fafafa', borderRadius: 14, padding: 12, fontSize: 16, lineHeight: 23 },
   answer: { backgroundColor: '#18181b', color: '#fafafa', borderRadius: 14, padding: 12, fontSize: 16, lineHeight: 24 },
+  consentCard: { margin: 12 },
   composerArea: { padding: 12, gap: 6, borderTopColor: '#27272a', borderTopWidth: 1 },
   composerActions: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   leftActions: { flexDirection: 'row', alignItems: 'center', gap: 4, flexShrink: 1 },
