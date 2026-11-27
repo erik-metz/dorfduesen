@@ -6,6 +6,9 @@ import { describeChange, formatArea } from '../territoryFormat';
 
 // OSM's tile usage policy blocks generic HTTP client user agents (Android's okhttp default); identify the app.
 const TILE_HEADERS = { 'User-Agent': 'Dorfduesen/1.0 (de.dorfduesen.app; +https://dorfduesen.vercel.app)', Referer: 'https://dorfduesen.vercel.app/' };
+// Blocked requests got OSM's "Access blocked" tile with HTTP 200, which Android keeps in its image disk cache.
+// The fragment changes that cache key without being sent to OSM, so devices drop those tiles.
+const TILE_CACHE_KEY = '#ua2';
 const km2 = formatArea;
 // Web Mercator coordinates match the OpenStreetMap tile grid.
 function project(p: number[]) {
@@ -127,7 +130,7 @@ export function TerritoryPanel({ data, loading = false, error, onRetry, myUserId
     <Text style={styles.area}>{km2(data.myAreaM2)}</Text>
     <Text style={styles.copy}>{data.season.key} · bis {new Date(new Date(data.season.end).getTime() - 1).toLocaleDateString('de-DE')} · Orange: du · Blau: andere</Text>
     <View ref={mapRef} {...panResponder.panHandlers} onLayout={event => setWidth(event.nativeEvent.layout.width)} style={styles.map} accessibilityLabel="Revierkarte. Mit einem Finger verschieben, mit zwei Fingern zoomen.">
-      {tiles.map(tile => <Image alt="" key={`${tileZoom}:${tile.x}:${tile.y}`} source={{ uri: `https://tile.openstreetmap.org/${tileZoom}/${tile.x}/${tile.y}.png`, headers: TILE_HEADERS, cache: 'force-cache' }} style={{ position: 'absolute', left: tile.x * 256 * tileScale - left, top: tile.y * 256 * tileScale - top, width: 256 * tileScale, height: 256 * tileScale }} onError={() => setTileError(true)} />)}
+      {tiles.map(tile => <Image alt="" key={`${tileZoom}:${tile.x}:${tile.y}`} source={{ uri: `https://tile.openstreetmap.org/${tileZoom}/${tile.x}/${tile.y}.png${TILE_CACHE_KEY}`, headers: TILE_HEADERS, cache: 'force-cache' }} style={{ position: 'absolute', left: tile.x * 256 * tileScale - left, top: tile.y * 256 * tileScale - top, width: 256 * tileScale, height: 256 * tileScale }} onError={() => setTileError(true)} />)}
       <Svg width={width} height={300} accessibilityLabel="Revierkarte mit auswählbaren Gebieten">
         {data.territories.map(t => {
           const polygons = t.geometry.type === 'Polygon' ? [t.geometry.coordinates] : t.geometry.coordinates;
